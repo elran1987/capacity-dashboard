@@ -150,14 +150,31 @@
 
         <!-- TAB 2: GITLAB MR ACTIVITY -->
         <div id="view-gitlab" class="space-y-6 hidden">
-            <div class="glass-panel p-6 rounded-2xl flex flex-col">
-                <div class="flex flex-wrap justify-between items-center mb-5 pb-4 border-b border-slate-800 gap-4">
+            <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
+                <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
                     <div>
-                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-brands fa-git-alt text-orange-400 mr-2"></i>GitLab Weekly Merge Requests & Unique Files</h3>
-                        <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your filtered JSON file.</p>
+                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-brands fa-git-alt text-orange-400 mr-2"></i>GitLab Weekly Merge Requests</h3>
+                        <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your annual JSON file.</p>
                     </div>
-                    <input id="gitlab-search" oninput="filterGitLabTable()" type="text" placeholder="Search developer or week..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-72 focus:outline-none focus:border-cyan-500">
+                    
+                    <!-- Filters for GitLab -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs">
+                            <span class="text-slate-400 text-[10px] uppercase font-bold">From:</span>
+                            <input type="date" id="gitlab-start-date" onchange="filterGitLabTable()" class="bg-transparent text-slate-200 focus:outline-none text-xs">
+                        </div>
+                        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs">
+                            <span class="text-slate-400 text-[10px] uppercase font-bold">To:</span>
+                            <input type="date" id="gitlab-end-date" onchange="filterGitLabTable()" class="bg-transparent text-slate-200 focus:outline-none text-xs">
+                        </div>
+                        <select id="gitlab-author-filter" onchange="filterGitLabTable()" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                            <option value="ALL">All Developers</option>
+                        </select>
+                        <input id="gitlab-search" oninput="filterGitLabTable()" type="text" placeholder="Search week..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-48 focus:outline-none focus:border-cyan-500">
+                        <button onclick="resetGitLabFilters()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition">Reset</button>
+                    </div>
                 </div>
+
                 <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
                     <table class="w-full text-left text-xs">
                         <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
@@ -165,11 +182,10 @@
                                 <th class="px-6 py-4">Developer / Author</th>
                                 <th class="px-6 py-4">Year-Week</th>
                                 <th class="px-6 py-4 text-center">Merged MRs</th>
-                                <th class="px-6 py-4 text-center">Unique Files Touched</th>
                             </tr>
                         </thead>
                         <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="4" class="text-center py-16 text-slate-500">Upload a GitLab JSON activity file using the top button to view weekly metrics.</td></tr>
+                            <tr><td colspan="3" class="text-center py-16 text-slate-500">Upload a GitLab JSON activity file using the top button to view weekly metrics.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -299,6 +315,7 @@
         function renderGitLabTable(data) {
             const status = document.getElementById('gitlab-status-text');
             const kpiGit = document.getElementById('kpi-gitlab');
+            const authorFilter = document.getElementById('gitlab-author-filter');
 
             if (!data || data.length === 0) {
                 normalizedGitLabData = [];
@@ -308,13 +325,19 @@
                 return;
             }
 
-            // Normalization mapping to support all common python script output key variations
             normalizedGitLabData = data.map(item => ({
                 author: item.author || item.Author || item.Developer || item.Name || 'Unknown',
                 week: item.week || item.Week || item.Date || 'N/A',
-                mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0,
-                unique_files_count: item.unique_files_count ?? item.Files ?? item.unique_files ?? item.files_count ?? 0
+                mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0
             }));
+
+            // Populate Author dropdown filter dynamically
+            const currentAuthor = authorFilter.value;
+            authorFilter.innerHTML = '<option value="ALL">All Developers</option>';
+            [...new Set(normalizedGitLabData.map(item => item.author))].filter(Boolean).sort().forEach(author => {
+                authorFilter.innerHTML += `<option value="${author}">${author}</option>`;
+            });
+            if (currentAuthor) authorFilter.value = currentAuthor;
 
             let totalMRs = normalizedGitLabData.reduce((sum, item) => sum + (Number(item.mrs_count) || 0), 0);
             kpiGit.textContent = `${totalMRs} MRs`;
@@ -323,28 +346,67 @@
             displayFilteredGitLab();
         }
 
+        // Helper to convert Year-Week string (e.g. "2026-W05" or "2026-05") into an approximate Date object for filtering
+        function weekToDate(weekStr) {
+            if (!weekStr) return null;
+            let match = weekStr.match(/^(\d{4})-?(?:W)?(\d{1,2})$/i);
+            if (match) {
+                let year = parseInt(match[1]);
+                let week = parseInt(match[2]);
+                let d = new Date(year, 0, 1);
+                d.setDate(d.getDate() + (week - 1) * 7);
+                return d;
+            }
+            let parsed = new Date(weekStr);
+            return isNaN(parsed) ? null : parsed;
+        }
+
         function displayFilteredGitLab() {
             const tbody = document.getElementById('gitlab-table-body');
             const search = document.getElementById('gitlab-search').value.toLowerCase();
+            const selectedAuthor = document.getElementById('gitlab-author-filter').value;
+            const startDateVal = document.getElementById('gitlab-start-date').value;
+            const endDateVal = document.getElementById('gitlab-end-date').value;
             
-            const filtered = normalizedGitLabData.filter(item => 
-                (item.author || '').toLowerCase().includes(search) || 
-                (item.week || '').toLowerCase().includes(search)
-            );
+            const startDate = startDateVal ? new Date(startDateVal) : null;
+            const endDate = endDateVal ? new Date(endDateVal) : null;
 
-            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="4" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+            const filtered = normalizedGitLabData.filter(item => {
+                const matchesAuthor = (selectedAuthor === 'ALL' || item.author === selectedAuthor);
+                const matchesSearch = (item.week || '').toLowerCase().includes(search);
+                
+                let matchesDate = true;
+                if (startDate || endDate) {
+                    let itemDate = weekToDate(item.week);
+                    if (itemDate) {
+                        if (startDate && itemDate < startDate) matchesDate = false;
+                        if (endDate && itemDate > endDate) matchesDate = false;
+                    }
+                }
+
+                return matchesAuthor && matchesSearch && matchesDate;
+            });
+
+            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="3" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
             filtered.forEach(item => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
                         <td class="px-6 py-4 font-semibold text-slate-200">${item.author}</td>
                         <td class="px-6 py-4 text-cyan-400 font-mono">${item.week}</td>
                         <td class="px-6 py-4 text-center font-bold text-emerald-400">${item.mrs_count}</td>
-                        <td class="px-6 py-4 text-center font-bold text-indigo-400">${item.unique_files_count}</td>
                     </tr>`;
             });
         }
 
         function filterGitLabTable() {
+            displayFilteredGitLab();
+        }
+
+        function resetGitLabFilters() {
+            document.getElementById('gitlab-author-filter').value = 'ALL';
+            document.getElementById('gitlab-search').value = '';
+            document.getElementById('gitlab-start-date').value = '';
+            document.getElementById('gitlab-end-date').value = '';
             displayFilteredGitLab();
         }
 
