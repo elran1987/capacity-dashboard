@@ -346,19 +346,30 @@
             displayFilteredGitLab();
         }
 
-        // Helper to convert Year-Week string (e.g. "2026-W05" or "2026-05") into an approximate Date object for filtering
-        function weekToDate(weekStr) {
-            if (!weekStr) return null;
+        // Helper to get start and end dates of an ISO week string (e.g., "2026-W05")
+        function getWeekDateRange(weekStr) {
+            if (!weekStr) return { start: null, end: null };
             let match = weekStr.match(/^(\d{4})-?(?:W)?(\d{1,2})$/i);
-            if (match) {
-                let year = parseInt(match[1]);
-                let week = parseInt(match[2]);
-                let d = new Date(year, 0, 1);
-                d.setDate(d.getDate() + (week - 1) * 7);
-                return d;
+            if (!match) {
+                let parsed = new Date(weekStr);
+                return { start: isNaN(parsed) ? null : parsed, end: isNaN(parsed) ? null : parsed };
             }
-            let parsed = new Date(weekStr);
-            return isNaN(parsed) ? null : parsed;
+            let year = parseInt(match[1], 10);
+            let week = parseInt(match[2], 10);
+            
+            // ISO week calculation
+            let simple = new Date(year, 0, 1 + (week - 1) * 7);
+            let dow = simple.getDay();
+            let ISOweekStart = new Date(simple);
+            if (dow <= 4)
+                ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+            else
+                ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+            
+            let ISOweekEnd = new Date(ISOweekStart);
+            ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
+
+            return { start: ISOweekStart, end: ISOweekEnd };
         }
 
         function displayFilteredGitLab() {
@@ -368,19 +379,20 @@
             const startDateVal = document.getElementById('gitlab-start-date').value;
             const endDateVal = document.getElementById('gitlab-end-date').value;
             
-            const startDate = startDateVal ? new Date(startDateVal) : null;
-            const endDate = endDateVal ? new Date(endDateVal) : null;
+            const filterStart = startDateVal ? new Date(startDateVal) : null;
+            const filterEnd = endDateVal ? new Date(endDateVal) : null;
 
             const filtered = normalizedGitLabData.filter(item => {
                 const matchesAuthor = (selectedAuthor === 'ALL' || item.author === selectedAuthor);
                 const matchesSearch = (item.week || '').toLowerCase().includes(search);
                 
                 let matchesDate = true;
-                if (startDate || endDate) {
-                    let itemDate = weekToDate(item.week);
-                    if (itemDate) {
-                        if (startDate && itemDate < startDate) matchesDate = false;
-                        if (endDate && itemDate > endDate) matchesDate = false;
+                if (filterStart || filterEnd) {
+                    let weekRange = getWeekDateRange(item.week);
+                    if (weekRange.start && weekRange.end) {
+                        // Check if the week overlaps with the selected date range
+                        if (filterStart && weekRange.end < filterStart) matchesDate = false;
+                        if (filterEnd && weekRange.start > filterEnd) matchesDate = false;
                     }
                 }
 
