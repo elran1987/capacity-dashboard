@@ -207,6 +207,7 @@
     <script>
         let employeeData = [];
         let gitlabData = [];
+        let normalizedGitLabData = [];
         let projectChartInstance = null;
         let roleChartInstance = null;
 
@@ -217,7 +218,10 @@
             }
             const savedGit = localStorage.getItem('gitlab_activity_data_2026');
             if (savedGit) {
-                try { gitlabData = JSON.parse(savedGit); if (gitlabData.length > 0) { renderGitLabTable(gitlabData); } } catch(e){}
+                try { 
+                    gitlabData = JSON.parse(savedGit); 
+                    if (gitlabData.length > 0) { renderGitLabTable(gitlabData); } 
+                } catch(e){}
             }
         });
 
@@ -293,29 +297,37 @@
         }
 
         function renderGitLabTable(data) {
-            const tbody = document.getElementById('gitlab-table-body');
             const status = document.getElementById('gitlab-status-text');
             const kpiGit = document.getElementById('kpi-gitlab');
 
             if (!data || data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-16 text-slate-500">No GitLab records found.</td></tr>`;
+                normalizedGitLabData = [];
                 status.textContent = 'No records loaded';
                 kpiGit.textContent = '0 MRs';
+                displayFilteredGitLab();
                 return;
             }
 
-            let totalMRs = data.reduce((sum, item) => sum + (item.mrs_count || 0), 0);
-            kpiGit.textContent = `${totalMRs} MRs`;
-            status.textContent = `Loaded ${data.length} activity records successfully.`;
+            // Normalization mapping to support all common python script output key variations
+            normalizedGitLabData = data.map(item => ({
+                author: item.author || item.Author || item.Developer || item.Name || 'Unknown',
+                week: item.week || item.Week || item.Date || 'N/A',
+                mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0,
+                unique_files_count: item.unique_files_count ?? item.Files ?? item.unique_files ?? item.files_count ?? 0
+            }));
 
-            displayFilteredGitLab(data);
+            let totalMRs = normalizedGitLabData.reduce((sum, item) => sum + (Number(item.mrs_count) || 0), 0);
+            kpiGit.textContent = `${totalMRs} MRs`;
+            status.textContent = `Loaded ${normalizedGitLabData.length} activity records successfully.`;
+
+            displayFilteredGitLab();
         }
 
-        function displayFilteredGitLab(data) {
+        function displayFilteredGitLab() {
             const tbody = document.getElementById('gitlab-table-body');
             const search = document.getElementById('gitlab-search').value.toLowerCase();
             
-            const filtered = data.filter(item => 
+            const filtered = normalizedGitLabData.filter(item => 
                 (item.author || '').toLowerCase().includes(search) || 
                 (item.week || '').toLowerCase().includes(search)
             );
@@ -324,16 +336,16 @@
             filtered.forEach(item => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
-                        <td class="px-6 py-4 font-semibold text-slate-200">${item.author || 'Unknown'}</td>
-                        <td class="px-6 py-4 text-cyan-400 font-mono">${item.week || 'N/A'}</td>
-                        <td class="px-6 py-4 text-center font-bold text-emerald-400">${item.mrs_count || 0}</td>
-                        <td class="px-6 py-4 text-center font-bold text-indigo-400">${item.unique_files_count || 0}</td>
+                        <td class="px-6 py-4 font-semibold text-slate-200">${item.author}</td>
+                        <td class="px-6 py-4 text-cyan-400 font-mono">${item.week}</td>
+                        <td class="px-6 py-4 text-center font-bold text-emerald-400">${item.mrs_count}</td>
+                        <td class="px-6 py-4 text-center font-bold text-indigo-400">${item.unique_files_count}</td>
                     </tr>`;
             });
         }
 
         function filterGitLabTable() {
-            renderGitLabTable(gitlabData);
+            displayFilteredGitLab();
         }
 
         function openModal(index = -1) {
