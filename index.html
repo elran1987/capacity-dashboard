@@ -286,7 +286,7 @@
                     gitlabData = JSON.parse(e.target.result);
                     localStorage.setItem('gitlab_activity_data_2026', JSON.stringify(gitlabData));
                     renderGitLabTable(gitlabData);
-                    switchTab('gitlab'); // מעבר אוטומטי לטאב של גיטלבאב בעת העלאה
+                    switchTab('gitlab');
                 } catch(err) { alert("Invalid JSON file for GitLab activity."); }
             };
             reader.readAsText(file);
@@ -464,8 +464,27 @@
             roleChartInstance = new Chart(document.getElementById('roleChart'), {
                 type: 'doughnut',
                 data: { labels: Object.keys(rMap), datasets: [{ data: Object.values(rMap), backgroundColor: colors, borderWidth: 2, borderColor: '#0f172a' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } } }, cutout: '65%' }
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        legend: { 
+                            position: 'bottom', 
+                            labels: { color: '#94a3b8', font: { size: 11 } } 
+                        } 
+                    }, 
+                    cutout: '65%' 
+                }
             });
+        }
+
+        function deleteEmployee(index) {
+            if (confirm('Are you sure you want to delete this employee record?')) {
+                employeeData.splice(index, 1);
+                localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
+                initDropdowns();
+                updateDashboard();
+            }
         }
     </script>
 </body>
