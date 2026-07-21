@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resource & Allocation Management Dashboard 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f1f5f9; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-12 custom-scrollbar">
+
+    <header class="w-full py-5 px-8 border-b border-slate-800/80 glass-panel sticky top-0 z-50 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-cyan-500 to-indigo-600 p-2.5 rounded-xl shadow-lg">
+                <i class="fa-solid fa-chart-pie text-xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight text-white">Resource Allocation Dashboard 2026</h1>
+                <p class="text-[11px] text-slate-400 font-medium">MATRIX MANAGEMENT • ROBUST FALLBACK ENGINE</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center flex-wrap gap-3">
+            <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition">
+                <i class="fa-solid fa-file-excel text-emerald-500"></i>
+                <span>Upload Excel / CSV</span>
+                <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleExcelUpload(event)">
+            </label>
+            <button onclick="addNewRow()" class="bg-cyan-600 hover:bg-cyan-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-plus"></i> Add Employee
+            </button>
+        </div>
+    </header>
+
+    <div id="error-banner" class="hidden max-w-[1600px] w-full mx-auto px-6 mt-4">
+        <div class="bg-red-950/80 border border-red-800 text-red-200 p-4 rounded-xl text-xs flex justify-between items-center">
+            <span id="error-text"></span>
+            <button onclick="loadFallbackData()" class="bg-red-800 hover:bg-red-700 text-white px-3 py-1 rounded font-bold">Load Sample Data</button>
+        </div>
+    </div>
+
+    <section class="max-w-[1600px] w-full mx-auto px-6 lg:px-8 mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+            <div><span class="block text-[10px] text-slate-400 font-bold uppercase">Total Headcount</span><span id="kpi-headcount" class="text-2xl font-black text-white">0</span></div>
+            <div class="bg-blue-500/10 p-2 rounded-lg text-blue-400"><i class="fa-solid fa-users text-lg"></i></div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+            <div><span class="block text-[10px] text-slate-400 font-bold uppercase">Active Projects</span><span id="kpi-projects" class="text-2xl font-black text-white">0</span></div>
+            <div class="bg-purple-500/10 p-2 rounded-lg text-purple-400"><i class="fa-solid fa-cubes text-lg"></i></div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+            <div><span class="block text-[10px] text-slate-400 font-bold uppercase">Allocated FTE</span><span id="kpi-fte" class="text-2xl font-black text-white">0</span></div>
+            <div class="bg-emerald-500/10 p-2 rounded-lg text-emerald-400"><i class="fa-solid fa-user-check text-lg"></i></div>
+        </div>
+        <div class="glass-panel p-4 rounded-xl flex items-center justify-between">
+            <div><span class="block text-[10px] text-slate-400 font-bold uppercase">Average FTE</span><span id="kpi-avg-fte" class="text-2xl font-black text-white">0</span></div>
+            <div class="bg-amber-500/10 p-2 rounded-lg text-amber-400"><i class="fa-solid fa-percent text-lg"></i></div>
+        </div>
+    </section>
+
+    <main class="flex-grow p-6 lg:p-8 max-w-[1600px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-3 flex flex-col gap-6">
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-4">
+                <div class="flex items-center gap-2 border-b border-slate-800 pb-3">
+                    <i class="fa-solid fa-filter text-cyan-400"></i>
+                    <h2 class="font-bold text-sm uppercase text-slate-200">Filters</h2>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold uppercase mb-1.5">Project</label>
+                    <select id="project-filter" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                        <option value="ALL">All Projects</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[10px] text-slate-400 font-bold uppercase mb-1.5">Role</label>
+                    <select id="role-filter" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200">
+                        <option value="ALL">All Roles</option>
+                    </select>
+                </div>
+                <button onclick="resetFilters()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[10px] uppercase rounded-lg border border-slate-700">Reset Filters</button>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl flex flex-col">
+                <h3 class="font-bold text-xs uppercase text-slate-200 mb-3 border-b border-slate-800 pb-2">Project FTE Summary</h3>
+                <div id="project-fte-summary" class="flex flex-col gap-2 max-h-[220px] overflow-y-auto custom-scrollbar"></div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-9 flex flex-col gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                <div class="md:col-span-8 glass-panel p-5 rounded-2xl min-h-[360px] flex flex-col">
+                    <h3 class="font-bold text-xs uppercase text-slate-200 mb-3">Project Burden & Role Distribution</h3>
+                    <div class="flex-grow relative h-[280px]"><canvas id="projectChart"></canvas></div>
+                </div>
+                <div class="md:col-span-4 glass-panel p-5 rounded-2xl min-h-[360px] flex flex-col">
+                    <h3 class="font-bold text-xs uppercase text-slate-200 mb-3">Organization Composition</h3>
+                    <div class="flex-grow relative h-[220px] flex items-center justify-center"><canvas id="roleChart"></canvas></div>
+                    <div id="role-legend-container" class="mt-2 flex flex-wrap gap-1 justify-center max-h-[50px] overflow-y-auto"></div>
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 rounded-2xl flex flex-col">
+                <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+                    <h3 class="font-bold text-xs uppercase text-slate-200">Employee Allocations</h3>
+                    <input id="table-search" oninput="updateDashboard()" type="text" placeholder="Search..." class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1 text-xs text-slate-200 w-48">
+                </div>
+                <div class="overflow-x-auto custom-scrollbar max-h-[400px]">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900 text-slate-400 uppercase sticky top-0">
+                            <tr>
+                                <th class="px-4 py-2">Name</th>
+                                <th class="px-4 py-2">Role</th>
+                                <th class="px-4 py-2">Location</th>
+                                <th class="px-4 py-2">Project</th>
+                                <th class="px-4 py-2 text-center">FTE</th>
+                                <th class="px-4 py-2 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employee-table-body" class="divide-y divide-slate-800"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let employeeData = [];
+        let projectChartInstance = null;
+        let roleChartInstance = null;
+
+        function showError(msg) {
+            const banner = document.getElementById('error-banner');
+            document.getElementById('error-text').textContent = "Notice: " + msg;
+            banner.classList.remove('hidden');
+        }
+
+        function loadFallbackData() {
+            document.getElementById('error-banner').classList.add('hidden');
+            employeeData = [
+                { Name: "Elran Kotev", Role: "Manager", Location: "Israel", "main project": "Oren", "% main project": 1.0 },
+                { Name: "John Doe", Role: "BE", Location: "Israel", "main project": "Oren", "% main project": 1.0 },
+                { Name: "Jane Smith", Role: "FE", Location: "Israel", "main project": "Oren", "% main project": 0.5 },
+                { Name: "Alex Ray", Role: "DevOps", Location: "Remote", "main project": "Alpha", "% main project": 1.0 },
+                { Name: "Sarah Connor", Role: "QA", Location: "Israel", "main project": "Alpha", "% main project": 0.75 },
+                { Name: "Alexandru Roman", Role: "QA Automation", Location: "Romania", "main project": "Fenix", "% main project": 0.33 }
+            ];
+            initDropdowns();
+            updateDashboard();
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    if (jsonData.length === 0) throw new Error("Uploaded file is empty.");
+                    
+                    parseAndLoad(jsonData);
+                } catch (err) {
+                    showError("Failed to parse uploaded file: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseAndLoad(rawRows) {
+            employeeData = rawRows.map(row => {
+                const cleanRow = {};
+                Object.keys(row).forEach(k => cleanRow[k.trim()] = row[k]);
+
+                let fte = cleanRow['% main project'] ?? cleanRow['FTE'] ?? cleanRow['Allocation'] ?? 1;
+                if (typeof fte === 'string') fte = parseFloat(fte.replace('%', '').trim());
+                if (!isNaN(fte) && fte > 1) fte = fte / 100;
+
+                return {
+                    Name: cleanRow['Name'] || cleanRow['Employee'] || cleanRow['שם'] || cleanRow['Worker'] || 'Unknown',
+                    Role: cleanRow['Role'] || cleanRow['תפקיד'] || 'BE',
+                    Location: cleanRow['Location'] || cleanRow['מיקום'] || 'Israel',
+                    'main project': cleanRow['main project'] || cleanRow['Project'] || cleanRow['פרויקט'] || 'General',
+                    '% main project': isNaN(fte) ? 1.0 : fte
+                };
+            }).filter(e => e.Name && e.Name !== 'Unknown');
+
+            if (employeeData.length === 0) {
+                showError("Employee or resource sheet not found in the uploaded file.");
+                loadFallbackData();
+                return;
+            }
+
+            document.getElementById('error-banner').classList.add('hidden');
+            initDropdowns();
+            updateDashboard();
+        }
+
+        function initDropdowns() {
+            const pFilter = document.getElementById('project-filter');
+            const rFilter = document.getElementById('role-filter');
+            const curP = pFilter.value;
+            const curR = rFilter.value;
+
+            pFilter.innerHTML = '<option value="ALL">All Projects</option>';
+            rFilter.innerHTML = '<option value="ALL">All Roles</option>';
+
+            [...new Set(employeeData.map(e => e['main project']))].filter(Boolean).sort().forEach(p => {
+                pFilter.innerHTML += `<option value="${p}">${p}</option>`;
+            });
+            [...new Set(employeeData.map(e => e['Role']))].filter(Boolean).sort().forEach(r => {
+                rFilter.innerHTML += `<option value="${r}">${r}</option>`;
+            });
+
+            pFilter.value = curP;
+            rFilter.value = curR;
+        }
+
+        function resetFilters() {
+            document.getElementById('project-filter').value = 'ALL';
+            document.getElementById('role-filter').value = 'ALL';
+            document.getElementById('table-search').value = '';
+            updateDashboard();
+        }
+
+        function addNewRow() {
+            employeeData.unshift({ Name: "New Employee", Role: "BE", Location: "Israel", "main project": "General", "% main project": 1.0 });
+            initDropdowns();
+            updateDashboard();
+            editRow(0);
+        }
+
+        function editRow(idx) {
+            const row = document.getElementById(`row-${idx}`);
+            if (!row) return;
+            const emp = employeeData[idx];
+            row.cells[0].innerHTML = `<input type="text" value="${emp.Name}" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white w-full">`;
+            row.cells[1].innerHTML = `<input type="text" value="${emp.Role}" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white w-full">`;
+            row.cells[2].innerHTML = `<input type="text" value="${emp.Location}" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white w-full">`;
+            row.cells[3].innerHTML = `<input type="text" value="${emp['main project']}" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white w-full">`;
+            row.cells[4].innerHTML = `<input type="number" step="0.1" value="${emp['% main project']}" class="bg-slate-950 border border-slate-700 rounded px-2 py-0.5 text-xs text-white w-16 text-center">`;
+            row.cells[5].innerHTML = `<button onclick="saveRow(${idx})" class="bg-emerald-600 text-white px-2 py-0.5 rounded text-xs font-bold">Save</button>`;
+        }
+
+        function saveRow(idx) {
+            const row = document.getElementById(`row-${idx}`);
+            employeeData[idx] = {
+                Name: row.cells[0].querySelector('input').value,
+                Role: row.cells[1].querySelector('input').value,
+                Location: row.cells[2].querySelector('input').value,
+                'main project': row.cells[3].querySelector('input').value,
+                '% main project': parseFloat(row.cells[4].querySelector('input').value) || 1.0
+            };
+            initDropdowns();
+            updateDashboard();
+        }
+
+        function deleteRow(idx) {
+            employeeData.splice(idx, 1);
+            initDropdowns();
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            const pVal = document.getElementById('project-filter').value;
+            const rVal = document.getElementById('role-filter').value;
+            const search = document.getElementById('table-search').value.toLowerCase();
+
+            const filtered = employeeData.filter(e => {
+                return (pVal === 'ALL' || e['main project'] === pVal) &&
+                       (rVal === 'ALL' || e['Role'] === rVal) &&
+                       (!search || e.Name.toLowerCase().includes(search) || e['main project'].toLowerCase().includes(search) || e.Role.toLowerCase().includes(search));
+            });
+
+            document.getElementById('kpi-headcount').textContent = [...new Set(filtered.map(e => e.Name))].length;
+            document.getElementById('kpi-projects').textContent = [...new Set(filtered.map(e => e['main project']))].length;
+            const totalFte = filtered.reduce((s, e) => s + (e['% main project'] || 0), 0);
+            document.getElementById('kpi-fte').textContent = totalFte.toFixed(1);
+            document.getElementById('kpi-avg-fte').textContent = filtered.length ? (totalFte / filtered.length).toFixed(2) : 0;
+
+            const sumContainer = document.getElementById('project-fte-summary');
+            sumContainer.innerHTML = '';
+            const pMap = {};
+            filtered.forEach(e => pMap[e['main project']] = (pMap[e['main project']] || 0) + (e['% main project'] || 0));
+            Object.entries(pMap).forEach(([p, f]) => {
+                sumContainer.innerHTML += `<div class="flex justify-between bg-slate-900/60 border border-slate-800 px-2.5 py-1.5 rounded-lg text-xs"><span class="text-slate-300">${p}</span><span class="text-cyan-400 font-bold">${f.toFixed(1)} FTE</span></div>`;
+            });
+
+            const tbody = document.getElementById('employee-table-body');
+            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-8 text-slate-500">No matching records.</td></tr>`;
+            filtered.forEach((e, i) => {
+                const origIdx = employeeData.indexOf(e);
+                tbody.innerHTML += `
+                    <tr id="row-${origIdx}" class="hover:bg-slate-800/30 border-b border-slate-800/40">
+                        <td class="px-4 py-2 font-semibold text-slate-200">${e.Name}</td>
+                        <td class="px-4 py-2"><span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">${e.Role}</span></td>
+                        <td class="px-4 py-2 text-slate-400">${e.Location}</td>
+                        <td class="px-4 py-2 text-slate-300">${e['main project']}</td>
+                        <td class="px-4 py-2 text-center font-bold text-slate-200">${e['% main project']}</td>
+                        <td class="px-4 py-2 text-center">
+                            <button onclick="editRow(${origIdx})" class="text-slate-400 hover:text-white px-1.5"><i class="fa-solid fa-pen text-[10px]"></i></button>
+                            <button onclick="deleteRow(${origIdx})" class="text-red-400 hover:text-red-300 px-1.5"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                        </td>
+                    </tr>`;
+            });
+
+            renderCharts(filtered);
+        }
+
+        function renderCharts(data) {
+            if (projectChartInstance) projectChartInstance.destroy();
+            if (roleChartInstance) roleChartInstance.destroy();
+
+            let pMap = {}, rMap = {};
+            data.forEach(e => {
+                pMap[e['main project']] = pMap[e['main project']] || {};
+                pMap[e['main project']][e.Role] = (pMap[e['main project']][e.Role] || 0) + (e['% main project'] || 0);
+                rMap[e.Role] = (rMap[e.Role] || 0) + (e['% main project'] || 0);
+            });
+
+            const projects = Object.keys(pMap);
+            const roles = [...new Set(data.map(e => e.Role))];
+            const colors = ['#2563eb', '#38bdf8', '#8b5cf6', '#10b981', '#f59e0b', '#ec4899'];
+
+            projectChartInstance = new Chart(document.getElementById('projectChart'), {
+                type: 'bar',
+                data: {
+                    labels: projects,
+                    datasets: roles.map((r, i) => ({
+                        label: r,
+                        data: projects.map(p => pMap[p][r] || 0),
+                        backgroundColor: colors[i % colors.length],
+                        borderRadius: 4
+                    }))
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 10 } } } },
+                    scales: { x: { stacked: true, grid: { color: '#334155' } }, y: { stacked: true, grid: { display: false } } }
+                }
+            });
+
+            roleChartInstance = new Chart(document.getElementById('roleChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(rMap),
+                    datasets: [{ data: Object.values(rMap), backgroundColor: colors }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, cutout: '70%' }
+            });
+        }
+
+        window.onload = function() {
+            loadFallbackData();
+        };
+    </script>
+</body>
+</html>
