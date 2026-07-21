@@ -157,7 +157,7 @@
                         <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your annual JSON file.</p>
                     </div>
                     
-                    <!-- Filters for GitLab with Apply button -->
+                    <!-- Filters for GitLab with Working Apply Button -->
                     <div class="flex flex-wrap items-center gap-3">
                         <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs">
                             <span class="text-slate-400 text-[10px] uppercase font-bold">From:</span>
@@ -167,13 +167,13 @@
                             <span class="text-slate-400 text-[10px] uppercase font-bold">To:</span>
                             <input type="date" id="gitlab-end-date" class="bg-transparent text-slate-200 focus:outline-none text-xs">
                         </div>
-                        <button onclick="filterGitLabTable()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-[11px] uppercase rounded-xl shadow-lg transition">Apply</button>
+                        <button type="button" onclick="filterGitLabTable()" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-[11px] uppercase rounded-xl shadow-lg transition cursor-pointer">Apply</button>
                         
                         <select id="gitlab-author-filter" onchange="filterGitLabTable()" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
                             <option value="ALL">All Developers</option>
                         </select>
                         <input id="gitlab-search" oninput="filterGitLabTable()" type="text" placeholder="Search week..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-40 focus:outline-none focus:border-cyan-500">
-                        <button onclick="resetGitLabFilters()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition">Reset</button>
+                        <button type="button" onclick="resetGitLabFilters()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
                     </div>
                 </div>
 
@@ -329,7 +329,7 @@
 
             normalizedGitLabData = data.map(item => ({
                 author: item.author || item.Author || item.Developer || item.Name || 'Unknown',
-                week: item.week || item.Week || item.Date || 'N/A',
+                week: item.week || item.Week || item.Date || item.year_week || 'N/A',
                 mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0
             }));
 
@@ -348,34 +348,43 @@
             displayFilteredGitLab();
         }
 
-        // Helper to get start and end dates of an ISO week string (e.g., "2026-W05")
+        // Robust week string to Date range parser (Handles YYYY-WXX, YYYY-MM-DD, or general text)
         function getWeekDateRange(weekStr) {
             if (!weekStr) return { start: null, end: null };
-            let match = weekStr.match(/^(\d{4})-?(?:W)?(\d{1,2})$/i);
-            if (!match) {
-                let parsed = new Date(weekStr);
-                return { start: isNaN(parsed) ? null : parsed, end: isNaN(parsed) ? null : parsed };
+            let str = String(weekStr).trim();
+            
+            // If it's already a full date like YYYY-MM-DD
+            let directDate = new Date(str);
+            if (!isNaN(directDate)) {
+                return { start: directDate, end: directDate };
             }
-            let year = parseInt(match[1], 10);
-            let week = parseInt(match[2], 10);
-            
-            let simple = new Date(year, 0, 1 + (week - 1) * 7);
-            let dow = simple.getDay();
-            let ISOweekStart = new Date(simple);
-            if (dow <= 4)
-                ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
-            else
-                ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
-            
-            let ISOweekEnd = new Date(ISOweekStart);
-            ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
 
-            return { start: ISOweekStart, end: ISOweekEnd };
+            // Match ISO week format like 2026-W05, 2026-5, or W05
+            let match = str.match(/(\d{4})[^\d]?W?(\d{1,2})/i);
+            if (match) {
+                let year = parseInt(match[1], 10);
+                let week = parseInt(match[2], 10);
+                
+                let simple = new Date(year, 0, 1 + (week - 1) * 7);
+                let dow = simple.getDay();
+                let ISOweekStart = new Date(simple);
+                if (dow <= 4)
+                    ISOweekStart.setDate(simple.getDate() - simple.getDay() + 1);
+                else
+                    ISOweekStart.setDate(simple.getDate() + 8 - simple.getDay());
+                
+                let ISOweekEnd = new Date(ISOweekStart);
+                ISOweekEnd.setDate(ISOweekStart.getDate() + 6);
+
+                return { start: ISOweekStart, end: ISOweekEnd };
+            }
+
+            return { start: null, end: null };
         }
 
         function displayFilteredGitLab() {
             const tbody = document.getElementById('gitlab-table-body');
-            const search = document.getElementById('gitlab-search').value.toLowerCase();
+            const search = (document.getElementById('gitlab-search').value || '').toLowerCase();
             const selectedAuthor = document.getElementById('gitlab-author-filter').value;
             const startDateVal = document.getElementById('gitlab-start-date').value;
             const endDateVal = document.getElementById('gitlab-end-date').value;
@@ -385,7 +394,7 @@
 
             const filtered = normalizedGitLabData.filter(item => {
                 const matchesAuthor = (selectedAuthor === 'ALL' || item.author === selectedAuthor);
-                const matchesSearch = (item.week || '').toLowerCase().includes(search);
+                const matchesSearch = (item.week || '').toLowerCase().includes(search) || (item.author || '').toLowerCase().includes(search);
                 
                 let matchesDate = true;
                 if (filterStart || filterEnd) {
@@ -393,6 +402,9 @@
                     if (weekRange.start && weekRange.end) {
                         if (filterStart && weekRange.end < filterStart) matchesDate = false;
                         if (filterEnd && weekRange.start > filterEnd) matchesDate = false;
+                    } else {
+                        // Fallback: if we couldn't parse the week format, don't brutally drop it unless outside bounds
+                        matchesDate = true;
                     }
                 }
 
