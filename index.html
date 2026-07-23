@@ -183,83 +183,93 @@
                     </div>
                 </div>
 
-                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
-                            <tr>
-                                <th class="px-6 py-4">Developer / Author</th>
-                                <th class="px-6 py-4">Year-Week</th>
-                                <th class="px-6 py-4 text-center">Merged MRs</th>
-                            </tr>
-                        </thead>
-                        <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="3" class="text-center py-16 text-slate-500">Upload a GitLab JSON activity file using the top button to view weekly metrics.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- TAB 3: JIRA TRANSITIONS -->
-        <div id="view-jira" class="space-y-6 hidden">
-            <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
-                <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
-                    <div>
-                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-solid fa-rotate text-purple-400 mr-2"></i>Jira Status Transitions</h3>
-                        <p id="jira-status-text" class="text-[11px] text-slate-400 mt-1">No Jira CSV loaded yet. Upload your exported transition report.</p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <input id="jira-search" type="text" placeholder="Search issue, assignee..." oninput="filterJiraTable()" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-64 focus:outline-none focus:border-cyan-500">
-                        <button onclick="resetJiraFilters()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
-                    <table class="w-full text-left text-xs">
-                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
-                            <tr>
-                                <th class="px-6 py-4">Issue Key</th>
-                                <th class="px-6 py-4">Summary</th>
-                                <th class="px-6 py-4">Assignee</th>
-                                <th class="px-6 py-4">From Status</th>
-                                <th class="px-6 py-4">To Status</th>
-                                <th class="px-6 py-4">Transition Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="6" class="text-center py-16 text-slate-500">Upload a Jira CSV export using the top button to view status movements.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </main>
-
-    <!-- Modal -->
-    <div id="employee-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-        <div class="glass-panel bg-slate-900 border border-slate-700 w-full max-w-lg p-6 rounded-2xl shadow-2xl flex flex-col gap-5">
-            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
-                <h3 id="modal-title" class="font-bold text-sm uppercase tracking-wider text-white">Add New Employee</h3>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <input type="hidden" id="edit-index" value="-1">
-            <div class="grid grid-cols-1 gap-4">
-                <div><label class="block text-[11px] text-slate-400 font-bold uppercase mb-1">Employee Name</label><input type="text" id="modal-name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"></div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-[11px] text-slate-400 font-bold uppercase mb-1">Role</label><input type="text" id="modal-role" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"></div>
-                    <div><label class="block text-[11px] text-slate-400 font-bold uppercase mb-1">Location</label><input type="text" id="modal-location" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"></div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div><label class="block text-[11px] text-slate-400 font-bold uppercase mb-1">Project</label><input type="text" id="modal-project" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"></div>
-                    <div><label class="block text-[11px] text-slate-400 font-bold uppercase mb-1">FTE</label><input type="text" id="modal-fte" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"></div>
-                </div>
-            </div>
-            <div class="flex justify-end gap-3 pt-3 border-t border-slate-800">
-                <button onclick="closeModal()" class="px-4 py-2 bg-slate-800 text-slate-300 font-bold text-xs rounded-xl cursor-pointer">Cancel</button>
-                <button onclick="saveEmployee()" class="px-5 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-xs rounded-xl shadow-lg cursor-pointer">Save Record</button>
-            </div>
-        </div>
+ <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+    <!-- Optional: File input to upload your CSV -->
+    <div class="p-4 bg-slate-900/50 border-b border-slate-800 flex justify-between items-center">
+        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Jira Transitions Data</span>
+        <input type="file" id="csvFileInput" accept=".csv" class="text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer">
     </div>
+
+    <table class="w-full text-left text-xs text-slate-300">
+        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-800">
+            <tr>
+                <th class="px-6 py-4">User</th>
+                <th class="px-6 py-4">Project</th>
+                <th class="px-6 py-4">Transition</th>
+                <th class="px-6 py-4 text-center">Count</th>
+                <th class="px-6 py-4">Issues</th>
+            </tr>
+        </thead>
+        <tbody id="jiraTableBody" class="divide-y divide-slate-800/60">
+            <tr>
+                <td colspan="5" class="px-6 py-8 text-center text-slate-500">Please upload your CSV file to populate the table.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+document.getElementById('csvFileInput').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        parseAndRenderCSV(event.target.result);
+    };
+    reader.readAsText(file);
+});
+
+function parseAndRenderCSV(text) {
+    const lines = text.split(/\r\n|\n/);
+    const tbody = document.getElementById('jiraTableBody');
+    tbody.innerHTML = '';
+
+    // Start from index 1 to skip CSV header row
+    for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const rowData = parseCSVLine(lines[i]);
+        
+        if (rowData.length >= 5) {
+            const [user, project, transition, count, issues] = rowData;
+
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-800/40 transition-colors';
+            tr.innerHTML = `
+                <td class="px-6 py-4 font-medium text-white">${escapeHtml(user)}</td>
+                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">${escapeHtml(project)}</span></td>
+                <td class="px-6 py-4 text-slate-400">${escapeHtml(transition)}</td>
+                <td class="px-6 py-4 text-center font-semibold text-emerald-400">${escapeHtml(count)}</td>
+                <td class="px-6 py-4 font-mono text-slate-400 text-[11px] max-w-xs truncate" title="${escapeHtml(issues)}">${escapeHtml(issues)}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+}
+
+function parseCSVLine(text) {
+    let result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+        let char = text[i];
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        } else if (char === ',' && !inQuotes) {
+            result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    result.push(current.trim());
+    return result.map(val => val.replace(/^"|"$/g, ''));
+}
+
+function escapeHtml(str) {
+    return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+</script>
 
     <!-- Script Logic -->
     <script>
