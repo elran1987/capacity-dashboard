@@ -46,9 +46,6 @@
         </div>
         
         <div class="flex items-center flex-wrap gap-3">
-            <button onclick="openModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 transition shadow-lg cursor-pointer">
-                <i class="fa-solid fa-user-plus text-sm"></i><span>Add Employee</span>
-            </button>
             <label class="cursor-pointer bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg">
                 <i class="fa-solid fa-file-excel text-sm"></i><span>Upload Excel</span>
                 <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileUpload(event)">
@@ -108,10 +105,6 @@
                         </div>
                         <button onclick="resetFilters()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase tracking-wider rounded-xl border border-slate-700 transition cursor-pointer">Reset Filters</button>
                     </div>
-                    <div class="glass-panel p-6 rounded-2xl flex flex-col">
-                        <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200 mb-4 border-b border-slate-800 pb-3">Project FTE Breakdown</h3>
-                        <div id="project-fte-summary" class="flex flex-col gap-2.5 max-h-[260px] overflow-y-auto custom-scrollbar pr-1"></div>
-                    </div>
                 </div>
 
                 <div class="lg:col-span-9 flex flex-col gap-6">
@@ -140,11 +133,10 @@
                                         <th class="px-5 py-3.5">Location</th>
                                         <th class="px-5 py-3.5">Project</th>
                                         <th class="px-5 py-3.5 text-center">FTE</th>
-                                        <th class="px-5 py-3.5 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody id="employee-table-body" class="divide-y divide-slate-800/60">
-                                    <tr><td colspan="6" class="text-center py-12 text-slate-500">No data loaded yet. Upload file or add employee.</td></tr>
+                                    <tr><td colspan="5" class="text-center py-12 text-slate-500">No data loaded yet. Upload file to start.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -159,119 +151,69 @@
                 <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
                     <div>
                         <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-brands fa-git-alt text-orange-400 mr-2"></i>GitLab Weekly Merge Requests</h3>
-                        <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your annual JSON file.</p>
+                        <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your JSON file.</p>
                     </div>
-                    
                     <div class="flex flex-wrap items-center gap-2.5">
-                        <div class="flex items-center gap-1.5 bg-slate-800 border border-cyan-500/40 rounded-xl px-3 py-1.5 text-xs shadow-md">
-                            <span class="text-cyan-300 text-[10px] uppercase font-bold">From:</span>
-                            <input type="date" id="gitlab-start-date" class="bg-slate-900 text-white px-2 py-1 rounded-lg border border-slate-700 focus:outline-none focus:border-cyan-400 text-xs cursor-pointer font-medium">
-                        </div>
-                        <div class="flex items-center gap-1.5 bg-slate-800 border border-cyan-500/40 rounded-xl px-3 py-1.5 text-xs shadow-md">
-                            <span class="text-cyan-300 text-[10px] uppercase font-bold">To:</span>
-                            <input type="date" id="gitlab-end-date" class="bg-slate-900 text-white px-2 py-1 rounded-lg border border-slate-700 focus:outline-none focus:border-cyan-400 text-xs cursor-pointer font-medium">
-                        </div>
-                        
-                        <button id="btn-apply-gitlab" type="button" class="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-[11px] uppercase rounded-xl shadow-lg transition cursor-pointer">Apply</button>
-                        
-                        <select id="gitlab-author-filter" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                        <select id="gitlab-author-filter" onchange="filterGitLabTable()" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
                             <option value="ALL">All Developers</option>
                         </select>
-                        <input id="gitlab-search" type="text" placeholder="Search week..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-36 focus:outline-none focus:border-cyan-500">
-                        
-                        <button id="btn-reset-gitlab" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
+                        <input id="gitlab-search" oninput="filterGitLabTable()" type="text" placeholder="Search developer or week..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-48 focus:outline-none focus:border-cyan-500">
+                        <button onclick="resetGitLabFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
                     </div>
                 </div>
+                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-800">
+                            <tr>
+                                <th class="px-6 py-4">Developer</th>
+                                <th class="px-6 py-4">Week / Period</th>
+                                <th class="px-6 py-4 text-center">MRs Count</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Please upload your GitLab JSON file.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
- <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
-    <!-- Optional: File input to upload your CSV -->
-    <div class="p-4 bg-slate-900/50 border-b border-slate-800 flex justify-between items-center">
-        <span class="text-xs text-slate-400 font-semibold uppercase tracking-wider">Jira Transitions Data</span>
-        <input type="file" id="csvFileInput" accept=".csv" class="text-xs text-slate-400 file:mr-4 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-slate-800 file:text-slate-200 hover:file:bg-slate-700 cursor-pointer">
-    </div>
+        <!-- TAB 3: JIRA TRANSITIONS -->
+        <div id="view-jira" class="space-y-6 hidden">
+            <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
+                <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
+                    <div>
+                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-solid fa-rotate text-purple-400 mr-2"></i>Jira Transitions Activity</h3>
+                        <p id="jira-status-text" class="text-[11px] text-slate-400 mt-1">No Jira CSV loaded yet.</p>
+                    </div>
+                    <div class="flex items-center gap-2.5">
+                        <input id="jira-search" oninput="filterJiraTable()" type="text" placeholder="Search issue, summary, assignee..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-64 focus:outline-none focus:border-cyan-500">
+                        <button onclick="resetJiraFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-800">
+                            <tr>
+                                <th class="px-6 py-4">Issue Key</th>
+                                <th class="px-6 py-4">Summary</th>
+                                <th class="px-6 py-4">Assignee</th>
+                                <th class="px-6 py-4">From Status</th>
+                                <th class="px-6 py-4">To Status</th>
+                                <th class="px-6 py-4">Transition Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Please upload your CSV file to populate the table.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
-    <table class="w-full text-left text-xs text-slate-300">
-        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-800">
-            <tr>
-                <th class="px-6 py-4">User</th>
-                <th class="px-6 py-4">Project</th>
-                <th class="px-6 py-4">Transition</th>
-                <th class="px-6 py-4 text-center">Count</th>
-                <th class="px-6 py-4">Issues</th>
-            </tr>
-        </thead>
-        <tbody id="jiraTableBody" class="divide-y divide-slate-800/60">
-            <tr>
-                <td colspan="5" class="px-6 py-8 text-center text-slate-500">Please upload your CSV file to populate the table.</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
+    </main>
 
-<script>
-document.getElementById('csvFileInput').addEventListener('change', function(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        parseAndRenderCSV(event.target.result);
-    };
-    reader.readAsText(file);
-});
-
-function parseAndRenderCSV(text) {
-    const lines = text.split(/\r\n|\n/);
-    const tbody = document.getElementById('jiraTableBody');
-    tbody.innerHTML = '';
-
-    // Start from index 1 to skip CSV header row
-    for (let i = 1; i < lines.length; i++) {
-        if (!lines[i].trim()) continue;
-        const rowData = parseCSVLine(lines[i]);
-        
-        if (rowData.length >= 5) {
-            const [user, project, transition, count, issues] = rowData;
-
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-800/40 transition-colors';
-            tr.innerHTML = `
-                <td class="px-6 py-4 font-medium text-white">${escapeHtml(user)}</td>
-                <td class="px-6 py-4"><span class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono text-[11px]">${escapeHtml(project)}</span></td>
-                <td class="px-6 py-4 text-slate-400">${escapeHtml(transition)}</td>
-                <td class="px-6 py-4 text-center font-semibold text-emerald-400">${escapeHtml(count)}</td>
-                <td class="px-6 py-4 font-mono text-slate-400 text-[11px] max-w-xs truncate" title="${escapeHtml(issues)}">${escapeHtml(issues)}</td>
-            `;
-            tbody.appendChild(tr);
-        }
-    }
-}
-
-function parseCSVLine(text) {
-    let result = [];
-    let current = '';
-    let inQuotes = false;
-    for (let i = 0; i < text.length; i++) {
-        let char = text[i];
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
-        } else {
-            current += char;
-        }
-    }
-    result.push(current.trim());
-    return result.map(val => val.replace(/^"|"$/g, ''));
-}
-
-function escapeHtml(str) {
-    return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-</script>
-
-    <!-- Script Logic -->
+    <!-- Application Script Logic -->
     <script>
         let employeeData = [];
         let gitlabData = [];
@@ -281,29 +223,6 @@ function escapeHtml(str) {
         let roleChartInstance = null;
 
         window.addEventListener('DOMContentLoaded', () => {
-            const btnApplyGit = document.getElementById('btn-apply-gitlab');
-            if (btnApplyGit) btnApplyGit.addEventListener('click', filterGitLabTable);
-
-            const btnResetGit = document.getElementById('btn-reset-gitlab');
-            if (btnResetGit) btnResetGit.addEventListener('click', resetGitLabFilters);
-
-            const authorFilterEl = document.getElementById('gitlab-author-filter');
-            if (authorFilterEl) authorFilterEl.addEventListener('change', filterGitLabTable);
-
-            const gitlabSearchEl = document.getElementById('gitlab-search');
-            if (gitlabSearchEl) gitlabSearchEl.addEventListener('input', filterGitLabTable);
-
-            ['gitlab-start-date', 'gitlab-end-date'].forEach(id => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.addEventListener('click', () => {
-                        if (typeof el.showPicker === 'function') {
-                            el.showPicker();
-                        }
-                    });
-                }
-            });
-
             const savedEmp = localStorage.getItem('employee_allocation_data_2026');
             if (savedEmp) {
                 try { employeeData = JSON.parse(savedEmp); if (employeeData.length > 0) { initDropdowns(); updateDashboard(); } } catch(e){}
@@ -358,6 +277,7 @@ function escapeHtml(str) {
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
                     processExcelData(jsonData);
+                    switchTab('allocation');
                 } catch (err) { alert("Error reading file: " + err.message); }
             };
             reader.readAsArrayBuffer(file);
@@ -405,33 +325,52 @@ function escapeHtml(str) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-                    processJiraData(jsonData);
+                    const text = e.target.result;
+                    parseAndRenderCSV(text);
                     switchTab('jira');
-                } catch(err) { alert("Error reading Jira CSV/Excel file: " + err.message); }
+                } catch(err) { alert("Error reading Jira CSV file: " + err.message); }
             };
-            reader.readAsArrayBuffer(file);
+            reader.readAsText(file);
         }
 
-        function processJiraData(rows) {
-            jiraData = rows.map(row => {
-                const clean = {};
-                Object.keys(row).forEach(key => { if (key) clean[key.trim()] = row[key]; });
-                return {
-                    issueKey: clean['Issue key'] || clean['Key'] || clean['issuekey'] || '',
-                    summary: clean['Summary'] || clean['summary'] || '',
-                    assignee: clean['Assignee'] || clean['assignee'] || 'Unassigned',
-                    fromStatus: clean['From Status'] || clean['fromstatus'] || clean['From'] || '',
-                    toStatus: clean['To Status'] || clean['tostatus'] || clean['To'] || '',
-                    transitionDate: clean['Transition Date'] || clean['transitiondate'] || clean['Date'] || ''
-                };
-            }).filter(item => item.issueKey !== '');
-
+        function parseAndRenderCSV(text) {
+            const lines = text.split(/\r\n|\n/);
+            jiraData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const rowData = parseCSVLine(lines[i]);
+                if (rowData.length >= 5) {
+                    jiraData.push({
+                        issueKey: rowData[0],
+                        summary: rowData[1],
+                        assignee: rowData[2],
+                        fromStatus: rowData[3],
+                        toStatus: rowData[4],
+                        transitionDate: rowData[5] || ''
+                    });
+                }
+            }
             localStorage.setItem('jira_transitions_data_2026', JSON.stringify(jiraData));
             renderJiraTable(jiraData);
+        }
+
+        function parseCSVLine(text) {
+            let result = [];
+            let current = '';
+            let inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result.map(val => val.replace(/^"|"$/g, ''));
         }
 
         function renderJiraTable(data) {
@@ -456,23 +395,23 @@ function escapeHtml(str) {
 
             const filtered = data.filter(item => {
                 return !searchTerm || 
-                    item.issueKey.toLowerCase().includes(searchTerm) ||
-                    item.summary.toLowerCase().includes(searchTerm) ||
-                    item.assignee.toLowerCase().includes(searchTerm) ||
-                    item.fromStatus.toLowerCase().includes(searchTerm) ||
-                    item.toStatus.toLowerCase().includes(searchTerm);
+                    (item.issueKey && item.issueKey.toLowerCase().includes(searchTerm)) ||
+                    (item.summary && item.summary.toLowerCase().includes(searchTerm)) ||
+                    (item.assignee && item.assignee.toLowerCase().includes(searchTerm)) ||
+                    (item.fromStatus && item.fromStatus.toLowerCase().includes(searchTerm)) ||
+                    (item.toStatus && item.toStatus.toLowerCase().includes(searchTerm));
             });
 
             tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
             filtered.forEach(item => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
-                        <td class="px-6 py-4 font-mono text-cyan-400 font-semibold">${item.issueKey}</td>
-                        <td class="px-6 py-4 text-slate-200">${item.summary}</td>
-                        <td class="px-6 py-4 text-slate-300">${item.assignee}</td>
-                        <td class="px-6 py-4 text-amber-400">${item.fromStatus}</td>
-                        <td class="px-6 py-4 text-emerald-400">${item.toStatus}</td>
-                        <td class="px-6 py-4 text-slate-400 font-mono">${item.transitionDate}</td>
+                        <td class="px-6 py-4 font-mono text-cyan-400 font-semibold">${escapeHtml(item.issueKey)}</td>
+                        <td class="px-6 py-4 text-slate-200">${escapeHtml(item.summary)}</td>
+                        <td class="px-6 py-4 text-slate-300">${escapeHtml(item.assignee)}</td>
+                        <td class="px-6 py-4 text-amber-400">${escapeHtml(item.fromStatus)}</td>
+                        <td class="px-6 py-4 text-emerald-400">${escapeHtml(item.toStatus)}</td>
+                        <td class="px-6 py-4 text-slate-400 font-mono">${escapeHtml(item.transitionDate)}</td>
                     </tr>`;
             });
         }
@@ -522,109 +461,30 @@ function escapeHtml(str) {
             displayFilteredGitLab();
         }
 
-        function getWeekDateRange(weekStr) {
-            if (!weekStr) return { start: null, end: null };
-            let str = String(weekStr).trim();
-
-            if (str.includes('-') && (str.includes(',') || /[A-Za-z]{3}/.test(str))) {
-                let parts = str.split('-').map(p => p.trim());
-                let yearMatch = str.match(/\b\d{4}\b/);
-                let year = yearMatch ? yearMatch[0] : new Date().getFullYear();
-                
-                let startPart = parts[0];
-                if (!startPart.includes(year) && !startPart.includes(',')) {
-                    startPart += `, ${year}`;
-                }
-                let endPart = parts[1];
-                if (!endPart.includes(year) && !endPart.includes(',')) {
-                    endPart += `, ${year}`;
-                }
-
-                let startDate = new Date(startPart);
-                let endDate = new Date(endPart);
-
-                if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-                    startDate.setHours(0,0,0,0);
-                    endDate.setHours(23,59,59,999);
-                    return { start: startDate, end: endDate };
-                }
-            }
-            
-            let directDate = new Date(str);
-            if (!isNaN(directDate.getTime())) {
-                directDate.setHours(0,0,0,0);
-                let end = new Date(directDate);
-                end.setHours(23,59,59,999);
-                return { start: directDate, end: end };
-            }
-
-            let match = str.match(/(\d{4})[^\d]?W?(\d{1,2})/i);
-            if (match) {
-                let year = parseInt(match[1], 10);
-                let week = parseInt(match[2], 10);
-                
-                let simple = new Date(year, 0, 1 + (week - 1) * 7);
-                let dow = simple.getDay();
-                let isoStart = new Date(simple);
-                if (dow <= 4)
-                    isoStart.setDate(simple.getDate() - simple.getDay() + 1);
-                else
-                    isoStart.setDate(simple.getDate() + 8 - simple.getDay());
-                
-                isoStart.setHours(0,0,0,0);
-                let isoEnd = new Date(isoStart);
-                isoEnd.setDate(isoStart.getDate() + 6);
-                isoEnd.setHours(23,59,59,999);
-                return { start: isoStart, end: isoEnd };
-            }
-
-            return { start: null, end: null };
-        }
-
         function displayFilteredGitLab() {
             const tbody = document.getElementById('gitlab-table-body');
+            const searchEl = document.getElementById('gitlab-search');
+            const authorFilter = document.getElementById('gitlab-author-filter');
             if (!tbody) return;
 
-            const searchEl = document.getElementById('gitlab-search');
-            const authorFilterEl = document.getElementById('gitlab-author-filter');
-            const startDateEl = document.getElementById('gitlab-start-date');
-            const endDateEl = document.getElementById('gitlab-end-date');
+            const searchTerm = searchEl ? searchEl.value.toLowerCase() : '';
+            const selectedAuthor = authorFilter ? authorFilter.value : 'ALL';
 
-            const search = searchEl ? (searchEl.value || '').toLowerCase() : '';
-            const selectedAuthor = authorFilterEl ? authorFilterEl.value : 'ALL';
-            const startDateVal = startDateEl ? startDateEl.value : '';
-            const endDateVal = endDateEl ? endDateEl.value : '';
-            
-            const filterStart = startDateVal ? new Date(startDateVal) : null;
-            const filterEnd = endDateVal ? new Date(endDateVal) : null;
-            if (filterStart) filterStart.setHours(0,0,0,0);
-            if (filterEnd) filterEnd.setHours(23,59,59,999);
-
-            const filtered = normalizedGitLabData.map((item, idx) => ({ ...item, originalIdx: idx })).filter(item => {
-                const matchesAuthor = (selectedAuthor === 'ALL' || item.author === selectedAuthor);
-                const matchesSearch = (item.week || '').toLowerCase().includes(search) || (item.author || '').toLowerCase().includes(search);
-                
-                let matchesDate = true;
-                if (filterStart || filterEnd) {
-                    let range = getWeekDateRange(item.week);
-                    if (range.start && range.end) {
-                        if (filterStart && range.end < filterStart) matchesDate = false;
-                        if (filterEnd && range.start > filterEnd) matchesDate = false;
-                    } else {
-                        matchesDate = false;
-                    }
-                }
-
-                return matchesAuthor && matchesSearch && matchesDate;
+            const filtered = normalizedGitLabData.filter(item => {
+                const matchAuthor = selectedAuthor === 'ALL' || item.author === selectedAuthor;
+                const matchSearch = !searchTerm || 
+                    item.author.toLowerCase().includes(searchTerm) || 
+                    String(item.week).toLowerCase().includes(searchTerm);
+                return matchAuthor && matchSearch;
             });
 
-            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="3" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No matching GitLab records found.</td></tr>`;
             filtered.forEach(item => {
                 tbody.innerHTML += `
                     <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
-                        <td class="px-6 py-4 font-semibold text-slate-200">${item.author}</td>
-                        <td class="px-6 py-4 text-cyan-400 font-mono">${item.week}</td>
-                        <td class="px-6 py-4 text-center font-bold text-emerald-400">${item.mrs_count}</td>
+                        <td class="px-6 py-4 font-medium text-white">${escapeHtml(item.author)}</td>
+                        <td class="px-6 py-4 text-slate-300">${escapeHtml(item.week)}</td>
+                        <td class="px-6 py-4 text-center font-semibold text-orange-400">${escapeHtml(String(item.mrs_count))}</td>
                     </tr>`;
             });
         }
@@ -634,199 +494,89 @@ function escapeHtml(str) {
         }
 
         function resetGitLabFilters() {
-            const authorFilterEl = document.getElementById('gitlab-author-filter');
             const searchEl = document.getElementById('gitlab-search');
-            const startDateEl = document.getElementById('gitlab-start-date');
-            const endDateEl = document.getElementById('gitlab-end-date');
-
-            if (authorFilterEl) authorFilterEl.value = 'ALL';
+            const authorFilter = document.getElementById('gitlab-author-filter');
             if (searchEl) searchEl.value = '';
-            if (startDateEl) startDateEl.value = '';
-            if (endDateEl) endDateEl.value = '';
+            if (authorFilter) authorFilter.value = 'ALL';
             displayFilteredGitLab();
         }
 
-        function openModal(index = -1) {
-            const editIndexEl = document.getElementById('edit-index');
-            const modalTitle = document.getElementById('modal-title');
-            const modalName = document.getElementById('modal-name');
-            const modalRole = document.getElementById('modal-role');
-            const modalLocation = document.getElementById('modal-location');
-            const modalProject = document.getElementById('modal-project');
-            const modalFte = document.getElementById('modal-fte');
-            const modal = document.getElementById('employee-modal');
-
-            if (!modal) return;
-
-            editIndexEl.value = index;
-            if (index > -1 && employeeData[index]) {
-                modalTitle.textContent = "Edit Employee Record";
-                modalName.value = employeeData[index].Name;
-                modalRole.value = employeeData[index].Role;
-                modalLocation.value = employeeData[index].Location;
-                modalProject.value = employeeData[index].Project;
-                modalFte.value = employeeData[index].FTE;
-            } else {
-                modalTitle.textContent = "Add New Employee";
-                modalName.value = '';
-                modalRole.value = '';
-                modalLocation.value = 'Israel';
-                modalProject.value = '';
-                modalFte.value = '1.0';
-            }
-            modal.classList.remove('hidden');
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('employee-modal');
-            if (modal) modal.classList.add('hidden');
-        }
-
-        function saveEmployee() {
-            const index = parseInt(document.getElementById('edit-index').value, 10);
-            const name = document.getElementById('modal-name').value.trim();
-            const role = document.getElementById('modal-role').value.trim() || 'General';
-            const location = document.getElementById('modal-location').value.trim() || 'Israel';
-            const project = document.getElementById('modal-project').value.trim() || 'General';
-            let fte = parseFloat(document.getElementById('modal-fte').value);
-
-            if (!name) { alert("Please enter employee name."); return; }
-            if (isNaN(fte)) fte = 1.0;
-
-            const record = { Name: name, Role: role, Location: location, Project: project, FTE: fte };
-
-            if (index > -1 && employeeData[index]) {
-                employeeData[index] = record;
-            } else {
-                employeeData.push(record);
-            }
-
-            localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
-            closeModal();
-            initDropdowns();
-            updateDashboard();
-        }
-
-        function deleteEmployee(index) {
-            if (confirm("Are you sure you want to delete this record?")) {
-                employeeData.splice(index, 1);
-                localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
-                initDropdowns();
-                updateDashboard();
-            }
-        }
-
         function initDropdowns() {
-            const projFilter = document.getElementById('project-filter');
-            const roleFilter = document.getElementById('role-filter');
-            if (!projFilter || !roleFilter) return;
-
-            const currentProj = projFilter.value;
-            const currentRole = roleFilter.value;
+            const projSelect = document.getElementById('project-filter');
+            const roleSelect = document.getElementById('role-filter');
+            if (!projSelect || !roleSelect) return;
 
             const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
             const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
 
-            projFilter.innerHTML = '<option value="ALL">All Projects</option>';
-            projects.forEach(p => { projFilter.innerHTML += `<option value="${p}">${p}</option>`; });
-            if (currentProj) projFilter.value = currentProj;
+            projSelect.innerHTML = '<option value="ALL">All Projects</option>';
+            projects.forEach(p => projSelect.innerHTML += `<option value="${p}">${p}</option>`);
 
-            roleFilter.innerHTML = '<option value="ALL">All Roles</option>';
-            roles.forEach(r => { roleFilter.innerHTML += `<option value="${r}">${r}</option>`; });
-            if (currentRole) roleFilter.value = currentRole;
-        }
-
-        function resetFilters() {
-            const projFilter = document.getElementById('project-filter');
-            const roleFilter = document.getElementById('role-filter');
-            const tableSearch = document.getElementById('table-search');
-            if (projFilter) projFilter.value = 'ALL';
-            if (roleFilter) roleFilter.value = 'ALL';
-            if (tableSearch) tableSearch.value = '';
-            updateDashboard();
+            roleSelect.innerHTML = '<option value="ALL">All Roles</option>';
+            roles.forEach(r => roleSelect.innerHTML += `<option value="${r}">${r}</option>`);
         }
 
         function updateDashboard() {
-            const projFilter = document.getElementById('project-filter');
-            const roleFilter = document.getElementById('role-filter');
-            const tableSearch = document.getElementById('table-search');
+            const projFilter = document.getElementById('project-filter')?.value || 'ALL';
+            const roleFilter = document.getElementById('role-filter')?.value || 'ALL';
+            const searchVal = document.getElementById('table-search')?.value.toLowerCase() || '';
 
-            const selectedProj = projFilter ? projFilter.value : 'ALL';
-            const selectedRole = roleFilter ? roleFilter.value : 'ALL';
-            const searchTerm = tableSearch ? tableSearch.value.toLowerCase() : '';
-
-            const filtered = employeeData.map((item, idx) => ({ ...item, originalIndex: idx })).filter(item => {
-                const matchProj = (selectedProj === 'ALL' || item.Project === selectedProj);
-                const matchRole = (selectedRole === 'ALL' || item.Role === selectedRole);
-                const matchSearch = !searchTerm || item.Name.toLowerCase().includes(searchTerm) || item.Project.toLowerCase().includes(searchTerm) || item.Role.toLowerCase().includes(searchTerm) || item.Location.toLowerCase().includes(searchTerm);
+            const filtered = employeeData.filter(e => {
+                const matchProj = projFilter === 'ALL' || e.Project === projFilter;
+                const matchRole = roleFilter === 'ALL' || e.Role === roleFilter;
+                const matchSearch = !searchVal || 
+                    e.Name.toLowerCase().includes(searchVal) || 
+                    e.Project.toLowerCase().includes(searchVal) || 
+                    e.Role.toLowerCase().includes(searchVal);
                 return matchProj && matchRole && matchSearch;
             });
 
-            const totalHeadcount = employeeData.length;
-            const activeProjects = new Set(employeeData.map(e => e.Project)).size;
+            // Update KPIs
+            document.getElementById('kpi-headcount').textContent = employeeData.length;
+            document.getElementById('kpi-projects').textContent = [...new Set(employeeData.map(e => e.Project))].length;
             const totalFte = employeeData.reduce((acc, curr) => acc + (Number(curr.FTE) || 0), 0);
-
-            document.getElementById('kpi-headcount').textContent = totalHeadcount;
-            document.getElementById('kpi-projects').textContent = activeProjects;
             document.getElementById('kpi-fte').textContent = totalFte.toFixed(1);
 
+            // Populate table
             const tbody = document.getElementById('employee-table-body');
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-slate-500">No matching employees found.</td></tr>`;
             } else {
-                tbody.innerHTML = '';
-                filtered.forEach(item => {
-                    tbody.innerHTML += `
-                        <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
-                            <td class="px-5 py-3.5 font-semibold text-slate-200">${item.Name}</td>
-                            <td class="px-5 py-3.5 text-slate-400">${item.Role}</td>
-                            <td class="px-5 py-3.5 text-slate-400">${item.Location}</td>
-                            <td class="px-5 py-3.5 text-cyan-400 font-medium">${item.Project}</td>
-                            <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${item.FTE}</td>
-                            <td class="px-5 py-3.5 text-center flex justify-center gap-2">
-                                <button onclick="openModal(${item.originalIndex})" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer" title="Edit"><i class="fa-solid fa-pen text-xs"></i></button>
-                                <button onclick="deleteEmployee(${item.originalIndex})" class="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button>
-                            </td>
-                        </tr>`;
-                });
+                tbody.innerHTML = filtered.map(e => `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
+                        <td class="px-5 py-3 font-semibold text-white">${escapeHtml(e.Name)}</td>
+                        <td class="px-5 py-3 text-slate-300">${escapeHtml(e.Role)}</td>
+                        <td class="px-5 py-3 text-slate-400">${escapeHtml(e.Location)}</td>
+                        <td class="px-5 py-3 text-cyan-400 font-mono">${escapeHtml(e.Project)}</td>
+                        <td class="px-5 py-3 text-center font-bold text-emerald-400">${Number(e.FTE).toFixed(2)}</td>
+                    </tr>
+                `).join('');
             }
 
-            const projectFteSummary = document.getElementById('project-fte-summary');
-            const projectFteMap = {};
-            employeeData.forEach(e => {
-                projectFteMap[e.Project] = (projectFteMap[e.Project] || 0) + (Number(e.FTE) || 0);
-            });
-            projectFteSummary.innerHTML = '';
-            Object.entries(projectFteMap).sort((a,b) => b[1] - a[1]).forEach(([proj, fte]) => {
-                projectFteSummary.innerHTML += `
-                    <div class="flex justify-between items-center bg-slate-900/60 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs">
-                        <span class="font-medium text-slate-300 truncate max-w-[140px]">${proj}</span>
-                        <span class="font-bold text-cyan-400">${fte.toFixed(1)} FTE</span>
-                    </div>`;
-            });
-
-            renderCharts(projectFteMap);
+            renderCharts(employeeData);
         }
 
-        function renderCharts(projectFteMap) {
-            const ctxProj = document.getElementById('projectChart').getContext('2d');
-            const ctxRole = document.getElementById('roleChart').getContext('2d');
+        function renderCharts(data) {
+            const projCtx = document.getElementById('projectChart')?.getContext('2d');
+            const roleCtx = document.getElementById('roleChart')?.getContext('2d');
+            if (!projCtx || !roleCtx) return;
 
-            const projLabels = Object.keys(projectFteMap);
-            const projValues = Object.values(projectFteMap);
+            const projMap = {};
+            data.forEach(e => { projMap[e.Project] = (projMap[e.Project] || 0) + (Number(e.FTE) || 0); });
+
+            const roleMap = {};
+            data.forEach(e => { roleMap[e.Role] = (roleMap[e.Role] || 0) + 1; });
 
             if (projectChartInstance) projectChartInstance.destroy();
-            projectChartInstance = new Chart(ctxProj, {
+            projectChartInstance = new Chart(projCtx, {
                 type: 'bar',
                 data: {
-                    labels: projLabels,
+                    labels: Object.keys(projMap),
                     datasets: [{
-                        label: 'FTE Burden',
-                        data: projValues,
-                        backgroundColor: 'rgba(6, 182, 212, 0.6)',
-                        borderColor: 'rgba(6, 182, 212, 1)',
-                        borderWidth: 1,
-                        borderRadius: 8
+                        label: 'Total FTE',
+                        data: Object.values(projMap),
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 6
                     }]
                 },
                 options: {
@@ -834,36 +584,42 @@ function escapeHtml(str) {
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
                     }
                 }
             });
 
-            const roleMap = {};
-            employeeData.forEach(e => {
-                roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
-            });
-
             if (roleChartInstance) roleChartInstance.destroy();
-            roleChartInstance = new Chart(ctxRole, {
+            roleChartInstance = new Chart(roleCtx, {
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(roleMap),
                     datasets: [{
                         data: Object.values(roleMap),
-                        backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
-                        borderWidth: 0
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } }
-                    }
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } }
                 }
             });
+        }
+
+        function resetFilters() {
+            const projEl = document.getElementById('project-filter');
+            const roleEl = document.getElementById('role-filter');
+            const searchEl = document.getElementById('table-search');
+            if (projEl) projEl.value = 'ALL';
+            if (roleEl) roleEl.value = 'ALL';
+            if (searchEl) searchEl.value = '';
+            updateDashboard();
+        }
+
+        function escapeHtml(str) {
+            return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
