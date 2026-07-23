@@ -34,11 +34,14 @@
 
         <!-- Navigation Tabs -->
         <div class="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
-            <button onclick="switchTab('allocation')" id="tab-btn-allocation" class="px-5 py-2 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-lg cursor-pointer">
+            <button onclick="switchTab('allocation')" id="tab-btn-allocation" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-lg cursor-pointer">
                 <i class="fa-solid fa-users mr-2"></i>Resource Allocation
             </button>
-            <button onclick="switchTab('gitlab')" id="tab-btn-gitlab" class="px-5 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer">
+            <button onclick="switchTab('gitlab')" id="tab-btn-gitlab" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer">
                 <i class="fa-brands fa-git-alt mr-2"></i>GitLab MR Activity
+            </button>
+            <button onclick="switchTab('jira')" id="tab-btn-jira" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer">
+                <i class="fa-solid fa-rotate text-xs mr-2"></i>Jira Transitions
             </button>
         </div>
         
@@ -53,6 +56,10 @@
             <label class="cursor-pointer bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg">
                 <i class="fa-brands fa-git-alt text-sm"></i><span>Upload GitLab JSON</span>
                 <input type="file" id="gitlab-file-input" accept=".json" class="hidden" onchange="handleGitLabUpload(event)">
+            </label>
+            <label class="cursor-pointer bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg">
+                <i class="fa-solid fa-file-csv text-sm"></i><span>Upload Jira CSV</span>
+                <input type="file" id="jira-file-input" accept=".csv" class="hidden" onchange="handleJiraUpload(event)">
             </label>
         </div>
     </header>
@@ -192,6 +199,40 @@
                 </div>
             </div>
         </div>
+
+        <!-- TAB 3: JIRA TRANSITIONS -->
+        <div id="view-jira" class="space-y-6 hidden">
+            <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
+                <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
+                    <div>
+                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-solid fa-rotate text-purple-400 mr-2"></i>Jira Status Transitions</h3>
+                        <p id="jira-status-text" class="text-[11px] text-slate-400 mt-1">No Jira CSV loaded yet. Upload your exported transition report.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <input id="jira-search" type="text" placeholder="Search issue, assignee..." oninput="filterJiraTable()" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-64 focus:outline-none focus:border-cyan-500">
+                        <button onclick="resetJiraFilters()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                            <tr>
+                                <th class="px-6 py-4">Issue Key</th>
+                                <th class="px-6 py-4">Summary</th>
+                                <th class="px-6 py-4">Assignee</th>
+                                <th class="px-6 py-4">From Status</th>
+                                <th class="px-6 py-4">To Status</th>
+                                <th class="px-6 py-4">Transition Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="6" class="text-center py-16 text-slate-500">Upload a Jira CSV export using the top button to view status movements.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </main>
 
     <!-- Modal -->
@@ -225,6 +266,7 @@
         let employeeData = [];
         let gitlabData = [];
         let normalizedGitLabData = [];
+        let jiraData = [];
         let projectChartInstance = null;
         let roleChartInstance = null;
 
@@ -258,31 +300,40 @@
             }
             const savedGit = localStorage.getItem('gitlab_activity_data_2026');
             if (savedGit) {
-                try { 
-                    gitlabData = JSON.parse(savedGit); 
-                    if (gitlabData.length > 0) { renderGitLabTable(gitlabData); } 
-                } catch(e){}
+                try { gitlabData = JSON.parse(savedGit); if (gitlabData.length > 0) { renderGitLabTable(gitlabData); } } catch(e){}
+            }
+            const savedJira = localStorage.getItem('jira_transitions_data_2026');
+            if (savedJira) {
+                try { jiraData = JSON.parse(savedJira); if (jiraData.length > 0) { renderJiraTable(jiraData); } } catch(e){}
             }
         });
 
         function switchTab(tab) {
             const viewAlloc = document.getElementById('view-allocation');
             const viewGit = document.getElementById('view-gitlab');
+            const viewJira = document.getElementById('view-jira');
             const btnAlloc = document.getElementById('tab-btn-allocation');
             const btnGit = document.getElementById('tab-btn-gitlab');
+            const btnJira = document.getElementById('tab-btn-jira');
 
-            if (!viewAlloc || !viewGit || !btnAlloc || !btnGit) return;
+            if (!viewAlloc || !viewGit || !viewJira || !btnAlloc || !btnGit || !btnJira) return;
+
+            viewAlloc.classList.add('hidden');
+            viewGit.classList.add('hidden');
+            viewJira.classList.add('hidden');
+            btnAlloc.className = "px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
+            btnGit.className = "px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
+            btnJira.className = "px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
 
             if (tab === 'allocation') {
                 viewAlloc.classList.remove('hidden');
-                viewGit.classList.add('hidden');
-                btnAlloc.className = "px-5 py-2 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-lg cursor-pointer";
-                btnGit.className = "px-5 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
-            } else {
-                viewAlloc.classList.add('hidden');
+                btnAlloc.className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-lg cursor-pointer";
+            } else if (tab === 'gitlab') {
                 viewGit.classList.remove('hidden');
-                btnGit.className = "px-5 py-2 rounded-xl text-xs font-bold transition bg-orange-600 text-white shadow-lg cursor-pointer";
-                btnAlloc.className = "px-5 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
+                btnGit.className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-orange-600 text-white shadow-lg cursor-pointer";
+            } else if (tab === 'jira') {
+                viewJira.classList.remove('hidden');
+                btnJira.className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-purple-600 text-white shadow-lg cursor-pointer";
             }
         }
 
@@ -336,6 +387,94 @@
                 } catch(err) { alert("Invalid JSON file for GitLab activity."); }
             };
             reader.readAsText(file);
+        }
+
+        function handleJiraUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    processJiraData(jsonData);
+                    switchTab('jira');
+                } catch(err) { alert("Error reading Jira CSV/Excel file: " + err.message); }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function processJiraData(rows) {
+            jiraData = rows.map(row => {
+                const clean = {};
+                Object.keys(row).forEach(key => { if (key) clean[key.trim()] = row[key]; });
+                return {
+                    issueKey: clean['Issue key'] || clean['Key'] || clean['issuekey'] || '',
+                    summary: clean['Summary'] || clean['summary'] || '',
+                    assignee: clean['Assignee'] || clean['assignee'] || 'Unassigned',
+                    fromStatus: clean['From Status'] || clean['fromstatus'] || clean['From'] || '',
+                    toStatus: clean['To Status'] || clean['tostatus'] || clean['To'] || '',
+                    transitionDate: clean['Transition Date'] || clean['transitiondate'] || clean['Date'] || ''
+                };
+            }).filter(item => item.issueKey !== '');
+
+            localStorage.setItem('jira_transitions_data_2026', JSON.stringify(jiraData));
+            renderJiraTable(jiraData);
+        }
+
+        function renderJiraTable(data) {
+            const tbody = document.getElementById('jira-table-body');
+            const status = document.getElementById('jira-status-text');
+            if (!tbody) return;
+
+            if (!data || data.length === 0) {
+                if (status) status.textContent = 'No records loaded';
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No Jira records found.</td></tr>`;
+                return;
+            }
+
+            if (status) status.textContent = `Loaded ${data.length} Jira transition records successfully.`;
+            displayFilteredJira(data);
+        }
+
+        function displayFilteredJira(data) {
+            const tbody = document.getElementById('jira-table-body');
+            const searchEl = document.getElementById('jira-search');
+            const searchTerm = searchEl ? searchEl.value.toLowerCase() : '';
+
+            const filtered = data.filter(item => {
+                return !searchTerm || 
+                    item.issueKey.toLowerCase().includes(searchTerm) ||
+                    item.summary.toLowerCase().includes(searchTerm) ||
+                    item.assignee.toLowerCase().includes(searchTerm) ||
+                    item.fromStatus.toLowerCase().includes(searchTerm) ||
+                    item.toStatus.toLowerCase().includes(searchTerm);
+            });
+
+            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+            filtered.forEach(item => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
+                        <td class="px-6 py-4 font-mono text-cyan-400 font-semibold">${item.issueKey}</td>
+                        <td class="px-6 py-4 text-slate-200">${item.summary}</td>
+                        <td class="px-6 py-4 text-slate-300">${item.assignee}</td>
+                        <td class="px-6 py-4 text-amber-400">${item.fromStatus}</td>
+                        <td class="px-6 py-4 text-emerald-400">${item.toStatus}</td>
+                        <td class="px-6 py-4 text-slate-400 font-mono">${item.transitionDate}</td>
+                    </tr>`;
+            });
+        }
+
+        function filterJiraTable() {
+            displayFilteredJira(jiraData);
+        }
+
+        function resetJiraFilters() {
+            const searchEl = document.getElementById('jira-search');
+            if (searchEl) searchEl.value = '';
+            displayFilteredJira(jiraData);
         }
 
         function renderGitLabTable(data) {
@@ -613,7 +752,6 @@
                 return matchProj && matchRole && matchSearch;
             });
 
-            // Update KPIs
             const totalHeadcount = employeeData.length;
             const activeProjects = new Set(employeeData.map(e => e.Project)).size;
             const totalFte = employeeData.reduce((acc, curr) => acc + (Number(curr.FTE) || 0), 0);
@@ -622,7 +760,6 @@
             document.getElementById('kpi-projects').textContent = activeProjects;
             document.getElementById('kpi-fte').textContent = totalFte.toFixed(1);
 
-            // Populate Table
             const tbody = document.getElementById('employee-table-body');
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
@@ -644,7 +781,6 @@
                 });
             }
 
-            // Project FTE Summary Sidebar
             const projectFteSummary = document.getElementById('project-fte-summary');
             const projectFteMap = {};
             employeeData.forEach(e => {
