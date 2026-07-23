@@ -499,68 +499,63 @@
 
         function openModal(index = -1) {
             const editIndexEl = document.getElementById('edit-index');
-            const modalTitleEl = document.getElementById('modal-title');
-            const modalNameEl = document.getElementById('modal-name');
-            const modalRoleEl = document.getElementById('modal-role');
-            const modalLocationEl = document.getElementById('modal-location');
-            const modalProjectEl = document.getElementById('modal-project');
-            const modalFteEl = document.getElementById('modal-fte');
-            const employeeModalEl = document.getElementById('employee-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const modalName = document.getElementById('modal-name');
+            const modalRole = document.getElementById('modal-role');
+            const modalLocation = document.getElementById('modal-location');
+            const modalProject = document.getElementById('modal-project');
+            const modalFte = document.getElementById('modal-fte');
+            const modal = document.getElementById('employee-modal');
 
-            if (editIndexEl) editIndexEl.value = index;
-            if (index > -1) {
-                if (modalTitleEl) modalTitleEl.textContent = 'Edit Employee';
-                const item = employeeData[index];
-                if (modalNameEl) modalNameEl.value = item.Name;
-                if (modalRoleEl) modalRoleEl.value = item.Role;
-                if (modalLocationEl) modalLocationEl.value = item.Location;
-                if (modalProjectEl) modalProjectEl.value = item.Project;
-                if (modalFteEl) modalFteEl.value = (item.FTE * 100) + '%';
+            if (!modal) return;
+
+            editIndexEl.value = index;
+            if (index > -1 && employeeData[index]) {
+                modalTitle.textContent = "Edit Employee Record";
+                modalName.value = employeeData[index].Name;
+                modalRole.value = employeeData[index].Role;
+                modalLocation.value = employeeData[index].Location;
+                modalProject.value = employeeData[index].Project;
+                modalFte.value = employeeData[index].FTE;
             } else {
-                if (modalTitleEl) modalTitleEl.textContent = 'Add New Employee';
-                if (modalNameEl) modalNameEl.value = '';
-                if (modalRoleEl) modalRoleEl.value = '';
-                if (modalLocationEl) modalLocationEl.value = '';
-                if (modalProjectEl) modalProjectEl.value = '';
-                if (modalFteEl) modalFteEl.value = '100%';
+                modalTitle.textContent = "Add New Employee";
+                modalName.value = '';
+                modalRole.value = '';
+                modalLocation.value = 'Israel';
+                modalProject.value = '';
+                modalFte.value = '1.0';
             }
-            if (employeeModalEl) employeeModalEl.classList.remove('hidden');
+            modal.classList.remove('hidden');
         }
 
-        function closeModal() { 
-            const employeeModalEl = document.getElementById('employee-modal');
-            if (employeeModalEl) employeeModalEl.classList.add('hidden'); 
+        function closeModal() {
+            const modal = document.getElementById('employee-modal');
+            if (modal) modal.classList.add('hidden');
         }
 
         function saveEmployee() {
-            const editIndexEl = document.getElementById('edit-index');
-            const modalNameEl = document.getElementById('modal-name');
-            const modalRoleEl = document.getElementById('modal-role');
-            const modalLocationEl = document.getElementById('modal-location');
-            const modalProjectEl = document.getElementById('modal-project');
-            const modalFteEl = document.getElementById('modal-fte');
+            const index = parseInt(document.getElementById('edit-index').value, 10);
+            const name = document.getElementById('modal-name').value.trim();
+            const role = document.getElementById('modal-role').value.trim() || 'General';
+            const location = document.getElementById('modal-location').value.trim() || 'Israel';
+            const project = document.getElementById('modal-project').value.trim() || 'General';
+            let fte = parseFloat(document.getElementById('modal-fte').value);
 
-            if (!editIndexEl || !modalNameEl) return;
-
-            const index = parseInt(editIndexEl.value);
-            const name = modalNameEl.value.trim();
-            const role = modalRoleEl ? modalRoleEl.value.trim() || 'General' : 'General';
-            const location = modalLocationEl ? modalLocationEl.value.trim() || 'Israel' : 'Israel';
-            const project = modalProjectEl ? modalProjectEl.value.trim() || 'General' : 'General';
-            const fteRaw = modalFteEl ? modalFteEl.value.trim() : '100%';
-
-            if (!name) { alert('Please enter name.'); return; }
-            let fte = 1.0;
-            if (fteRaw.includes('%')) fte = parseFloat(fteRaw.replace('%', '')) / 100;
-            else { fte = parseFloat(fteRaw); if (!isNaN(fte) && fte > 1) fte = fte / 100; }
+            if (!name) { alert("Please enter employee name."); return; }
             if (isNaN(fte)) fte = 1.0;
+
             const record = { Name: name, Role: role, Location: location, Project: project, FTE: fte };
-            if (index > -1) employeeData[index] = record;
-            else employeeData.push(record);
+
+            if (index > -1 && employeeData[index]) {
+                employeeData[index] = record;
+            } else {
+                employeeData.push(record);
+            }
+
             localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
+            closeModal();
             initDropdowns();
             updateDashboard();
-            closeModal();
         }
 
         function deleteEmployee(index) {
@@ -573,115 +568,156 @@
         }
 
         function initDropdowns() {
-            const pFilter = document.getElementById('project-filter');
-            const rFilter = document.getElementById('role-filter');
-            if (!pFilter || !rFilter) return;
-            const currentP = pFilter.value; 
-            const currentR = rFilter.value;
-            pFilter.innerHTML = '<option value="ALL">All Projects</option>';
-            rFilter.innerHTML = '<option value="ALL">All Roles</option>';
-            [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort().forEach(p => pFilter.innerHTML += `<option value="${p}">${p}</option>`);
-            [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort().forEach(r => rFilter.innerHTML += `<option value="${r}">${r}</option>`);
-            if (currentP) pFilter.value = currentP;
-            if (currentR) rFilter.value = currentR;
+            const projFilter = document.getElementById('project-filter');
+            const roleFilter = document.getElementById('role-filter');
+            if (!projFilter || !roleFilter) return;
+
+            const currentProj = projFilter.value;
+            const currentRole = roleFilter.value;
+
+            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
+            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
+
+            projFilter.innerHTML = '<option value="ALL">All Projects</option>';
+            projects.forEach(p => { projFilter.innerHTML += `<option value="${p}">${p}</option>`; });
+            if (currentProj) projFilter.value = currentProj;
+
+            roleFilter.innerHTML = '<option value="ALL">All Roles</option>';
+            roles.forEach(r => { roleFilter.innerHTML += `<option value="${r}">${r}</option>`; });
+            if (currentRole) roleFilter.value = currentRole;
         }
 
         function resetFilters() {
-            const pFilter = document.getElementById('project-filter');
-            const rFilter = document.getElementById('role-filter');
+            const projFilter = document.getElementById('project-filter');
+            const roleFilter = document.getElementById('role-filter');
             const tableSearch = document.getElementById('table-search');
-
-            if (pFilter) pFilter.value = 'ALL';
-            if (rFilter) rFilter.value = 'ALL';
+            if (projFilter) projFilter.value = 'ALL';
+            if (roleFilter) roleFilter.value = 'ALL';
             if (tableSearch) tableSearch.value = '';
             updateDashboard();
         }
 
         function updateDashboard() {
-            if (employeeData.length === 0) return;
-            const pFilter = document.getElementById('project-filter');
-            const rFilter = document.getElementById('role-filter');
+            const projFilter = document.getElementById('project-filter');
+            const roleFilter = document.getElementById('role-filter');
             const tableSearch = document.getElementById('table-search');
 
-            const pVal = pFilter ? pFilter.value : 'ALL';
-            const rVal = rFilter ? rFilter.value : 'ALL';
-            const search = tableSearch ? tableSearch.value.toLowerCase() : '';
+            const selectedProj = projFilter ? projFilter.value : 'ALL';
+            const selectedRole = roleFilter ? roleFilter.value : 'ALL';
+            const searchTerm = tableSearch ? tableSearch.value.toLowerCase() : '';
 
-            const filtered = employeeData.map((e, idx) => ({ ...e, originalIndex: idx })).filter(e => {
-                return (pVal === 'ALL' || e.Project === pVal) &&
-                       (rVal === 'ALL' || e.Role === rVal) &&
-                       (!search || e.Name.toLowerCase().includes(search) || e.Project.toLowerCase().includes(search) || e.Role.toLowerCase().includes(search));
+            const filtered = employeeData.map((item, idx) => ({ ...item, originalIndex: idx })).filter(item => {
+                const matchProj = (selectedProj === 'ALL' || item.Project === selectedProj);
+                const matchRole = (selectedRole === 'ALL' || item.Role === selectedRole);
+                const matchSearch = !searchTerm || item.Name.toLowerCase().includes(searchTerm) || item.Project.toLowerCase().includes(searchTerm) || item.Role.toLowerCase().includes(searchTerm) || item.Location.toLowerCase().includes(searchTerm);
+                return matchProj && matchRole && matchSearch;
             });
 
-            const kpiHeadcount = document.getElementById('kpi-headcount');
-            const kpiProjects = document.getElementById('kpi-projects');
-            const kpiFte = document.getElementById('kpi-fte');
+            // Update KPIs
+            const totalHeadcount = employeeData.length;
+            const activeProjects = new Set(employeeData.map(e => e.Project)).size;
+            const totalFte = employeeData.reduce((acc, curr) => acc + (Number(curr.FTE) || 0), 0);
 
-            if (kpiHeadcount) kpiHeadcount.textContent = [...new Set(filtered.map(e => e.Name))].length;
-            if (kpiProjects) kpiProjects.textContent = [...new Set(filtered.map(e => e.Project))].length;
-            if (kpiFte) kpiFte.textContent = filtered.reduce((s, e) => s + e.FTE, 0).toFixed(1);
+            document.getElementById('kpi-headcount').textContent = totalHeadcount;
+            document.getElementById('kpi-projects').textContent = activeProjects;
+            document.getElementById('kpi-fte').textContent = totalFte.toFixed(1);
 
-            const sumContainer = document.getElementById('project-fte-summary');
-            if (sumContainer) {
-                sumContainer.innerHTML = '';
-                const pMap = {};
-                filtered.forEach(e => pMap[e.Project] = (pMap[e.Project] || 0) + e.FTE);
-                Object.entries(pMap).sort((a, b) => b[1] - a[1]).forEach(([p, f]) => {
-                    sumContainer.innerHTML += `<div class="flex justify-between items-center bg-slate-900/60 border border-slate-800 px-3.5 py-2 rounded-xl text-xs"><span class="text-slate-300 truncate max-w-[150px]">${p}</span><span class="text-cyan-400 font-bold">${f.toFixed(1)} FTE</span></div>`;
-                });
-            }
-
+            // Populate Table
             const tbody = document.getElementById('employee-table-body');
-            if (tbody) {
-                tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
-                filtered.forEach(e => {
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+            } else {
+                tbody.innerHTML = '';
+                filtered.forEach(item => {
                     tbody.innerHTML += `
                         <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
-                            <td class="px-5 py-3 font-semibold text-slate-200">${e.Name}</td>
-                            <td class="px-5 py-3"><span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${e.Role}</span></td>
-                            <td class="px-5 py-3 text-slate-400">${e.Location}</td>
-                            <td class="px-5 py-3 text-slate-300 font-medium">${e.Project}</td>
-                            <td class="px-5 py-3 text-center font-bold text-emerald-400">${(e.FTE * 100).toFixed(0)}%</td>
-                            <td class="px-5 py-3 text-center">
-                                <button onclick="openModal(${e.originalIndex})" class="text-cyan-400 hover:text-cyan-300 mr-3 px-2 py-1 cursor-pointer"><i class="fa-solid fa-pen-to-square"></i></button>
-                                <button onclick="deleteEmployee(${e.originalIndex})" class="text-rose-400 hover:text-rose-300 px-2 py-1 cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                            <td class="px-5 py-3.5 font-semibold text-slate-200">${item.Name}</td>
+                            <td class="px-5 py-3.5 text-slate-400">${item.Role}</td>
+                            <td class="px-5 py-3.5 text-slate-400">${item.Location}</td>
+                            <td class="px-5 py-3.5 text-cyan-400 font-medium">${item.Project}</td>
+                            <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${item.FTE}</td>
+                            <td class="px-5 py-3.5 text-center flex justify-center gap-2">
+                                <button onclick="openModal(${item.originalIndex})" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer" title="Edit"><i class="fa-solid fa-pen text-xs"></i></button>
+                                <button onclick="deleteEmployee(${item.originalIndex})" class="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button>
                             </td>
                         </tr>`;
                 });
             }
-            renderCharts(filtered);
+
+            // Project FTE Summary Sidebar
+            const projectFteSummary = document.getElementById('project-fte-summary');
+            const projectFteMap = {};
+            employeeData.forEach(e => {
+                projectFteMap[e.Project] = (projectFteMap[e.Project] || 0) + (Number(e.FTE) || 0);
+            });
+            projectFteSummary.innerHTML = '';
+            Object.entries(projectFteMap).sort((a,b) => b[1] - a[1]).forEach(([proj, fte]) => {
+                projectFteSummary.innerHTML += `
+                    <div class="flex justify-between items-center bg-slate-900/60 border border-slate-800 px-3.5 py-2.5 rounded-xl text-xs">
+                        <span class="font-medium text-slate-300 truncate max-w-[140px]">${proj}</span>
+                        <span class="font-bold text-cyan-400">${fte.toFixed(1)} FTE</span>
+                    </div>`;
+            });
+
+            renderCharts(projectFteMap);
         }
 
-        function renderCharts(data) {
+        function renderCharts(projectFteMap) {
+            const ctxProj = document.getElementById('projectChart').getContext('2d');
+            const ctxRole = document.getElementById('roleChart').getContext('2d');
+
+            const projLabels = Object.keys(projectFteMap);
+            const projValues = Object.values(projectFteMap);
+
             if (projectChartInstance) projectChartInstance.destroy();
-            if (roleChartInstance) roleChartInstance.destroy();
-            let pMap = {}, rMap = {};
-            data.forEach(e => {
-                pMap[e.Project] = pMap[e.Project] || {};
-                pMap[e.Project][e.Role] = (pMap[e.Project][e.Role] || 0) + e.FTE;
-                rMap[e.Role] = (rMap[e.Role] || 0) + e.FTE;
+            projectChartInstance = new Chart(ctxProj, {
+                type: 'bar',
+                data: {
+                    labels: projLabels,
+                    datasets: [{
+                        label: 'FTE Burden',
+                        data: projValues,
+                        backgroundColor: 'rgba(6, 182, 212, 0.6)',
+                        borderColor: 'rgba(6, 182, 212, 1)',
+                        borderWidth: 1,
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
+                    }
+                }
             });
-            const projects = Object.keys(pMap);
-            const roles = [...new Set(data.map(e => e.Role))];
-            const colors = ['#38bdf8', '#818cf8', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#2dd4bf', '#fb7185'];
 
-            const projCanvas = document.getElementById('projectChart');
-            if (projCanvas) {
-                projectChartInstance = new Chart(projCanvas, {
-                    type: 'bar',
-                    data: { labels: projects, datasets: roles.map((r, i) => ({ label: r, data: projects.map(p => pMap[p][r] || 0), backgroundColor: colors[i % colors.length], borderRadius: 6 })) },
-                    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }, scales: { x: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } }, y: { stacked: true, grid: { display: false }, ticks: { color: '#cbd5e1' } } } }
-                });
-            }
+            const roleMap = {};
+            employeeData.forEach(e => {
+                roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
+            });
 
-            const roleCanvas = document.getElementById('roleChart');
-            if (roleCanvas) {
-                roleChartInstance = new Chart(roleCanvas, {
-                    type: 'doughnut',
-                    data: { labels: Object.keys(rMap), datasets: [{ data: Object.values(rMap), backgroundColor: colors, borderWidth: 2, borderColor: '#0f172a' }] },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } } }
-                });
-            }
+            if (roleChartInstance) roleChartInstance.destroy();
+            roleChartInstance = new Chart(ctxRole, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(roleMap),
+                    datasets: [{
+                        data: Object.values(roleMap),
+                        backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } }
+                    }
+                }
+            });
         }
     </script>
 </body>
