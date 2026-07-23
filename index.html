@@ -155,7 +155,6 @@
                         <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your annual JSON file.</p>
                     </div>
                     
-                    <!-- Clean Single Date Inputs Bar with distinct styling & auto-open on click -->
                     <div class="flex flex-wrap items-center gap-2.5">
                         <div class="flex items-center gap-1.5 bg-slate-800 border border-cyan-500/40 rounded-xl px-3 py-1.5 text-xs shadow-md">
                             <span class="text-cyan-300 text-[10px] uppercase font-bold">From:</span>
@@ -230,10 +229,17 @@
         let roleChartInstance = null;
 
         window.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('btn-apply-gitlab').addEventListener('click', filterGitLabTable);
-            document.getElementById('btn-reset-gitlab').addEventListener('click', resetGitLabFilters);
-            document.getElementById('gitlab-author-filter').addEventListener('change', filterGitLabTable);
-            document.getElementById('gitlab-search').addEventListener('input', filterGitLabTable);
+            const btnApplyGit = document.getElementById('btn-apply-gitlab');
+            if (btnApplyGit) btnApplyGit.addEventListener('click', filterGitLabTable);
+
+            const btnResetGit = document.getElementById('btn-reset-gitlab');
+            if (btnResetGit) btnResetGit.addEventListener('click', resetGitLabFilters);
+
+            const authorFilterEl = document.getElementById('gitlab-author-filter');
+            if (authorFilterEl) authorFilterEl.addEventListener('change', filterGitLabTable);
+
+            const gitlabSearchEl = document.getElementById('gitlab-search');
+            if (gitlabSearchEl) gitlabSearchEl.addEventListener('input', filterGitLabTable);
 
             ['gitlab-start-date', 'gitlab-end-date'].forEach(id => {
                 const el = document.getElementById(id);
@@ -264,6 +270,8 @@
             const viewGit = document.getElementById('view-gitlab');
             const btnAlloc = document.getElementById('tab-btn-allocation');
             const btnGit = document.getElementById('tab-btn-gitlab');
+
+            if (!viewAlloc || !viewGit || !btnAlloc || !btnGit) return;
 
             if (tab === 'allocation') {
                 viewAlloc.classList.remove('hidden');
@@ -337,8 +345,8 @@
 
             if (!data || data.length === 0) {
                 normalizedGitLabData = [];
-                status.textContent = 'No records loaded';
-                kpiGit.textContent = '0 MRs';
+                if (status) status.textContent = 'No records loaded';
+                if (kpiGit) kpiGit.textContent = '0 MRs';
                 displayFilteredGitLab();
                 return;
             }
@@ -349,16 +357,18 @@
                 mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0
             }));
 
-            const currentAuthor = authorFilter.value;
-            authorFilter.innerHTML = '<option value="ALL">All Developers</option>';
-            [...new Set(normalizedGitLabData.map(item => item.author))].filter(Boolean).sort().forEach(author => {
-                authorFilter.innerHTML += `<option value="${author}">${author}</option>`;
-            });
-            if (currentAuthor) authorFilter.value = currentAuthor;
+            if (authorFilter) {
+                const currentAuthor = authorFilter.value;
+                authorFilter.innerHTML = '<option value="ALL">All Developers</option>';
+                [...new Set(normalizedGitLabData.map(item => item.author))].filter(Boolean).sort().forEach(author => {
+                    authorFilter.innerHTML += `<option value="${author}">${author}</option>`;
+                });
+                if (currentAuthor) authorFilter.value = currentAuthor;
+            }
 
             let totalMRs = normalizedGitLabData.reduce((sum, item) => sum + (Number(item.mrs_count) || 0), 0);
-            kpiGit.textContent = `${totalMRs} MRs`;
-            status.textContent = `Loaded ${normalizedGitLabData.length} activity records successfully.`;
+            if (kpiGit) kpiGit.textContent = `${totalMRs} MRs`;
+            if (status) status.textContent = `Loaded ${normalizedGitLabData.length} activity records successfully.`;
 
             displayFilteredGitLab();
         }
@@ -424,10 +434,17 @@
 
         function displayFilteredGitLab() {
             const tbody = document.getElementById('gitlab-table-body');
-            const search = (document.getElementById('gitlab-search').value || '').toLowerCase();
-            const selectedAuthor = document.getElementById('gitlab-author-filter').value;
-            const startDateVal = document.getElementById('gitlab-start-date').value;
-            const endDateVal = document.getElementById('gitlab-end-date').value;
+            if (!tbody) return;
+
+            const searchEl = document.getElementById('gitlab-search');
+            const authorFilterEl = document.getElementById('gitlab-author-filter');
+            const startDateEl = document.getElementById('gitlab-start-date');
+            const endDateEl = document.getElementById('gitlab-end-date');
+
+            const search = searchEl ? (searchEl.value || '').toLowerCase() : '';
+            const selectedAuthor = authorFilterEl ? authorFilterEl.value : 'ALL';
+            const startDateVal = startDateEl ? startDateEl.value : '';
+            const endDateVal = endDateEl ? endDateEl.value : '';
             
             const filterStart = startDateVal ? new Date(startDateVal) : null;
             const filterEnd = endDateVal ? new Date(endDateVal) : null;
@@ -468,43 +485,70 @@
         }
 
         function resetGitLabFilters() {
-            document.getElementById('gitlab-author-filter').value = 'ALL';
-            document.getElementById('gitlab-search').value = '';
-            document.getElementById('gitlab-start-date').value = '';
-            document.getElementById('gitlab-end-date').value = '';
+            const authorFilterEl = document.getElementById('gitlab-author-filter');
+            const searchEl = document.getElementById('gitlab-search');
+            const startDateEl = document.getElementById('gitlab-start-date');
+            const endDateEl = document.getElementById('gitlab-end-date');
+
+            if (authorFilterEl) authorFilterEl.value = 'ALL';
+            if (searchEl) searchEl.value = '';
+            if (startDateEl) startDateEl.value = '';
+            if (endDateEl) endDateEl.value = '';
             displayFilteredGitLab();
         }
 
         function openModal(index = -1) {
-            document.getElementById('edit-index').value = index;
+            const editIndexEl = document.getElementById('edit-index');
+            const modalTitleEl = document.getElementById('modal-title');
+            const modalNameEl = document.getElementById('modal-name');
+            const modalRoleEl = document.getElementById('modal-role');
+            const modalLocationEl = document.getElementById('modal-location');
+            const modalProjectEl = document.getElementById('modal-project');
+            const modalFteEl = document.getElementById('modal-fte');
+            const employeeModalEl = document.getElementById('employee-modal');
+
+            if (editIndexEl) editIndexEl.value = index;
             if (index > -1) {
-                document.getElementById('modal-title').textContent = 'Edit Employee';
+                if (modalTitleEl) modalTitleEl.textContent = 'Edit Employee';
                 const item = employeeData[index];
-                document.getElementById('modal-name').value = item.Name;
-                document.getElementById('modal-role').value = item.Role;
-                document.getElementById('modal-location').value = item.Location;
-                document.getElementById('modal-project').value = item.Project;
-                document.getElementById('modal-fte').value = (item.FTE * 100) + '%';
+                if (modalNameEl) modalNameEl.value = item.Name;
+                if (modalRoleEl) modalRoleEl.value = item.Role;
+                if (modalLocationEl) modalLocationEl.value = item.Location;
+                if (modalProjectEl) modalProjectEl.value = item.Project;
+                if (modalFteEl) modalFteEl.value = (item.FTE * 100) + '%';
             } else {
-                document.getElementById('modal-title').textContent = 'Add New Employee';
-                document.getElementById('modal-name').value = '';
-                document.getElementById('modal-role').value = '';
-                document.getElementById('modal-location').value = '';
-                document.getElementById('modal-project').value = '';
-                document.getElementById('modal-fte').value = '100%';
+                if (modalTitleEl) modalTitleEl.textContent = 'Add New Employee';
+                if (modalNameEl) modalNameEl.value = '';
+                if (modalRoleEl) modalRoleEl.value = '';
+                if (modalLocationEl) modalLocationEl.value = '';
+                if (modalProjectEl) modalProjectEl.value = '';
+                if (modalFteEl) modalFteEl.value = '100%';
             }
-            document.getElementById('employee-modal').classList.remove('hidden');
+            if (employeeModalEl) employeeModalEl.classList.remove('hidden');
         }
 
-        function closeModal() { document.getElementById('employee-modal').classList.add('hidden'); }
+        function closeModal() { 
+            const employeeModalEl = document.getElementById('employee-modal');
+            if (employeeModalEl) employeeModalEl.classList.add('hidden'); 
+        }
 
         function saveEmployee() {
-            const index = parseInt(document.getElementById('edit-index').value);
-            const name = document.getElementById('modal-name').value.trim();
-            const role = document.getElementById('modal-role').value.trim() || 'General';
-            const location = document.getElementById('modal-location').value.trim() || 'Israel';
-            const project = document.getElementById('modal-project').value.trim() || 'General';
-            const fteRaw = document.getElementById('modal-fte').value.trim();
+            const editIndexEl = document.getElementById('edit-index');
+            const modalNameEl = document.getElementById('modal-name');
+            const modalRoleEl = document.getElementById('modal-role');
+            const modalLocationEl = document.getElementById('modal-location');
+            const modalProjectEl = document.getElementById('modal-project');
+            const modalFteEl = document.getElementById('modal-fte');
+
+            if (!editIndexEl || !modalNameEl) return;
+
+            const index = parseInt(editIndexEl.value);
+            const name = modalNameEl.value.trim();
+            const role = modalRoleEl ? modalRoleEl.value.trim() || 'General' : 'General';
+            const location = modalLocationEl ? modalLocationEl.value.trim() || 'Israel' : 'Israel';
+            const project = modalProjectEl ? modalProjectEl.value.trim() || 'General' : 'General';
+            const fteRaw = modalFteEl ? modalFteEl.value.trim() : '100%';
+
             if (!name) { alert('Please enter name.'); return; }
             let fte = 1.0;
             if (fteRaw.includes('%')) fte = parseFloat(fteRaw.replace('%', '')) / 100;
@@ -532,7 +576,8 @@
             const pFilter = document.getElementById('project-filter');
             const rFilter = document.getElementById('role-filter');
             if (!pFilter || !rFilter) return;
-            const currentP = pFilter.value; const currentR = rFilter.value;
+            const currentP = pFilter.value; 
+            const currentR = rFilter.value;
             pFilter.innerHTML = '<option value="ALL">All Projects</option>';
             rFilter.innerHTML = '<option value="ALL">All Roles</option>';
             [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort().forEach(p => pFilter.innerHTML += `<option value="${p}">${p}</option>`);
@@ -542,17 +587,25 @@
         }
 
         function resetFilters() {
-            document.getElementById('project-filter').value = 'ALL';
-            document.getElementById('role-filter').value = 'ALL';
-            document.getElementById('table-search').value = '';
+            const pFilter = document.getElementById('project-filter');
+            const rFilter = document.getElementById('role-filter');
+            const tableSearch = document.getElementById('table-search');
+
+            if (pFilter) pFilter.value = 'ALL';
+            if (rFilter) rFilter.value = 'ALL';
+            if (tableSearch) tableSearch.value = '';
             updateDashboard();
         }
 
         function updateDashboard() {
             if (employeeData.length === 0) return;
-            const pVal = document.getElementById('project-filter').value;
-            const rVal = document.getElementById('role-filter').value;
-            const search = document.getElementById('table-search').value.toLowerCase();
+            const pFilter = document.getElementById('project-filter');
+            const rFilter = document.getElementById('role-filter');
+            const tableSearch = document.getElementById('table-search');
+
+            const pVal = pFilter ? pFilter.value : 'ALL';
+            const rVal = rFilter ? rFilter.value : 'ALL';
+            const search = tableSearch ? tableSearch.value.toLowerCase() : '';
 
             const filtered = employeeData.map((e, idx) => ({ ...e, originalIndex: idx })).filter(e => {
                 return (pVal === 'ALL' || e.Project === pVal) &&
@@ -560,34 +613,42 @@
                        (!search || e.Name.toLowerCase().includes(search) || e.Project.toLowerCase().includes(search) || e.Role.toLowerCase().includes(search));
             });
 
-            document.getElementById('kpi-headcount').textContent = [...new Set(filtered.map(e => e.Name))].length;
-            document.getElementById('kpi-projects').textContent = [...new Set(filtered.map(e => e.Project))].length;
-            document.getElementById('kpi-fte').textContent = filtered.reduce((s, e) => s + e.FTE, 0).toFixed(1);
+            const kpiHeadcount = document.getElementById('kpi-headcount');
+            const kpiProjects = document.getElementById('kpi-projects');
+            const kpiFte = document.getElementById('kpi-fte');
+
+            if (kpiHeadcount) kpiHeadcount.textContent = [...new Set(filtered.map(e => e.Name))].length;
+            if (kpiProjects) kpiProjects.textContent = [...new Set(filtered.map(e => e.Project))].length;
+            if (kpiFte) kpiFte.textContent = filtered.reduce((s, e) => s + e.FTE, 0).toFixed(1);
 
             const sumContainer = document.getElementById('project-fte-summary');
-            sumContainer.innerHTML = '';
-            const pMap = {};
-            filtered.forEach(e => pMap[e.Project] = (pMap[e.Project] || 0) + e.FTE);
-            Object.entries(pMap).sort((a, b) => b[1] - a[1]).forEach(([p, f]) => {
-                sumContainer.innerHTML += `<div class="flex justify-between items-center bg-slate-900/60 border border-slate-800 px-3.5 py-2 rounded-xl text-xs"><span class="text-slate-300 truncate max-w-[150px]">${p}</span><span class="text-cyan-400 font-bold">${f.toFixed(1)} FTE</span></div>`;
-            });
+            if (sumContainer) {
+                sumContainer.innerHTML = '';
+                const pMap = {};
+                filtered.forEach(e => pMap[e.Project] = (pMap[e.Project] || 0) + e.FTE);
+                Object.entries(pMap).sort((a, b) => b[1] - a[1]).forEach(([p, f]) => {
+                    sumContainer.innerHTML += `<div class="flex justify-between items-center bg-slate-900/60 border border-slate-800 px-3.5 py-2 rounded-xl text-xs"><span class="text-slate-300 truncate max-w-[150px]">${p}</span><span class="text-cyan-400 font-bold">${f.toFixed(1)} FTE</span></div>`;
+                });
+            }
 
             const tbody = document.getElementById('employee-table-body');
-            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
-            filtered.forEach(e => {
-                tbody.innerHTML += `
-                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
-                        <td class="px-5 py-3 font-semibold text-slate-200">${e.Name}</td>
-                        <td class="px-5 py-3"><span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${e.Role}</span></td>
-                        <td class="px-5 py-3 text-slate-400">${e.Location}</td>
-                        <td class="px-5 py-3 text-slate-300 font-medium">${e.Project}</td>
-                        <td class="px-5 py-3 text-center font-bold text-emerald-400">${(e.FTE * 100).toFixed(0)}%</td>
-                        <td class="px-5 py-3 text-center">
-                            <button onclick="openModal(${e.originalIndex})" class="text-cyan-400 hover:text-cyan-300 mr-3 px-2 py-1 cursor-pointer"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="deleteEmployee(${e.originalIndex})" class="text-rose-400 hover:text-rose-300 px-2 py-1 cursor-pointer"><i class="fa-solid fa-trash"></i></button>
-                        </td>
-                    </tr>`;
-            });
+            if (tbody) {
+                tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+                filtered.forEach(e => {
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
+                            <td class="px-5 py-3 font-semibold text-slate-200">${e.Name}</td>
+                            <td class="px-5 py-3"><span class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${e.Role}</span></td>
+                            <td class="px-5 py-3 text-slate-400">${e.Location}</td>
+                            <td class="px-5 py-3 text-slate-300 font-medium">${e.Project}</td>
+                            <td class="px-5 py-3 text-center font-bold text-emerald-400">${(e.FTE * 100).toFixed(0)}%</td>
+                            <td class="px-5 py-3 text-center">
+                                <button onclick="openModal(${e.originalIndex})" class="text-cyan-400 hover:text-cyan-300 mr-3 px-2 py-1 cursor-pointer"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="deleteEmployee(${e.originalIndex})" class="text-rose-400 hover:text-rose-300 px-2 py-1 cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>`;
+                });
+            }
             renderCharts(filtered);
         }
 
@@ -604,17 +665,23 @@
             const roles = [...new Set(data.map(e => e.Role))];
             const colors = ['#38bdf8', '#818cf8', '#34d399', '#fbbf24', '#f472b6', '#a78bfa', '#2dd4bf', '#fb7185'];
 
-            projectChartInstance = new Chart(document.getElementById('projectChart'), {
-                type: 'bar',
-                data: { labels: projects, datasets: roles.map((r, i) => ({ label: r, data: projects.map(p => pMap[p][r] || 0), backgroundColor: colors[i % colors.length], borderRadius: 6 })) },
-                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }, scales: { x: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } }, y: { stacked: true, grid: { display: false }, ticks: { color: '#cbd5e1' } } } }
-            });
+            const projCanvas = document.getElementById('projectChart');
+            if (projCanvas) {
+                projectChartInstance = new Chart(projCanvas, {
+                    type: 'bar',
+                    data: { labels: projects, datasets: roles.map((r, i) => ({ label: r, data: projects.map(p => pMap[p][r] || 0), backgroundColor: colors[i % colors.length], borderRadius: 6 })) },
+                    options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } }, scales: { x: { stacked: true, grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } }, y: { stacked: true, grid: { display: false }, ticks: { color: '#cbd5e1' } } } }
+                });
+            }
 
-            roleChartInstance = new Chart(document.getElementById('roleChart'), {
-                type: 'doughnut',
-                data: { labels: Object.keys(rMap), datasets: [{ data: Object.values(rMap), backgroundColor: colors, borderWidth: 2, borderColor: '#0f172a' }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } } }
-            });
+            const roleCanvas = document.getElementById('roleChart');
+            if (roleCanvas) {
+                roleChartInstance = new Chart(roleCanvas, {
+                    type: 'doughnut',
+                    data: { labels: Object.keys(rMap), datasets: [{ data: Object.values(rMap), backgroundColor: colors, borderWidth: 2, borderColor: '#0f172a' }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 } } } } }
+                });
+            }
         }
     </script>
 </body>
