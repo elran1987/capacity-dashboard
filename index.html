@@ -86,28 +86,7 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div class="lg:col-span-3 flex flex-col gap-6">
-                    <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
-                        <div class="flex items-center gap-2.5 border-b border-slate-800 pb-3.5">
-                            <i class="fa-solid fa-filter text-cyan-400"></i><h2 class="font-bold text-xs uppercase tracking-wider text-slate-200">Filters</h2>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] text-slate-400 font-bold uppercase mb-2">Project</label>
-                            <select id="project-filter" onchange="updateDashboard()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-                                <option value="ALL">All Projects</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-[11px] text-slate-400 font-bold uppercase mb-2">Role</label>
-                            <select id="role-filter" onchange="updateDashboard()" class="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-                                <option value="ALL">All Roles</option>
-                            </select>
-                        </div>
-                        <button onclick="resetFilters()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase tracking-wider rounded-xl border border-slate-700 transition cursor-pointer">Reset Filters</button>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-9 flex flex-col gap-6">
+                <div class="lg:col-span-12 flex flex-col gap-6">
                     <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
                         <div class="md:col-span-8 glass-panel p-6 rounded-2xl min-h-[400px] flex flex-col">
                             <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200 mb-4">Project Burden & Role Distribution</h3>
@@ -121,10 +100,10 @@
 
                     <div class="glass-panel p-6 rounded-2xl flex flex-col">
                         <div class="flex flex-wrap justify-between items-center mb-5 pb-4 border-b border-slate-800 gap-4">
-                            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200">Employee Allocations Details</h3>
-                            <input id="table-search" oninput="updateDashboard()" type="text" placeholder="Search employee, project or role..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-72 focus:outline-none focus:border-cyan-500">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200">Employee Allocations Details (Column Filtering Enabled)</h3>
+                            <button onclick="resetAllocationFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset All Filters</button>
                         </div>
-                        <div class="overflow-x-auto custom-scrollbar max-h-[400px]">
+                        <div class="overflow-x-auto custom-scrollbar max-h-[500px]">
                             <table class="w-full text-left text-xs">
                                 <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
                                     <tr>
@@ -133,6 +112,14 @@
                                         <th class="px-5 py-3.5">Location</th>
                                         <th class="px-5 py-3.5">Project</th>
                                         <th class="px-5 py-3.5 text-center">FTE</th>
+                                    </tr>
+                                    <!-- Column Filter Inputs -->
+                                    <tr class="bg-slate-950/60 border-t border-slate-800">
+                                        <th class="px-4 py-2"><input type="text" id="filter-emp-name" oninput="updateDashboard()" placeholder="Filter name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                        <th class="px-4 py-2"><input type="text" id="filter-emp-role" oninput="updateDashboard()" placeholder="Filter role..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                        <th class="px-4 py-2"><input type="text" id="filter-emp-loc" oninput="updateDashboard()" placeholder="Filter location..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                        <th class="px-4 py-2"><input type="text" id="filter-emp-proj" oninput="updateDashboard()" placeholder="Filter project..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                        <th class="px-4 py-2 text-center"><input type="text" id="filter-emp-fte" oninput="updateDashboard()" placeholder="FTE..." class="w-16 mx-auto bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] text-center focus:outline-none focus:border-cyan-500"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="employee-table-body" class="divide-y divide-slate-800/60">
@@ -153,12 +140,8 @@
                         <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-brands fa-git-alt text-orange-400 mr-2"></i>GitLab Weekly Merge Requests</h3>
                         <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your JSON file.</p>
                     </div>
-                    <div class="flex flex-wrap items-center gap-2.5">
-                        <select id="gitlab-author-filter" onchange="filterGitLabTable()" class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
-                            <option value="ALL">All Developers</option>
-                        </select>
-                        <input id="gitlab-search" oninput="filterGitLabTable()" type="text" placeholder="Search developer or week..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-48 focus:outline-none focus:border-cyan-500">
-                        <button onclick="resetGitLabFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
+                    <div>
+                        <button onclick="resetGitLabFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset Filters</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
@@ -168,6 +151,12 @@
                                 <th class="px-6 py-4">Developer</th>
                                 <th class="px-6 py-4">Week / Period</th>
                                 <th class="px-6 py-4 text-center">MRs Count</th>
+                            </tr>
+                            <!-- GitLab Column Filters -->
+                            <tr class="bg-slate-950/60 border-t border-slate-800">
+                                <th class="px-4 py-2"><input type="text" id="filter-git-author" oninput="filterGitLabTable()" placeholder="Filter developer..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-4 py-2"><input type="text" id="filter-git-week" oninput="filterGitLabTable()" placeholder="Filter week..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-4 py-2 text-center"><input type="text" id="filter-git-mrs" oninput="filterGitLabTable()" placeholder="Count..." class="w-16 mx-auto bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] text-center focus:outline-none focus:border-cyan-500"></th>
                             </tr>
                         </thead>
                         <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
@@ -186,9 +175,8 @@
                         <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-solid fa-rotate text-purple-400 mr-2"></i>Jira Transitions Activity</h3>
                         <p id="jira-status-text" class="text-[11px] text-slate-400 mt-1">No Jira CSV loaded yet.</p>
                     </div>
-                    <div class="flex items-center gap-2.5">
-                        <input id="jira-search" oninput="filterJiraTable()" type="text" placeholder="Search issue, summary, assignee..." class="bg-slate-900/90 border border-slate-700/80 rounded-xl px-4 py-2 text-xs text-slate-200 w-64 focus:outline-none focus:border-cyan-500">
-                        <button onclick="resetJiraFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset</button>
+                    <div>
+                        <button onclick="resetJiraFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset Filters</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
@@ -201,6 +189,15 @@
                                 <th class="px-6 py-4">From Status</th>
                                 <th class="px-6 py-4">To Status</th>
                                 <th class="px-6 py-4">Transition Date</th>
+                            </tr>
+                            <!-- Jira Column Filters -->
+                            <tr class="bg-slate-950/60 border-t border-slate-800">
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-key" oninput="filterJiraTable()" placeholder="Key..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-summary" oninput="filterJiraTable()" placeholder="Summary..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-assignee" oninput="filterJiraTable()" placeholder="Assignee..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-from" oninput="filterJiraTable()" placeholder="From..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-to" oninput="filterJiraTable()" placeholder="To..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-date" oninput="filterJiraTable()" placeholder="Date..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
                             </tr>
                         </thead>
                         <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
@@ -225,7 +222,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             const savedEmp = localStorage.getItem('employee_allocation_data_2026');
             if (savedEmp) {
-                try { employeeData = JSON.parse(savedEmp); if (employeeData.length > 0) { initDropdowns(); updateDashboard(); } } catch(e){}
+                try { employeeData = JSON.parse(savedEmp); if (employeeData.length > 0) { updateDashboard(); } } catch(e){}
             }
             const savedGit = localStorage.getItem('gitlab_activity_data_2026');
             if (savedGit) {
@@ -300,7 +297,6 @@
                 return { Name: String(name).trim(), Role: String(role).trim(), Location: String(location).trim(), Project: String(project).trim(), FTE: fte };
             }).filter(item => item.Name !== '');
             localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
-            initDropdowns();
             updateDashboard();
         }
 
@@ -374,32 +370,29 @@
         }
 
         function renderJiraTable(data) {
-            const tbody = document.getElementById('jira-table-body');
             const status = document.getElementById('jira-status-text');
-            if (!tbody) return;
-
-            if (!data || data.length === 0) {
-                if (status) status.textContent = 'No records loaded';
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No Jira records found.</td></tr>`;
-                return;
-            }
-
             if (status) status.textContent = `Loaded ${data.length} Jira transition records successfully.`;
-            displayFilteredJira(data);
+            displayFilteredJira();
         }
 
-        function displayFilteredJira(data) {
+        function displayFilteredJira() {
             const tbody = document.getElementById('jira-table-body');
-            const searchEl = document.getElementById('jira-search');
-            const searchTerm = searchEl ? searchEl.value.toLowerCase() : '';
+            if (!tbody) return;
 
-            const filtered = data.filter(item => {
-                return !searchTerm || 
-                    (item.issueKey && item.issueKey.toLowerCase().includes(searchTerm)) ||
-                    (item.summary && item.summary.toLowerCase().includes(searchTerm)) ||
-                    (item.assignee && item.assignee.toLowerCase().includes(searchTerm)) ||
-                    (item.fromStatus && item.fromStatus.toLowerCase().includes(searchTerm)) ||
-                    (item.toStatus && item.toStatus.toLowerCase().includes(searchTerm));
+            const fKey = document.getElementById('filter-jira-key')?.value.toLowerCase() || '';
+            const fSum = document.getElementById('filter-jira-summary')?.value.toLowerCase() || '';
+            const fAssignee = document.getElementById('filter-jira-assignee')?.value.toLowerCase() || '';
+            const fFrom = document.getElementById('filter-jira-from')?.value.toLowerCase() || '';
+            const fTo = document.getElementById('filter-jira-to')?.value.toLowerCase() || '';
+            const fDate = document.getElementById('filter-jira-date')?.value.toLowerCase() || '';
+
+            const filtered = jiraData.filter(item => {
+                return (!fKey || (item.issueKey && item.issueKey.toLowerCase().includes(fKey))) &&
+                       (!fSum || (item.summary && item.summary.toLowerCase().includes(fSum))) &&
+                       (!fAssignee || (item.assignee && item.assignee.toLowerCase().includes(fAssignee))) &&
+                       (!fFrom || (item.fromStatus && item.fromStatus.toLowerCase().includes(fFrom))) &&
+                       (!fTo || (item.toStatus && item.toStatus.toLowerCase().includes(fTo))) &&
+                       (!fDate || (item.transitionDate && item.transitionDate.toLowerCase().includes(fDate)));
             });
 
             tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
@@ -417,19 +410,20 @@
         }
 
         function filterJiraTable() {
-            displayFilteredJira(jiraData);
+            displayFilteredJira();
         }
 
         function resetJiraFilters() {
-            const searchEl = document.getElementById('jira-search');
-            if (searchEl) searchEl.value = '';
-            displayFilteredJira(jiraData);
+            ['filter-jira-key', 'filter-jira-summary', 'filter-jira-assignee', 'filter-jira-from', 'filter-jira-to', 'filter-jira-date'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            displayFilteredJira();
         }
 
         function renderGitLabTable(data) {
             const status = document.getElementById('gitlab-status-text');
             const kpiGit = document.getElementById('kpi-gitlab');
-            const authorFilter = document.getElementById('gitlab-author-filter');
 
             if (!data || data.length === 0) {
                 normalizedGitLabData = [];
@@ -445,15 +439,6 @@
                 mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0
             }));
 
-            if (authorFilter) {
-                const currentAuthor = authorFilter.value;
-                authorFilter.innerHTML = '<option value="ALL">All Developers</option>';
-                [...new Set(normalizedGitLabData.map(item => item.author))].filter(Boolean).sort().forEach(author => {
-                    authorFilter.innerHTML += `<option value="${author}">${author}</option>`;
-                });
-                if (currentAuthor) authorFilter.value = currentAuthor;
-            }
-
             let totalMRs = normalizedGitLabData.reduce((sum, item) => sum + (Number(item.mrs_count) || 0), 0);
             if (kpiGit) kpiGit.textContent = `${totalMRs} MRs`;
             if (status) status.textContent = `Loaded ${normalizedGitLabData.length} activity records successfully.`;
@@ -463,19 +448,16 @@
 
         function displayFilteredGitLab() {
             const tbody = document.getElementById('gitlab-table-body');
-            const searchEl = document.getElementById('gitlab-search');
-            const authorFilter = document.getElementById('gitlab-author-filter');
             if (!tbody) return;
 
-            const searchTerm = searchEl ? searchEl.value.toLowerCase() : '';
-            const selectedAuthor = authorFilter ? authorFilter.value : 'ALL';
+            const fAuthor = document.getElementById('filter-git-author')?.value.toLowerCase() || '';
+            const fWeek = document.getElementById('filter-git-week')?.value.toLowerCase() || '';
+            const fMrs = document.getElementById('filter-git-mrs')?.value.toLowerCase() || '';
 
             const filtered = normalizedGitLabData.filter(item => {
-                const matchAuthor = selectedAuthor === 'ALL' || item.author === selectedAuthor;
-                const matchSearch = !searchTerm || 
-                    item.author.toLowerCase().includes(searchTerm) || 
-                    String(item.week).toLowerCase().includes(searchTerm);
-                return matchAuthor && matchSearch;
+                return (!fAuthor || item.author.toLowerCase().includes(fAuthor)) &&
+                       (!fWeek || String(item.week).toLowerCase().includes(fWeek)) &&
+                       (!fMrs || String(item.mrs_count).toLowerCase().includes(fMrs));
             });
 
             tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No matching GitLab records found.</td></tr>`;
@@ -494,41 +476,26 @@
         }
 
         function resetGitLabFilters() {
-            const searchEl = document.getElementById('gitlab-search');
-            const authorFilter = document.getElementById('gitlab-author-filter');
-            if (searchEl) searchEl.value = '';
-            if (authorFilter) authorFilter.value = 'ALL';
+            ['filter-git-author', 'filter-git-week', 'filter-git-mrs'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
             displayFilteredGitLab();
         }
 
-        function initDropdowns() {
-            const projSelect = document.getElementById('project-filter');
-            const roleSelect = document.getElementById('role-filter');
-            if (!projSelect || !roleSelect) return;
-
-            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
-            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
-
-            projSelect.innerHTML = '<option value="ALL">All Projects</option>';
-            projects.forEach(p => projSelect.innerHTML += `<option value="${p}">${p}</option>`);
-
-            roleSelect.innerHTML = '<option value="ALL">All Roles</option>';
-            roles.forEach(r => roleSelect.innerHTML += `<option value="${r}">${r}</option>`);
-        }
-
         function updateDashboard() {
-            const projFilter = document.getElementById('project-filter')?.value || 'ALL';
-            const roleFilter = document.getElementById('role-filter')?.value || 'ALL';
-            const searchVal = document.getElementById('table-search')?.value.toLowerCase() || '';
+            const fName = document.getElementById('filter-emp-name')?.value.toLowerCase() || '';
+            const fRole = document.getElementById('filter-emp-role')?.value.toLowerCase() || '';
+            const fLoc = document.getElementById('filter-emp-loc')?.value.toLowerCase() || '';
+            const fProj = document.getElementById('filter-emp-proj')?.value.toLowerCase() || '';
+            const fFte = document.getElementById('filter-emp-fte')?.value.toLowerCase() || '';
 
             const filtered = employeeData.filter(e => {
-                const matchProj = projFilter === 'ALL' || e.Project === projFilter;
-                const matchRole = roleFilter === 'ALL' || e.Role === roleFilter;
-                const matchSearch = !searchVal || 
-                    e.Name.toLowerCase().includes(searchVal) || 
-                    e.Project.toLowerCase().includes(searchVal) || 
-                    e.Role.toLowerCase().includes(searchVal);
-                return matchProj && matchRole && matchSearch;
+                return (!fName || e.Name.toLowerCase().includes(fName)) &&
+                       (!fRole || e.Role.toLowerCase().includes(fRole)) &&
+                       (!fLoc || e.Location.toLowerCase().includes(fLoc)) &&
+                       (!fProj || e.Project.toLowerCase().includes(fProj)) &&
+                       (!fFte || String(e.FTE).toLowerCase().includes(fFte));
             });
 
             // Update KPIs
@@ -608,13 +575,11 @@
             });
         }
 
-        function resetFilters() {
-            const projEl = document.getElementById('project-filter');
-            const roleEl = document.getElementById('role-filter');
-            const searchEl = document.getElementById('table-search');
-            if (projEl) projEl.value = 'ALL';
-            if (roleEl) roleEl.value = 'ALL';
-            if (searchEl) searchEl.value = '';
+        function resetAllocationFilters() {
+            ['filter-emp-name', 'filter-emp-role', 'filter-emp-loc', 'filter-emp-proj', 'filter-emp-fte'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
             updateDashboard();
         }
 
