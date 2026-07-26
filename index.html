@@ -1,314 +1,433 @@
-function populateDropdowns() {
-            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
-            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
-            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Capacity & Management Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (xlsx) for Excel parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
 
-            const roleSelect = document.getElementById('filter-emp-role');
-            const locSelect = document.getElementById('filter-emp-loc');
-            const projSelect = document.getElementById('filter-emp-proj');
+    <!-- Top Navigation Tabs -->
+    <header class="bg-indigo-600 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Engineering Dashboard (2026)</h1>
+            <nav class="flex space-x-2 space-x-reverse">
+                <button onclick="switchTab('capacity')" id="btn-capacity" class="px-4 py-2 rounded bg-indigo-700 font-semibold transition">Capacity Planning</button>
+                <button onclick="switchTab('gitlab')" id="btn-gitlab" class="px-4 py-2 rounded hover:bg-indigo-500 transition">GitLab MR</button>
+                <button onclick="switchTab('jira')" id="btn-jira" class="px-4 py-2 rounded hover:bg-indigo-500 transition">Jira</button>
+            </nav>
+        </div>
+    </header>
 
-            const currentRole = roleSelect.value;
-            const currentLoc = locSelect.value;
-            const currentProj = projSelect.value;
+    <!-- Main Content Area -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
 
-            roleSelect.innerHTML = '<option value="">All Roles</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
-            locSelect.innerHTML = '<option value="">All Locations</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
-            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+        <!-- ==================== TAB 1: CAPACITY PLANNING ==================== -->
+        <section id="tab-capacity" class="space-y-6">
+            <!-- Controls / File Upload / Add Employee -->
+            <div class="bg-white p-4 rounded-lg shadow flex flex-wrap gap-4 items-center justify-between">
+                <div class="flex items-center space-x-4 space-x-reverse">
+                    <label class="block">
+                        <span class="sr-only">טען קובץ אקסל</span>
+                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-slate-500
+                            file:mr-4 file:py-2 file:px-4
+                            file:rounded-full file:border-0
+                            file:text-sm file:font-semibold
+                            file:bg-indigo-50 file:text-indigo-700
+                            hover:file:bg-indigo-100 cursor-pointer
+                        "/>
+                    </label>
+                </div>
+                <div class="flex items-center space-x-2 space-x-reverse">
+                    <button onclick="openAddEmployeeModal()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition font-medium">
+                        + הוסף עובד
+                    </button>
+                    <button onclick="resetFilters()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition text-sm">
+                        איפוס סינון גרף
+                    </button>
+                </div>
+            </div>
 
-            roleSelect.value = currentRole;
-            locSelect.value = currentLoc;
-            projSelect.value = currentProj;
-        }
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-lg shadow border-r-4 border-indigo-500">
+                    <h3 class="text-sm font-medium text-gray-500">סך כוח אדם (Total FTE)</h3>
+                    <p id="stat-total-fte" class="text-2xl font-bold text-gray-800">0.00</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow border-r-4 border-blue-500">
+                    <h3 class="text-sm font-medium text-gray-500">מספר עובדים</h3>
+                    <p id="stat-total-employees" class="text-2xl font-bold text-gray-800">0</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow border-r-4 border-green-500">
+                    <h3 class="text-sm font-medium text-gray-500">פרויקטים פעילים</h3>
+                    <p id="stat-active-projects" class="text-2xl font-bold text-gray-800">0</p>
+                </div>
+            </div>
 
-        function resetAllocationFilters() {
-            document.getElementById('filter-emp-name').value = '';
-            document.getElementById('filter-emp-role').value = '';
-            document.getElementById('filter-emp-loc').value = '';
-            document.getElementById('filter-emp-proj').value = '';
-            document.getElementById('filter-emp-fte').value = '';
-            currentSortColumn = '';
-            currentSortAsc = true;
-            updateDashboard();
-        }
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-3">Project Burden & Role Distribution</h3>
+                    <div class="relative h-72">
+                        <canvas id="burdenChart"></canvas>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2 text-center">* לחץ על עמודה בגרף כדי לסנן את הטבלה למטה</p>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-3">Location Breakdown</h3>
+                    <div class="relative h-72">
+                        <canvas id="locationChart"></canvas>
+                    </div>
+                </div>
+            </div>
 
-        function sortAllocationTable(column) {
-            if (currentSortColumn === column) {
-                currentSortAsc = !currentSortAsc;
-            } else {
-                currentSortColumn = column;
-                currentSortAsc = true;
-            }
-            updateDashboard();
-        }
+            <!-- Employee Allocations Details Table -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold">Employee Allocations Details (Smart Filters & Sorting)</h3>
+                    <span id="filter-status" class="text-sm text-indigo-600 font-medium"></span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-right">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">שם עובד</th>
+                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">תפקיד (Role)</th>
+                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">מיקום</th>
+                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">פרויקט ראשי</th>
+                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">FTE / אחוזים</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employee-table-body" class="bg-white divide-y divide-gray-200">
+                            <!-- Populated via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
-        function updateDashboard() {
-            populateDropdowns();
+        <!-- ==================== TAB 2: GITLAB MR (Isolated) ==================== -->
+        <section id="tab-gitlab" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4 text-indigo-700">GitLab Merge Requests Activity</h2>
+                <p class="text-gray-600">מסך זה מנוהל בצורה עצמאית לחלוטין ואינו מושפע משינויי נתונים או סינונים במסכי ה-Capacity או ה-Jira.</p>
+                <!-- GitLab specific container -->
+                <div id="gitlab-content-container" class="mt-4 p-4 bg-gray-50 rounded border">
+                    <span class="text-sm text-gray-500">טוען נתוני GitLab MR...</span>
+                </div>
+            </div>
+        </section>
 
-            // KPI Updates
-            document.getElementById('kpi-headcount').textContent = employeeData.length;
-            const uniqueProjects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean);
-            document.getElementById('kpi-projects').textContent = uniqueProjects.length;
-            const totalFTE = employeeData.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
-            document.getElementById('kpi-fte').textContent = totalFTE.toFixed(1);
-            document.getElementById('kpi-gitlab').textContent = gitlabData.length > 0 ? `${gitlabData.length} MRs` : '0 MRs';
+        <!-- ==================== TAB 3: JIRA (Isolated) ==================== -->
+        <section id="tab-jira" class="hidden space-y-6">
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-bold mb-4 text-indigo-700">Jira Status Transitions & Issues</h2>
+                <p class="text-gray-600">מסך זה מבודד לגמרי ופועל במרחב סטייט נפרד לחלוטין.</p>
+                <!-- Jira specific container -->
+                <div id="jira-content-container" class="mt-4 p-4 bg-gray-50 rounded border">
+                    <span class="text-sm text-gray-500">טוען נתוני Jira...</span>
+                </div>
+            </div>
+        </section>
 
-            // Filter Data
-            const nameFilter = document.getElementById('filter-emp-name').value.toLowerCase();
-            const roleFilter = document.getElementById('filter-emp-role').value;
-            const locFilter = document.getElementById('filter-emp-loc').value;
-            const projFilter = document.getElementById('filter-emp-proj').value;
-            const fteFilter = document.getElementById('filter-emp-fte').value.toLowerCase();
+    </main>
 
-            let filtered = employeeData.filter(emp => {
-                if (nameFilter && !emp.Name.toLowerCase().includes(nameFilter)) return false;
-                if (roleFilter && emp.Role !== roleFilter) return false;
-                if (locFilter && emp.Location !== locFilter) return false;
-                if (projFilter && emp.Project !== projFilter) return false;
-                if (fteFilter && !String(emp.FTE).includes(fteFilter)) return false;
-                return true;
+    <!-- Modal: Add Employee with Dropdowns -->
+    <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md space-y-4 shadow-xl" dir="rtl">
+            <h3 class="text-lg font-bold text-indigo-700">הוספת עובד חדש</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">שם עובד</label>
+                    <input type="text" id="new-emp-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">תפקיד (Role)</label>
+                    <select id="new-emp-role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">מיקום (Location)</label>
+                    <select id="new-emp-location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">פרויקט ראשי (Main Project)</label>
+                    <select id="new-emp-project" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                        <!-- Populated dynamically -->
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">FTE / אחוזים (לדוגמה: 1 או 0.5)</label>
+                    <input type="number" step="0.01" id="new-emp-fte" value="1.0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+            </div>
+            <div class="flex justify-end space-x-2 space-x-reverse pt-2">
+                <button onclick="closeAddEmployeeModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition">ביטול</button>
+                <button onclick="saveNewEmployee()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">שמור</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Application JavaScript Logic -->
+    <script>
+        // Global State for Capacity Planning
+        let employeeData = [];
+        let burdenChartInstance = null;
+        let locationChartInstance = null;
+        let currentFilter = null; // { type: 'project' | 'role', value: string }
+
+        // Tab Switching Logic (Ensures total isolation between GitLab, Jira, and Capacity)
+        function switchTab(tabName) {
+            ['capacity', 'gitlab', 'jira'].forEach(t => {
+                document.getElementById(`tab-${t}`).classList.add('hidden');
+                document.getElementById(`btn-${t}`).classList.remove('bg-indigo-700', 'font-semibold');
+                document.getElementById(`btn-${t}`).classList.add('hover:bg-indigo-500');
             });
-
-            // Sort Data
-            if (currentSortColumn) {
-                filtered.sort((a, b) => {
-                    let valA = a[currentSortColumn];
-                    let valB = b[currentSortColumn];
-                    if (typeof valA === 'string') valA = valA.toLowerCase();
-                    if (typeof valB === 'string') valB = valB.toLowerCase();
-                    if (valA < valB) return currentSortAsc ? -1 : 1;
-                    if (valA > valB) return currentSortAsc ? 1 : -1;
-                    return 0;
-                });
-            }
-
-            // Render Table Body
-            const tbody = document.getElementById('employee-table-body');
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching employees found.</td></tr>`;
-            } else {
-                tbody.innerHTML = filtered.map((emp, idx) => {
-                    const originalIndex = employeeData.indexOf(emp);
-                    return `
-                        <tr class="hover:bg-slate-800/40 transition">
-                            <td class="px-5 py-3.5 font-medium text-white">${emp.Name}</td>
-                            <td class="px-5 py-3.5 text-slate-300"><span class="px-2.5 py-1 bg-slate-800 rounded-lg text-[11px]">${emp.Role}</span></td>
-                            <td class="px-5 py-3.5 text-slate-300">${emp.Location}</td>
-                            <td class="px-5 py-3.5 text-cyan-400 font-semibold">${emp.Project}</td>
-                            <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${emp.FTE}</td>
-                            <td class="px-5 py-3.5 text-center flex justify-center gap-2">
-                                <button onclick="openEmployeeModal(${originalIndex})" class="p-1.5 bg-slate-800 hover:bg-cyan-600 text-slate-300 hover:text-white rounded-lg transition cursor-pointer" title="Edit"><i class="fa-solid fa-pen text-xs"></i></button>
-                                <button onclick="deleteEmployee(${originalIndex})" class="p-1.5 bg-slate-800 hover:bg-rose-600 text-slate-300 hover:text-white rounded-lg transition cursor-pointer" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button>
-                            </td>
-                        </tr>`;
-                  }).join('');
-            }
-
-            renderCharts();
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            document.getElementById(`btn-${tabName}`).classList.add('bg-indigo-700', 'font-semibold');
+            document.getElementById(`btn-${tabName}`).classList.remove('hover:bg-indigo-500');
         }
 
-        function renderCharts() {
-            // Project Burden Bar Chart
-            const projectMap = {};
-            employeeData.forEach(e => {
-                projectMap[e.Project] = (projectMap[e.Project] || 0) + (parseFloat(e.FTE) || 0);
-            });
-            const projLabels = Object.keys(projectMap);
-            const projValues = Object.values(projectMap);
-
-            const ctxProj = document.getElementById('projectChart').getContext('2d');
-            if (projectChartInstance) projectChartInstance.destroy();
-            projectChartInstance = new Chart(ctxProj, {
-                type: 'bar',
-                data: {
-                    labels: projLabels,
-                    datasets: [{
-                        label: 'Total FTE Allocated',
-                        data: projValues,
-                        backgroundColor: 'rgba(6, 182, 212, 0.7)',
-                        borderColor: 'rgba(6, 182, 212, 1)',
-                        borderWidth: 1,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
-                    }
-                }
-            });
-
-            // Role Distribution Doughnut Chart
-            const roleMap = {};
-            employeeData.forEach(e => {
-                roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
-            });
-            const roleLabels = Object.keys(roleMap);
-            const roleValues = Object.values(roleMap);
-
-            const ctxRole = document.getElementById('roleChart').getContext('2d');
-            if (roleChartInstance) roleChartInstance.destroy();
-            roleChartInstance = new Chart(ctxRole, {
-                type: 'doughnut',
-                data: {
-                    labels: roleLabels,
-                    datasets: [{
-                        data: roleValues,
-                        backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f97316', '#10b981'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } }
-                    }
-                }
-            });
-        }
-
-        // GitLab Upload & Table Renderer
-        function handleGitLabUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const json = JSON.parse(e.target.result);
-                    gitlabData = Array.isArray(json) ? json : (json.data || json.merge_requests || []);
-                    localStorage.setItem('gitlab_activity_data_2026', JSON.stringify(gitlabData));
-                    renderGitLabTable(gitlabData);
-                    switchTab('gitlab');
-                } catch (err) { alert("Invalid GitLab JSON file: " + err.message); }
-            };
-            reader.readAsText(file);
-        }
-
-        function renderGitLabTable(data) {
-            const tbody = document.getElementById('gitlab-table-body');
-            const status = document.getElementById('gitlab-status-text');
-            status.textContent = `Loaded ${data.length} records successfully.`;
-            
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No GitLab records found.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = data.map(item => `
-                <tr class="hover:bg-slate-800/40 transition">
-                    <td class="px-6 py-4 font-medium text-white">${item.author || item.Developer || item.name || 'Unknown'}</td>
-                    <td class="px-6 py-4 text-slate-300">${item.week || item.Period || item.date || '-'}</td>
-                    <td class="px-6 py-4 text-center font-bold text-orange-400">${item.mrs || item.count || item.MRs || 1}</td>
-                </tr>
-            `).join('');
-            updateDashboard();
-        }
-
-        function filterGitLabTable() {
-            const author = document.getElementById('filter-git-author').value.toLowerCase();
-            const week = document.getElementById('filter-git-week').value;
-            const mrs = document.getElementById('filter-git-mrs').value.toLowerCase();
-
-            const filtered = gitlabData.filter(item => {
-                const authStr = String(item.author || item.Developer || item.name || '').toLowerCase();
-                const weekStr = String(item.week || item.Period || item.date || '');
-                const mrsStr = String(item.mrs || item.count || item.MRs || '').toLowerCase();
-
-                if (author && !authStr.includes(author)) return false;
-                if (week && !weekStr.includes(week)) return false;
-                if (mrs && !mrsStr.includes(mrs)) return false;
-                return true;
-            });
-            renderGitLabTable(filtered);
-        }
-
-        function resetGitLabFilters() {
-            document.getElementById('filter-git-author').value = '';
-            document.getElementById('filter-git-week').value = '';
-            document.getElementById('filter-git-mrs').value = '';
-            renderGitLabTable(gitlabData);
-        }
-
-        // Jira Upload & Table Renderer
-        function handleJiraUpload(event) {
-            const file = event.target.files[0];
+        // Excel File Reader Listener
+        document.getElementById('excel-file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    jiraData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-                    localStorage.setItem('jira_transitions_data_2026', JSON.stringify(jiraData));
-                    renderJiraTable(jiraData);
-                    switchTab('jira');
-                } catch (err) { alert("Error reading Jira CSV: " + err.message); }
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const json = XLSX.utils.sheet_to_json(worksheet);
+                    
+                    processExcelData(json);
+                } catch (err) {
+                    alert('שגיאה בקריאת הקובץ: ' + err.message);
+                }
             };
             reader.readAsArrayBuffer(file);
+        });
+
+        function processExcelData(jsonRows) {
+            employeeData = [];
+            jsonRows.forEach(row => {
+                const clean = {};
+                Object.keys(row).forEach(k => {
+                    clean[k.trim().toLowerCase()] = row[k];
+                });
+
+                const name = clean['name'] || clean['employee'] || clean['שם'] || '';
+                if (!String(name).trim()) return;
+
+                const role = clean['role'] || clean['תפקיד'] || 'Developer';
+                const location = clean['location '] || clean['location'] || clean['מיקום'] || 'Israel';
+                const mainProject = clean['main project '] || clean['main project'] || clean['פרויקט'] || 'General';
+                
+                let fteRaw = clean['% main project'] !== undefined ? clean['% main project'] : (clean['fte'] !== undefined ? clean['fte'] : 1.0);
+                let fte = parseFloat(fteRaw);
+                if (isNaN(fte)) fte = 1.0;
+                if (fte > 1) fte = fte / 100;
+
+                employeeData.push({
+                    name: String(name).trim(),
+                    role: String(role).trim(),
+                    location: String(location).trim(),
+                    mainProject: String(mainProject).trim(),
+                    fte: fte
+                });
+            });
+
+            currentFilter = null;
+            updateDashboard();
         }
 
-        function renderJiraTable(data) {
-            const tbody = document.getElementById('jira-table-body');
-            const status = document.getElementById('jira-status-text');
-            status.textContent = `Loaded ${data.length} Jira transition records.`;
+        function updateDashboard() {
+            updateStats();
+            renderCharts();
+            renderTable();
+        }
 
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No Jira records found.</td></tr>`;
+        function updateStats() {
+            const totalFte = employeeData.reduce((acc, curr) => acc + curr.fte, 0);
+            const uniqueProjects = new Set(employeeData.map(e => e.mainProject)).size;
+
+            document.getElementById('stat-total-fte').innerText = totalFte.toFixed(2);
+            document.getElementById('stat-total-employees').innerText = employeeData.length;
+            document.getElementById('stat-active-projects').innerText = uniqueProjects;
+        }
+
+        function renderCharts() {
+            // Burden Chart (Projects or Roles breakdown)
+            const projectCounts = {};
+            employeeData.forEach(e => {
+                projectCounts[e.mainProject] = (projectCounts[e.mainProject] || 0) + e.fte;
+            });
+
+            const ctxBurden = document.getElementById('burdenChart').getContext('2d');
+            if (burdenChartInstance) burdenChartInstance.destroy();
+
+            burdenChartInstance = new Chart(ctxBurden, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(projectCounts),
+                    datasets: [{
+                        label: 'FTE per Project',
+                        data: Object.values(projectCounts),
+                        backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const projectName = Object.keys(projectCounts)[index];
+                            currentFilter = { type: 'project', value: projectName };
+                            renderTable();
+                        }
+                    },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // Location Chart
+            const locCounts = {};
+            employeeData.forEach(e => {
+                locCounts[e.location] = (locCounts[e.location] || 0) + 1;
+            });
+
+            const ctxLoc = document.getElementById('locationChart').getContext('2d');
+            if (locationChartInstance) locationChartInstance.destroy();
+
+            locationChartInstance = new Chart(ctxLoc, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(locCounts),
+                    datasets: [{
+                        data: Object.values(locCounts),
+                        backgroundColor: ['#4F46E5', '#3B82F6', '#10B981', '#F59E0B', '#EF4444']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('employee-table-body');
+            tbody.innerHTML = '';
+
+            let filteredData = employeeData;
+            const statusEl = document.getElementById('filter-status');
+
+            if (currentFilter) {
+                filteredData = employeeData.filter(e => {
+                    if (currentFilter.type === 'project') return e.mainProject === currentFilter.value;
+                    if (currentFilter.type === 'role') return e.role === currentFilter.value;
+                    return true;
+                });
+                statusEl.innerText = `מציג לפי ${currentFilter.type === 'project' ? 'פרויקט' : 'תפקיד'}: ${currentFilter.value}`;
+            } else {
+                statusEl.innerText = '';
+            }
+
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">אין נתונים להצגה (או טען קובץ אקסל)</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = data.map(item => `
-                <tr class="hover:bg-slate-800/40 transition">
-                    <td class="px-6 py-4 font-bold text-cyan-400">${item['Issue Key'] || item.Key || item.issue || '-'}</td>
-                    <td class="px-6 py-4 text-slate-300">${item['Summary'] || item.Summary || '-'}</td>
-                    <td class="px-6 py-4 text-slate-300">${item['Assignee'] || item.Assignee || '-'}</td>
-                    <td class="px-6 py-4 text-slate-400">${item['From Status'] || item['From'] || '-'}</td>
-                    <td class="px-6 py-4 text-emerald-400 font-medium">${item['To Status'] || item['To'] || '-'}</td>
-                    <td class="px-6 py-4 text-slate-400">${item['Transition Date'] || item['Date'] || '-'}</td>
-                </tr>
-            `).join('');
-        }
-
-        function filterJiraTable() {
-            const key = document.getElementById('filter-jira-key').value.toLowerCase();
-            const summary = document.getElementById('filter-jira-summary').value.toLowerCase();
-            const assignee = document.getElementById('filter-jira-assignee').value.toLowerCase();
-            const fromStatus = document.getElementById('filter-jira-from').value.toLowerCase();
-            const toStatus = document.getElementById('filter-jira-to').value.toLowerCase();
-            const date = document.getElementById('filter-jira-date').value;
-
-            const filtered = jiraData.filter(item => {
-                const k = String(item['Issue Key'] || item.Key || item.issue || '').toLowerCase();
-                const s = String(item['Summary'] || item.Summary || '').toLowerCase();
-                const a = String(item['Assignee'] || item.Assignee || '').toLowerCase();
-                const f = String(item['From Status'] || item['From'] || '').toLowerCase();
-                const t = String(item['To Status'] || item['To'] || '').toLowerCase();
-                const d = String(item['Transition Date'] || item['Date'] || '');
-
-                if (key && !k.includes(key)) return false;
-                if (summary && !s.includes(summary)) return false;
-                if (assignee && !a.includes(assignee)) return false;
-                if (fromStatus && !f.includes(fromStatus)) return false;
-                if (toStatus && !t.includes(toStatus)) return false;
-                if (date && !d.includes(date)) return false;
-                return true;
+            filteredData.forEach(emp => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${emp.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.role}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.location}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.mainProject}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.fte.toFixed(2)}</td>
+                `;
+                tbody.appendChild(tr);
             });
-            renderJiraTable(filtered);
         }
 
-        function resetJiraFilters() {
-            document.getElementById('filter-jira-key').value = '';
-            document.getElementById('filter-jira-summary').value = '';
-            document.getElementById('filter-jira-assignee').value = '';
-            document.getElementById('filter-jira-from').value = '';
-            document.getElementById('filter-jira-to').value = '';
-            document.getElementById('filter-jira-date').value = '';
-            renderJiraTable(jiraData);
+        function resetFilters() {
+            currentFilter = null;
+            renderTable();
+        }
+
+        // Modal Functions with Dropdowns Population
+        function openAddEmployeeModal() {
+            populateDropdowns();
+            document.getElementById('add-employee-modal').classList.remove('hidden');
+            document.getElementById('add-employee-modal').classList.add('flex');
+        }
+
+        function closeAddEmployeeModal() {
+            document.getElementById('add-employee-modal').classList.add('hidden');
+            document.getElementById('add-employee-modal').classList.remove('flex');
+        }
+
+        function populateDropdowns() {
+            const roles = [...new Set(employeeData.map(e => e.role))].sort();
+            const locations = [...new Set(employeeData.map(e => e.location))].sort();
+            const projects = [...new Set(employeeData.map(e => e.mainProject))].sort();
+
+            if (roles.length === 0) roles.push('Developer', 'QA', 'Manager');
+            if (locations.length === 0) locations.push('Israel', 'Romania');
+            if (projects.length === 0) projects.push('General');
+
+            fillSelect('new-emp-role', roles);
+            fillSelect('new-emp-location', locations);
+            fillSelect('new-emp-project', projects);
+        }
+
+        function fillSelect(elementId, items) {
+            const select = document.getElementById(elementId);
+            select.innerHTML = '';
+            items.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item;
+                opt.textContent = item;
+                select.appendChild(opt);
+            });
+        }
+
+        function saveNewEmployee() {
+            const name = document.getElementById('new-emp-name').value.trim();
+            const role = document.getElementById('new-emp-role').value;
+            const location = document.getElementById('new-emp-location').value;
+            const mainProject = document.getElementById('new-emp-project').value;
+            const fte = parseFloat(document.getElementById('new-emp-fte').value) || 1.0;
+
+            if (!name) {
+                alert('נא להזין שם עובד');
+                return;
+            }
+
+            employeeData.push({ name, role, location, mainProject, fte });
+            closeAddEmployeeModal();
+            updateDashboard();
+
+            // Clear inputs
+            document.getElementById('new-emp-name').value = '';
+            document.getElementById('new-emp-fte').value = '1.0';
         }
     </script>
 </body>
