@@ -332,8 +332,88 @@
             reader.readAsArrayBuffer(file);
         }
 
+        function handleGitLabUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    gitlabData = JSON.parse(e.target.result);
+                    document.getElementById('gitlab-status-text').textContent = `Loaded ${gitlabData.length} GitLab entries.`;
+                    
+                    const tbody = document.getElementById('gitlab-table-body');
+                    if (gitlabData.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No data found in JSON.</td></tr>`;
+                    } else {
+                        tbody.innerHTML = gitlabData.map(item => `
+                            <tr class="hover:bg-slate-800/40 transition">
+                                <td class="px-6 py-3.5 font-medium text-white">${item.Developer || item.name || '-'}</td>
+                                <td class="px-6 py-3.5 text-slate-300">${item.Period || item.week || '-'}</td>
+                                <td class="px-6 py-3.5 text-center font-bold text-orange-400">${item.MergeRequests || item.mrs || 0}</td>
+                            </tr>
+                        `).join('');
+                    }
+                    
+                    const totalMRs = gitlabData.reduce((sum, item) => sum + (parseInt(item.MergeRequests || item.mrs) || 0), 0);
+                    document.getElementById('kpi-gitlab').textContent = `${totalMRs} MRs`;
+                } catch (err) {
+                    alert("Error reading GitLab JSON: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function handleJiraUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    jiraData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    
+                    document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
+                    
+                    const tbody = document.getElementById('jira-table-body');
+                    if (jiraData.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No records found.</td></tr>`;
+                    } else {
+                        tbody.innerHTML = jiraData.map(item => `
+                            <tr class="hover:bg-slate-800/40 transition">
+                                <td class="px-6 py-3.5 font-semibold text-blue-400">${item['Issue Key'] || item.Key || '-'}</td>
+                                <td class="px-6 py-3.5 text-slate-300 truncate max-w-xs">${item.Description || item.Summary || '-'}</td>
+                                <td class="px-6 py-3.5 text-slate-200">${item.Assignee || '-'}</td>
+                                <td class="px-6 py-3.5 text-slate-400 text-xs">${item['From Status'] || '-'}</td>
+                                <td class="px-6 py-3.5 text-slate-200 text-xs">${item['To Status'] || '-'}</td>
+                                <td class="px-6 py-3.5 text-slate-400 text-xs">${item.Date || item.Created || '-'}</td>
+                            </tr>
+                        `).join('');
+                    }
+                } catch (err) {
+                    alert("Error reading Jira file: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         function saveToLocalStorage() {
             localStorage.setItem('employee_allocations_2026', JSON.stringify(employeeData));
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('employee_allocations_2026');
+            if (saved) {
+                try {
+                    employeeData = JSON.parse(saved);
+                } catch(e) {
+                    employeeData = [...defaultEmployeeData];
+                }
+            } else {
+                employeeData = [...defaultEmployeeData];
+            }
         }
 
         function resetAllData() {
@@ -342,6 +422,11 @@
             gitlabData = [];
             jiraData = [];
             document.getElementById('chart-filter-badge').classList.add('hidden');
+            document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
+            document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
+            document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+            document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+            document.getElementById('kpi-gitlab').textContent = "0 MRs";
             updateDashboard();
         }
 
@@ -469,6 +554,86 @@
             updateDashboard();
         }
 
+        function updateCharts(filteredData) {
+            // Project Chart (Total FTE per Project)
+            const projectFTE = {};
+            employeeData.forEach(emp => {
+                if (emp.Project) {
+                    projectFTE[emp.Project] = (projectFTE[emp.Project] || 0) + (parseFloat(emp.FTE) || 0);
+                }
+            });
+
+            const projLabels = Object.keys(projectFTE);
+            const projValues = Object.values(projectFTE);
+
+            const ctxProj = document.getElementById('projectChart').getContext('2d');
+            if (projectChartInstance) projectChartInstance.destroy();
+
+            projectChartInstance = new Chart(ctxProj, {
+                type: 'bar',
+                data: {
+                    labels: projLabels,
+                    datasets: [{
+                        label: 'Total FTE',
+                        data: projValues,
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const clickedProject = projLabels[index];
+                            document.getElementById('filter-emp-proj').value = clickedProject;
+                            document.getElementById('chart-filter-badge').classList.remove('hidden');
+                            updateDashboard();
+                        }
+                    }
+                }
+            });
+
+            // Role Chart (Headcount per Role)
+            const roleCount = {};
+            employeeData.forEach(emp => {
+                if (emp.Role) {
+                    roleCount[emp.Role] = (roleCount[emp.Role] || 0) + 1;
+                }
+            });
+
+            const roleLabels = Object.keys(roleCount);
+            const roleValues = Object.values(roleCount);
+
+            const ctxRole = document.getElementById('roleChart').getContext('2d');
+            if (roleChartInstance) roleChartInstance.destroy();
+
+            roleChartInstance = new Chart(ctxRole, {
+                type: 'doughnut',
+                data: {
+                    labels: roleLabels,
+                    datasets: [{
+                        data: roleValues,
+                        backgroundColor: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } }
+                    }
+                }
+            });
+        }
+
         function updateDashboard() {
             populateTableFilters();
 
@@ -524,97 +689,16 @@
                                 <i class="fa-solid fa-trash text-xs"></i>
                             </button>
                         </td>
-                    </tr>`).join('');
+                    </tr>
+                `).join('');
             }
 
-            renderCharts();
+            updateCharts(filtered);
         }
 
-        function renderCharts() {
-            const projectMap = {};
-            employeeData.forEach(e => {
-                if (e.Project) {
-                    projectMap[e.Project] = (projectMap[e.Project] || 0) + (parseFloat(e.FTE) || 0);
-                }
-            });
-            const projLabels = Object.keys(projectMap);
-            const projValues = Object.values(projectMap);
-
-            const ctxProj = document.getElementById('projectChart').getContext('2d');
-            if (projectChartInstance) projectChartInstance.destroy();
-            projectChartInstance = new Chart(ctxProj, {
-                type: 'bar',
-                data: {
-                    labels: projLabels,
-                    datasets: [{
-                        label: 'Total FTE Allocated',
-                        data: projValues,
-                        backgroundColor: 'rgba(6, 182, 212, 0.7)',
-                        borderColor: 'rgba(6, 182, 212, 1)',
-                        borderWidth: 1,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const selectedProject = projLabels[index];
-                            document.getElementById('filter-emp-proj').value = selectedProject;
-                            document.getElementById('chart-filter-badge').textContent = `Filtered by: ${selectedProject}`;
-                            document.getElementById('chart-filter-badge').classList.remove('hidden');
-                            updateDashboard();
-                            switchTab('allocations');
-                        }
-                    },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
-                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
-                    }
-                }
-            });
-
-            const roleMap = {};
-            employeeData.forEach(e => {
-                if (e.Role) {
-                    roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
-                }
-            });
-            const roleLabels = Object.keys(roleMap);
-            const roleValues = Object.values(roleMap);
-
-            const ctxRole = document.getElementById('roleChart').getContext('2d');
-            if (roleChartInstance) roleChartInstance.destroy();
-            roleChartInstance = new Chart(ctxRole, {
-                type: 'doughnut',
-                data: {
-                    labels: roleLabels,
-                    datasets: [{
-                        data: roleValues,
-                        backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f97316', '#10b981'],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } }
-                    }
-                }
-            });
-        }
-
+        // Initialize on load
         window.onload = function() {
-            const saved = localStorage.getItem('employee_allocations_2026');
-            if (saved) {
-                try { employeeData = JSON.parse(saved); } catch(e) { employeeData = [...defaultEmployeeData]; }
-            } else {
-                employeeData = [...defaultEmployeeData];
-            }
+            loadFromLocalStorage();
             updateDashboard();
         };
     </script>
