@@ -1,433 +1,745 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Engineering Capacity & Management Dashboard</title>
-    <!-- Tailwind CSS CDN -->
+    <title>Capacity Planning & GitLab Dashboard 2026</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (xlsx) for Excel parsing -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0b0f19; color: #f8fafc; }
+        .glass-panel { background: rgba(30, 41, 59, 0.75); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.3); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.3); border-radius: 4px; }
+        input[type="date"], select { color-scheme: dark; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-900 min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col pb-16 custom-scrollbar">
 
-    <!-- Top Navigation Tabs -->
-    <header class="bg-indigo-600 text-white shadow-md">
-        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-            <h1 class="text-2xl font-bold">Engineering Dashboard (2026)</h1>
-            <nav class="flex space-x-2 space-x-reverse">
-                <button onclick="switchTab('capacity')" id="btn-capacity" class="px-4 py-2 rounded bg-indigo-700 font-semibold transition">Capacity Planning</button>
-                <button onclick="switchTab('gitlab')" id="btn-gitlab" class="px-4 py-2 rounded hover:bg-indigo-500 transition">GitLab MR</button>
-                <button onclick="switchTab('jira')" id="btn-jira" class="px-4 py-2 rounded hover:bg-indigo-500 transition">Jira</button>
-            </nav>
+    <!-- Header & Navigation Tabs -->
+    <header class="w-full py-4 px-8 border-b border-slate-800 glass-panel sticky top-0 z-50 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-cyan-500 to-blue-600 p-3 rounded-2xl shadow-lg">
+                <i class="fa-solid fa-chart-pie text-xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight text-white">Capacity & GitLab Dashboard</h1>
+                <p class="text-[11px] text-slate-400 font-semibold tracking-wider uppercase mt-0.5">Resource Matrix & Weekly MR Analytics</p>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+            <button onclick="switchTab('allocation')" id="tab-btn-allocation" class="px-4 py-2 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-lg cursor-pointer">
+                <i class="fa-solid fa-users mr-2"></i>Resource Allocation
+            </button>
+            <button onclick="switchTab('gitlab')" id="tab-btn-gitlab" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer">
+                <i class="fa-brands fa-git-alt mr-2"></i>GitLab MR Activity
+            </button>
+            <button onclick="switchTab('jira')" id="tab-btn-jira" class="px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer">
+                <i class="fa-solid fa-rotate text-xs mr-2"></i>Jira Transitions
+            </button>
+        </div>
+        
+        <div class="flex items-center flex-wrap gap-3">
+            <button onclick="openEmployeeModal()" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg cursor-pointer">
+                <i class="fa-solid fa-user-plus text-sm"></i><span>Add Employee</span>
+            </button>
+            <label class="cursor-pointer bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg">
+                <i class="fa-solid fa-file-excel text-sm"></i><span>Upload Excel</span>
+                <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="hidden" onchange="handleFileUpload(event)">
+            </label>
+            <label class="cursor-pointer bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg">
+                <i class="fa-brands fa-git-alt text-sm"></i><span>Upload GitLab JSON</span>
+                <input type="file" id="gitlab-file-input" accept=".json" class="hidden" onchange="handleGitLabUpload(event)">
+            </label>
+            <label class="cursor-pointer bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white px-4 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition shadow-lg">
+                <i class="fa-solid fa-file-csv text-sm"></i><span>Upload Jira CSV</span>
+                <input type="file" id="jira-file-input" accept=".csv" class="hidden" onchange="handleJiraUpload(event)">
+            </label>
         </div>
     </header>
 
-    <!-- Main Content Area -->
-    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6 space-y-6">
-
-        <!-- ==================== TAB 1: CAPACITY PLANNING ==================== -->
-        <section id="tab-capacity" class="space-y-6">
-            <!-- Controls / File Upload / Add Employee -->
-            <div class="bg-white p-4 rounded-lg shadow flex flex-wrap gap-4 items-center justify-between">
-                <div class="flex items-center space-x-4 space-x-reverse">
-                    <label class="block">
-                        <span class="sr-only">טען קובץ אקסל</span>
-                        <input type="file" id="excel-file-input" accept=".xlsx, .xls, .csv" class="block w-full text-sm text-slate-500
-                            file:mr-4 file:py-2 file:px-4
-                            file:rounded-full file:border-0
-                            file:text-sm file:font-semibold
-                            file:bg-indigo-50 file:text-indigo-700
-                            hover:file:bg-indigo-100 cursor-pointer
-                        "/>
-                    </label>
+    <!-- Main Views Container -->
+    <main class="flex-grow max-w-[1600px] w-full mx-auto px-6 mt-6">
+        
+        <!-- TAB 1: RESOURCE ALLOCATION -->
+        <div id="view-allocation" class="space-y-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+                <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+                    <div><span class="block text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-1">Total Headcount</span><span id="kpi-headcount" class="text-3xl font-black text-white">0</span></div>
+                    <div class="bg-cyan-500/10 p-3 rounded-xl text-cyan-400 border border-cyan-500/20"><i class="fa-solid fa-users text-xl"></i></div>
                 </div>
-                <div class="flex items-center space-x-2 space-x-reverse">
-                    <button onclick="openAddEmployeeModal()" class="bg-green-600 text-white px-4 py-2 rounded shadow hover:bg-green-700 transition font-medium">
-                        + הוסף עובד
-                    </button>
-                    <button onclick="resetFilters()" class="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 transition text-sm">
-                        איפוס סינון גרף
-                    </button>
+                <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+                    <div><span class="block text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-1">Active Projects</span><span id="kpi-projects" class="text-3xl font-black text-white">0</span></div>
+                    <div class="bg-indigo-500/10 p-3 rounded-xl text-indigo-400 border border-indigo-500/20"><i class="fa-solid fa-cubes text-xl"></i></div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+                    <div><span class="block text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-1">Allocated FTE</span><span id="kpi-fte" class="text-3xl font-black text-emerald-400">0</span></div>
+                    <div class="bg-emerald-500/10 p-3 rounded-xl text-emerald-400 border border-emerald-500/20"><i class="fa-solid fa-user-check text-xl"></i></div>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl flex items-center justify-between">
+                    <div><span class="block text-[11px] text-slate-400 font-bold uppercase tracking-wider mb-1">GitLab Activity</span><span id="kpi-gitlab" class="text-3xl font-black text-amber-400">0 MRs</span></div>
+                    <div class="bg-amber-500/10 p-3 rounded-xl text-amber-400 border border-amber-500/20"><i class="fa-brands fa-git-alt text-xl"></i></div>
                 </div>
             </div>
 
-            <!-- Summary Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-white p-4 rounded-lg shadow border-r-4 border-indigo-500">
-                    <h3 class="text-sm font-medium text-gray-500">סך כוח אדם (Total FTE)</h3>
-                    <p id="stat-total-fte" class="text-2xl font-bold text-gray-800">0.00</p>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow border-r-4 border-blue-500">
-                    <h3 class="text-sm font-medium text-gray-500">מספר עובדים</h3>
-                    <p id="stat-total-employees" class="text-2xl font-bold text-gray-800">0</p>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow border-r-4 border-green-500">
-                    <h3 class="text-sm font-medium text-gray-500">פרויקטים פעילים</h3>
-                    <p id="stat-active-projects" class="text-2xl font-bold text-gray-800">0</p>
-                </div>
-            </div>
-
-            <!-- Charts Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold mb-3">Project Burden & Role Distribution</h3>
-                    <div class="relative h-72">
-                        <canvas id="burdenChart"></canvas>
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div class="lg:col-span-12 flex flex-col gap-6">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        <div class="md:col-span-8 glass-panel p-6 rounded-2xl min-h-[400px] flex flex-col">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200 mb-4">Project Burden & Role Distribution</h3>
+                            <div class="flex-grow relative h-[320px]"><canvas id="projectChart"></canvas></div>
+                        </div>
+                        <div class="md:col-span-4 glass-panel p-6 rounded-2xl min-h-[400px] flex flex-col">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200 mb-4">Organization Composition</h3>
+                            <div class="flex-grow relative h-[300px] flex items-center justify-center"><canvas id="roleChart"></canvas></div>
+                        </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-2 text-center">* לחץ על עמודה בגרף כדי לסנן את הטבלה למטה</p>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="text-lg font-semibold mb-3">Location Breakdown</h3>
-                    <div class="relative h-72">
-                        <canvas id="locationChart"></canvas>
+
+                    <div class="glass-panel p-6 rounded-2xl flex flex-col">
+                        <div class="flex flex-wrap justify-between items-center mb-5 pb-4 border-b border-slate-800 gap-4">
+                            <h3 class="font-bold text-xs uppercase tracking-wider text-slate-200">Employee Allocations Details (Smart Filters & Sorting)</h3>
+                            <button onclick="resetAllocationFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset All Filters</button>
+                        </div>
+                        <div class="overflow-x-auto custom-scrollbar max-h-[500px]">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                                    <tr>
+                                        <th onclick="sortAllocationTable('Name')" class="px-5 py-3.5 cursor-pointer hover:text-white transition">Name <i class="fa-solid fa-sort ml-1"></i></th>
+                                        <th onclick="sortAllocationTable('Role')" class="px-5 py-3.5 cursor-pointer hover:text-white transition">Role <i class="fa-solid fa-sort ml-1"></i></th>
+                                        <th onclick="sortAllocationTable('Location')" class="px-5 py-3.5 cursor-pointer hover:text-white transition">Location <i class="fa-solid fa-sort ml-1"></i></th>
+                                        <th onclick="sortAllocationTable('Project')" class="px-5 py-3.5 cursor-pointer hover:text-white transition">Project <i class="fa-solid fa-sort ml-1"></i></th>
+                                        <th onclick="sortAllocationTable('FTE')" class="px-5 py-3.5 text-center cursor-pointer hover:text-white transition">FTE <i class="fa-solid fa-sort ml-1"></i></th>
+                                        <th class="px-5 py-3.5 text-center">Actions</th>
+                                    </tr>
+                                    <!-- Smart Column Filter Inputs & Dropdowns -->
+                                    <tr class="bg-slate-950/60 border-t border-slate-800">
+                                        <th class="px-4 py-2"><input type="text" id="filter-emp-name" oninput="updateDashboard()" placeholder="Search name..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                        <th class="px-4 py-2">
+                                            <select id="filter-emp-role" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500">
+                                                <option value="">All Roles</option>
+                                            </select>
+                                        </th>
+                                        <th class="px-4 py-2">
+                                            <select id="filter-emp-loc" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500">
+                                                <option value="">All Locations</option>
+                                            </select>
+                                        </th>
+                                        <th class="px-4 py-2">
+                                            <select id="filter-emp-proj" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500">
+                                                <option value="">All Projects</option>
+                                            </select>
+                                        </th>
+                                        <th class="px-4 py-2 text-center"><input type="text" id="filter-emp-fte" oninput="updateDashboard()" placeholder="FTE..." class="w-16 mx-auto bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] text-center focus:outline-none focus:border-cyan-500"></th>
+                                        <th class="px-4 py-2 text-center text-slate-500">-</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="employee-table-body" class="divide-y divide-slate-800/60">
+                                    <tr><td colspan="6" class="text-center py-12 text-slate-500">No data loaded yet. Upload file or add employee.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Employee Allocations Details Table -->
-            <div class="bg-white rounded-lg shadow overflow-hidden">
-                <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                    <h3 class="text-lg font-semibold">Employee Allocations Details (Smart Filters & Sorting)</h3>
-                    <span id="filter-status" class="text-sm text-indigo-600 font-medium"></span>
+        <!-- TAB 2: GITLAB MR ACTIVITY -->
+        <div id="view-gitlab" class="space-y-6 hidden">
+            <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
+                <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
+                    <div>
+                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-brands fa-git-alt text-orange-400 mr-2"></i>GitLab Weekly Merge Requests</h3>
+                        <p id="gitlab-status-text" class="text-[11px] text-slate-400 mt-1">No GitLab JSON loaded yet. Upload your JSON file.</p>
+                    </div>
+                    <div>
+                        <button onclick="resetGitLabFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset Filters</button>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-right">
-                        <thead class="bg-gray-50">
+                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-800">
                             <tr>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">שם עובד</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">תפקיד (Role)</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">מיקום</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">פרויקט ראשי</th>
-                                <th class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">FTE / אחוזים</th>
+                                <th class="px-6 py-4">Developer</th>
+                                <th class="px-6 py-4">Week / Period</th>
+                                <th class="px-6 py-4 text-center">MRs Count</th>
+                            </tr>
+                            <tr class="bg-slate-950/60 border-t border-slate-800">
+                                <th class="px-4 py-2"><input type="text" id="filter-git-author" oninput="filterGitLabTable()" placeholder="Filter developer..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-4 py-2"><input type="date" id="filter-git-week" onchange="filterGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-4 py-2 text-center"><input type="text" id="filter-git-mrs" oninput="filterGitLabTable()" placeholder="Count..." class="w-16 mx-auto bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] text-center focus:outline-none focus:border-cyan-500"></th>
                             </tr>
                         </thead>
-                        <tbody id="employee-table-body" class="bg-white divide-y divide-gray-200">
-                            <!-- Populated via JavaScript -->
+                        <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Please upload your GitLab JSON file.</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- ==================== TAB 2: GITLAB MR (Isolated) ==================== -->
-        <section id="tab-gitlab" class="hidden space-y-6">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h2 class="text-xl font-bold mb-4 text-indigo-700">GitLab Merge Requests Activity</h2>
-                <p class="text-gray-600">מסך זה מנוהל בצורה עצמאית לחלוטין ואינו מושפע משינויי נתונים או סינונים במסכי ה-Capacity או ה-Jira.</p>
-                <!-- GitLab specific container -->
-                <div id="gitlab-content-container" class="mt-4 p-4 bg-gray-50 rounded border">
-                    <span class="text-sm text-gray-500">טוען נתוני GitLab MR...</span>
+        <!-- TAB 3: JIRA TRANSITIONS -->
+        <div id="view-jira" class="space-y-6 hidden">
+            <div class="glass-panel p-6 rounded-2xl flex flex-col gap-5">
+                <div class="flex flex-wrap justify-between items-center pb-4 border-b border-slate-800 gap-4">
+                    <div>
+                        <h3 class="font-bold text-sm uppercase tracking-wider text-slate-200"><i class="fa-solid fa-rotate text-purple-400 mr-2"></i>Jira Transitions Activity</h3>
+                        <p id="jira-status-text" class="text-[11px] text-slate-400 mt-1">No Jira CSV loaded yet.</p>
+                    </div>
+                    <div>
+                        <button onclick="resetJiraFilters()" type="button" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] uppercase rounded-xl border border-slate-700 transition cursor-pointer">Reset Filters</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase tracking-wider sticky top-0 z-10 border-b border-slate-800">
+                            <tr>
+                                <th class="px-6 py-4">Issue Key</th>
+                                <th class="px-6 py-4">Summary</th>
+                                <th class="px-6 py-4">Assignee</th>
+                                <th class="px-6 py-4">From Status</th>
+                                <th class="px-6 py-4">To Status</th>
+                                <th class="px-6 py-4">Transition Date</th>
+                            </tr>
+                            <tr class="bg-slate-950/60 border-t border-slate-800">
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-key" oninput="filterJiraTable()" placeholder="Key..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-summary" oninput="filterJiraTable()" placeholder="Summary..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-assignee" oninput="filterJiraTable()" placeholder="Assignee..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-from" oninput="filterJiraTable()" placeholder="From..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-to" oninput="filterJiraTable()" placeholder="To..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-3 py-2"><input type="date" id="filter-jira-date" onchange="filterJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-200 text-[11px] focus:outline-none focus:border-cyan-500"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Please upload your CSV file to populate the table.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </section>
-
-        <!-- ==================== TAB 3: JIRA (Isolated) ==================== -->
-        <section id="tab-jira" class="hidden space-y-6">
-            <div class="bg-white p-6 rounded-lg shadow">
-                <h2 class="text-xl font-bold mb-4 text-indigo-700">Jira Status Transitions & Issues</h2>
-                <p class="text-gray-600">מסך זה מבודד לגמרי ופועל במרחב סטייט נפרד לחלוטין.</p>
-                <!-- Jira specific container -->
-                <div id="jira-content-container" class="mt-4 p-4 bg-gray-50 rounded border">
-                    <span class="text-sm text-gray-500">טוען נתוני Jira...</span>
-                </div>
-            </div>
-        </section>
+        </div>
 
     </main>
 
-    <!-- Modal: Add Employee with Dropdowns -->
-    <div id="add-employee-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-6 w-full max-w-md space-y-4 shadow-xl" dir="rtl">
-            <h3 class="text-lg font-bold text-indigo-700">הוספת עובד חדש</h3>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">שם עובד</label>
-                    <input type="text" id="new-emp-name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">תפקיד (Role)</label>
-                    <select id="new-emp-role" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        <!-- Populated dynamically -->
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">מיקום (Location)</label>
-                    <select id="new-emp-location" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        <!-- Populated dynamically -->
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">פרויקט ראשי (Main Project)</label>
-                    <select id="new-emp-project" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                        <!-- Populated dynamically -->
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">FTE / אחוזים (לדוגמה: 1 או 0.5)</label>
-                    <input type="number" step="0.01" id="new-emp-fte" value="1.0" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm border p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                </div>
+    <!-- Modal for Add / Edit Employee -->
+    <div id="employee-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="glass-panel w-full max-w-md p-6 rounded-2xl border border-slate-700 shadow-2xl">
+            <div class="flex justify-between items-center pb-4 border-b border-slate-800 mb-5">
+                <h3 id="modal-title" class="font-bold text-sm uppercase tracking-wider text-white">Add New Employee Allocation</h3>
+                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div class="flex justify-end space-x-2 space-x-reverse pt-2">
-                <button onclick="closeAddEmployeeModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition">ביטול</button>
-                <button onclick="saveNewEmployee()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">שמור</button>
-            </div>
+            <form id="employee-form" onsubmit="saveEmployee(event)" class="space-y-4">
+                <input type="hidden" id="edit-index" value="-1">
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Employee Name</label>
+                    <input type="text" id="form-name" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-cyan-500" placeholder="e.g. John Doe">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Role</label>
+                    <input type="text" id="form-role" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-cyan-500" placeholder="e.g. Developer">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Location</label>
+                    <input type="text" id="form-location" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-cyan-500" placeholder="e.g. Israel">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Project</label>
+                    <input type="text" id="form-project" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-cyan-500" placeholder="e.g. Core Platform">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">FTE (0.1 - 1.0)</label>
+                    <input type="number" step="0.05" min="0.05" max="1.0" id="form-fte" required class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-xs focus:outline-none focus:border-cyan-500" value="1.0">
+                </div>
+                <div class="flex justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeEmployeeModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase rounded-xl transition cursor-pointer">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs uppercase rounded-xl shadow-lg transition cursor-pointer">Save Employee</button>
+                </div>
+            </form>
         </div>
     </div>
 
-    <!-- Application JavaScript Logic -->
+    <!-- Application Script Logic -->
     <script>
-        // Global State for Capacity Planning
         let employeeData = [];
-        let burdenChartInstance = null;
-        let locationChartInstance = null;
-        let currentFilter = null; // { type: 'project' | 'role', value: string }
+        let gitlabData = [];
+        let normalizedGitLabData = [];
+        let jiraData = [];
+        let projectChartInstance = null;
+        let roleChartInstance = null;
+        let currentSortColumn = '';
+        let currentSortAsc = true;
 
-        // Tab Switching Logic (Ensures total isolation between GitLab, Jira, and Capacity)
-        function switchTab(tabName) {
-            ['capacity', 'gitlab', 'jira'].forEach(t => {
-                document.getElementById(`tab-${t}`).classList.add('hidden');
-                document.getElementById(`btn-${t}`).classList.remove('bg-indigo-700', 'font-semibold');
-                document.getElementById(`btn-${t}`).classList.add('hover:bg-indigo-500');
-            });
-            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
-            document.getElementById(`btn-${tabName}`).classList.add('bg-indigo-700', 'font-semibold');
-            document.getElementById(`btn-${tabName}`).classList.remove('hover:bg-indigo-500');
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedEmp = localStorage.getItem('employee_allocation_data_2026');
+            if (savedEmp) {
+                try { employeeData = JSON.parse(savedEmp); if (employeeData.length > 0) { updateDashboard(); } } catch(e){}
+            }
+            const savedGit = localStorage.getItem('gitlab_activity_data_2026');
+            if (savedGit) {
+                try { gitlabData = JSON.parse(savedGit); if (gitlabData.length > 0) { renderGitLabTable(gitlabData); } } catch(e){}
+            }
+            const savedJira = localStorage.getItem('jira_transitions_data_2026');
+            if (savedJira) {
+                try { jiraData = JSON.parse(savedJira); if (jiraData.length > 0) { renderJiraTable(jiraData); } } catch(e){}
+            }
+        });
+
+        function switchTab(tab) {
+            const viewAlloc = document.getElementById('view-allocation');
+            const viewGit = document.getElementById('view-gitlab');
+            const viewJira = document.getElementById('view-jira');
+            const btnAlloc = document.getElementById('tab-btn-allocation');
+            const btnGit = document.getElementById('tab-btn-gitlab');
+            const btnJira = document.getElementById('tab-btn-jira');
+
+            if (!viewAlloc || !viewGit || !viewJira || !btnAlloc || !btnGit || !btnJira) return;
+
+            viewAlloc.classList.add('hidden');
+            viewGit.classList.add('hidden');
+            viewJira.classList.add('hidden');
+            btnAlloc.className = "px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
+            btnGit.className = "px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
+            btnJira.className = "px-4 py-2 rounded-xl text-xs font-bold transition text-slate-400 hover:text-white cursor-pointer";
+
+            if (tab === 'allocation') {
+                viewAlloc.classList.remove('hidden');
+                btnAlloc.className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-cyan-600 text-white shadow-lg cursor-pointer";
+            } else if (tab === 'gitlab') {
+                viewGit.classList.remove('hidden');
+                btnGit.className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-orange-600 text-white shadow-lg cursor-pointer";
+            } else if (tab === 'jira') {
+                viewJira.classList.remove('hidden');
+                btnJira.className = "px-4 py-2 rounded-xl text-xs font-bold transition bg-purple-600 text-white shadow-lg cursor-pointer";
+            }
         }
 
-        // Excel File Reader Listener
-        document.getElementById('excel-file-input').addEventListener('change', function(e) {
-            const file = e.target.files[0];
+        // Modal Controls
+        function openEmployeeModal(index = -1) {
+            const modal = document.getElementById('employee-modal');
+            const title = document.getElementById('modal-title');
+            document.getElementById('edit-index').value = index;
+
+            if (index >= 0) {
+                title.textContent = "Edit Employee Allocation";
+                const emp = employeeData[index];
+                document.getElementById('form-name').value = emp.Name;
+                document.getElementById('form-role').value = emp.Role;
+                document.getElementById('form-location').value = emp.Location;
+                document.getElementById('form-project').value = emp.Project;
+                document.getElementById('form-fte').value = emp.FTE;
+            } else {
+                title.textContent = "Add New Employee Allocation";
+                document.getElementById('employee-form').reset();
+                document.getElementById('edit-index').value = -1;
+            }
+            modal.classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employee-modal').classList.add('hidden');
+        }
+
+        function saveEmployee(e) {
+            e.preventDefault();
+            const index = parseInt(document.getElementById('edit-index').value);
+            const newItem = {
+                Name: document.getElementById('form-name').value.trim(),
+                Role: document.getElementById('form-role').value.trim(),
+                Location: document.getElementById('form-location').value.trim(),
+                Project: document.getElementById('form-project').value.trim(),
+                FTE: parseFloat(document.getElementById('form-fte').value) || 1.0
+            };
+
+            if (index >= 0) {
+                employeeData[index] = newItem;
+            } else {
+                employeeData.push(newItem);
+            }
+
+            localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
+            closeEmployeeModal();
+            updateDashboard();
+        }
+
+        function deleteEmployee(index) {
+            if (confirm("Are you sure you want to delete this allocation?")) {
+                employeeData.splice(index, 1);
+                localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
+                updateDashboard();
+            }
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    const json = XLSX.utils.sheet_to_json(worksheet);
-                    
-                    processExcelData(json);
-                } catch (err) {
-                    alert('שגיאה בקריאת הקובץ: ' + err.message);
-                }
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+                    processExcelData(jsonData);
+                    switchTab('allocation');
+                } catch (err) { alert("Error reading file: " + err.message); }
             };
             reader.readAsArrayBuffer(file);
-        });
+        }
 
-        function processExcelData(jsonRows) {
-            employeeData = [];
-            jsonRows.forEach(row => {
+        function processExcelData(rows) {
+            employeeData = rows.map(row => {
                 const clean = {};
-                Object.keys(row).forEach(k => {
-                    clean[k.trim().toLowerCase()] = row[k];
-                });
-
-                const name = clean['name'] || clean['employee'] || clean['שם'] || '';
-                if (!String(name).trim()) return;
-
-                const role = clean['role'] || clean['תפקיד'] || 'Developer';
-                const location = clean['location '] || clean['location'] || clean['מיקום'] || 'Israel';
-                const mainProject = clean['main project '] || clean['main project'] || clean['פרויקט'] || 'General';
-                
-                let fteRaw = clean['% main project'] !== undefined ? clean['% main project'] : (clean['fte'] !== undefined ? clean['fte'] : 1.0);
-                let fte = parseFloat(fteRaw);
+                Object.keys(row).forEach(key => { if (key) clean[key.trim()] = row[key]; });
+                let name = clean['Name'] || clean['Employee'] || clean['שם'] || '';
+                let role = clean['Role'] || clean['תפקיד'] || 'General';
+                let location = clean['Location'] || clean['מיקום'] || 'Israel';
+                let project = clean['main project'] || clean['Project'] || clean['פרויקט'] || 'General';
+                let fteRaw = clean['% main project'] || clean['FTE'] || 1;
+                let fte = 1;
+                if (typeof fteRaw === 'string') fte = parseFloat(fteRaw.replace('%', '').trim());
+                else if (typeof fteRaw === 'number') fte = fteRaw;
+                if (!isNaN(fte) && fte > 1) fte = fte / 100;
                 if (isNaN(fte)) fte = 1.0;
-                if (fte > 1) fte = fte / 100;
+                return { Name: String(name).trim(), Role: String(role).trim(), Location: String(location).trim(), Project: String(project).trim(), FTE: fte };
+            }).filter(item => item.Name !== '');
+            localStorage.setItem('employee_allocation_data_2026', JSON.stringify(employeeData));
+            updateDashboard();
+        }
 
-                employeeData.push({
-                    name: String(name).trim(),
-                    role: String(role).trim(),
-                    location: String(location).trim(),
-                    mainProject: String(mainProject).trim(),
-                    fte: fte
-                });
-            });
+        // Populate Dropdowns dynamically from dataset
+        function populateDropdowns() {
+            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
+            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
+            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
 
-            currentFilter = null;
+            const roleSelect = document.getElementById('filter-emp-role');
+            const locSelect = document.getElementById('filter-emp-loc');
+            const projSelect = document.getElementById('filter-emp-proj');
+
+            const currentRole = roleSelect.value;
+            const currentLoc = locSelect.value;
+            const currentProj = projSelect.value;
+
+            roleSelect.innerHTML = '<option value="">All Roles</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
+            locSelect.innerHTML = '<option value="">All Locations</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
+            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            roleSelect.value = currentRole;
+            locSelect.value = currentLoc;
+            projSelect.value = currentProj;
+        }
+
+        function sortAllocationTable(column) {
+            if (currentSortColumn === column) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortColumn = column;
+                currentSortAsc = true;
+            }
             updateDashboard();
         }
 
         function updateDashboard() {
-            updateStats();
-            renderCharts();
-            renderTable();
-        }
+            populateDropdowns();
 
-        function updateStats() {
-            const totalFte = employeeData.reduce((acc, curr) => acc + curr.fte, 0);
-            const uniqueProjects = new Set(employeeData.map(e => e.mainProject)).size;
+            const fName = document.getElementById('filter-emp-name')?.value.toLowerCase() || '';
+            const fRole = document.getElementById('filter-emp-role')?.value || '';
+            const fLoc = document.getElementById('filter-emp-loc')?.value || '';
+            const fProj = document.getElementById('filter-emp-proj')?.value || '';
+            const fFte = document.getElementById('filter-emp-fte')?.value.toLowerCase() || '';
 
-            document.getElementById('stat-total-fte').innerText = totalFte.toFixed(2);
-            document.getElementById('stat-total-employees').innerText = employeeData.length;
-            document.getElementById('stat-active-projects').innerText = uniqueProjects;
-        }
-
-        function renderCharts() {
-            // Burden Chart (Projects or Roles breakdown)
-            const projectCounts = {};
-            employeeData.forEach(e => {
-                projectCounts[e.mainProject] = (projectCounts[e.mainProject] || 0) + e.fte;
+            let filtered = employeeData.filter(e => {
+                return (!fName || e.Name.toLowerCase().includes(fName)) &&
+                       (!fRole || e.Role === fRole) &&
+                       (!fLoc || e.Location === fLoc) &&
+                       (!fProj || e.Project === fProj) &&
+                       (!fFte || String(e.FTE).toLowerCase().includes(fFte));
             });
 
-            const ctxBurden = document.getElementById('burdenChart').getContext('2d');
-            if (burdenChartInstance) burdenChartInstance.destroy();
+            // Sorting logic
+            if (currentSortColumn) {
+                filtered.sort((a, b) => {
+                    let valA = a[currentSortColumn];
+                    let valB = b[currentSortColumn];
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (valA < valB) return currentSortAsc ? -1 : 1;
+                    if (valA > valB) return currentSortAsc ? 1 : -1;
+                    return 0;
+                });
+            }
 
-            burdenChartInstance = new Chart(ctxBurden, {
+            // Update KPIs (Correct Unique Headcount)
+            const uniqueHeadcount = new Set(employeeData.map(e => e.Name)).size;
+            document.getElementById('kpi-headcount').textContent = uniqueHeadcount;
+            document.getElementById('kpi-projects').textContent = [...new Set(employeeData.map(e => e.Project))].length;
+            const totalFte = employeeData.reduce((acc, curr) => acc + (Number(curr.FTE) || 0), 0);
+            document.getElementById('kpi-fte').textContent = totalFte.toFixed(1);
+
+            // Populate table
+            const tbody = document.getElementById('employee-table-body');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching employees found.</td></tr>`;
+            } else {
+                // Find actual index in global employeeData for edit/delete mapping
+                tbody.innerHTML = filtered.map((e) => {
+                    const originalIndex = employeeData.indexOf(e);
+                    return `
+                        <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
+                            <td class="px-5 py-3 font-semibold text-white">${escapeHtml(e.Name)}</td>
+                            <td class="px-5 py-3 text-slate-300">${escapeHtml(e.Role)}</td>
+                            <td class="px-5 py-3 text-slate-400">${escapeHtml(e.Location)}</td>
+                            <td class="px-5 py-3 text-cyan-400 font-mono">${escapeHtml(e.Project)}</td>
+                            <td class="px-5 py-3 text-center font-bold text-emerald-400">${Number(e.FTE).toFixed(2)}</td>
+                            <td class="px-5 py-3 text-center flex justify-center gap-3">
+                                <button onclick="openEmployeeModal(${originalIndex})" title="Edit" class="text-cyan-400 hover:text-cyan-300 transition cursor-pointer"><i class="fa-solid fa-pen-to-square"></i></button>
+                                <button onclick="deleteEmployee(${originalIndex})" title="Delete" class="text-rose-400 hover:text-rose-300 transition cursor-pointer"><i class="fa-solid fa-trash"></i></button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            renderCharts(employeeData);
+        }
+
+        function renderCharts(data) {
+            const projCtx = document.getElementById('projectChart')?.getContext('2d');
+            const roleCtx = document.getElementById('roleChart')?.getContext('2d');
+            if (!projCtx || !roleCtx) return;
+
+            const projMap = {};
+            data.forEach(e => { projMap[e.Project] = (projMap[e.Project] || 0) + (Number(e.FTE) || 0); });
+
+            const roleMap = {};
+            data.forEach(e => { roleMap[e.Role] = (roleMap[e.Role] || 0) + 1; });
+
+            if (projectChartInstance) projectChartInstance.destroy();
+            projectChartInstance = new Chart(projCtx, {
                 type: 'bar',
                 data: {
-                    labels: Object.keys(projectCounts),
+                    labels: Object.keys(projMap),
                     datasets: [{
-                        label: 'FTE per Project',
-                        data: Object.values(projectCounts),
-                        backgroundColor: 'rgba(79, 70, 229, 0.7)',
-                        borderColor: 'rgba(79, 70, 229, 1)',
-                        borderWidth: 1
+                        label: 'Total FTE',
+                        data: Object.values(projMap),
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const projectName = Object.keys(projectCounts)[index];
-                            currentFilter = { type: 'project', value: projectName };
-                            renderTable();
-                        }
-                    },
-                    scales: { y: { beginAtZero: true } }
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+                    }
                 }
             });
 
-            // Location Chart
-            const locCounts = {};
-            employeeData.forEach(e => {
-                locCounts[e.location] = (locCounts[e.location] || 0) + 1;
-            });
-
-            const ctxLoc = document.getElementById('locationChart').getContext('2d');
-            if (locationChartInstance) locationChartInstance.destroy();
-
-            locationChartInstance = new Chart(ctxLoc, {
+            if (roleChartInstance) roleChartInstance.destroy();
+            roleChartInstance = new Chart(roleCtx, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(locCounts),
+                    labels: Object.keys(roleMap),
                     datasets: [{
-                        data: Object.values(locCounts),
-                        backgroundColor: ['#4F46E5', '#3B82F6', '#10B981', '#F59E0B', '#EF4444']
+                        data: Object.values(roleMap),
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } }
                 }
             });
         }
 
-        function renderTable() {
-            const tbody = document.getElementById('employee-table-body');
-            tbody.innerHTML = '';
-
-            let filteredData = employeeData;
-            const statusEl = document.getElementById('filter-status');
-
-            if (currentFilter) {
-                filteredData = employeeData.filter(e => {
-                    if (currentFilter.type === 'project') return e.mainProject === currentFilter.value;
-                    if (currentFilter.type === 'role') return e.role === currentFilter.value;
-                    return true;
-                });
-                statusEl.innerText = `מציג לפי ${currentFilter.type === 'project' ? 'פרויקט' : 'תפקיד'}: ${currentFilter.value}`;
-            } else {
-                statusEl.innerText = '';
-            }
-
-            if (filteredData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">אין נתונים להצגה (או טען קובץ אקסל)</td></tr>`;
-                return;
-            }
-
-            filteredData.forEach(emp => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${emp.name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.role}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.location}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.mainProject}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${emp.fte.toFixed(2)}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-        }
-
-        function resetFilters() {
-            currentFilter = null;
-            renderTable();
-        }
-
-        // Modal Functions with Dropdowns Population
-        function openAddEmployeeModal() {
-            populateDropdowns();
-            document.getElementById('add-employee-modal').classList.remove('hidden');
-            document.getElementById('add-employee-modal').classList.add('flex');
-        }
-
-        function closeAddEmployeeModal() {
-            document.getElementById('add-employee-modal').classList.add('hidden');
-            document.getElementById('add-employee-modal').classList.remove('flex');
-        }
-
-        function populateDropdowns() {
-            const roles = [...new Set(employeeData.map(e => e.role))].sort();
-            const locations = [...new Set(employeeData.map(e => e.location))].sort();
-            const projects = [...new Set(employeeData.map(e => e.mainProject))].sort();
-
-            if (roles.length === 0) roles.push('Developer', 'QA', 'Manager');
-            if (locations.length === 0) locations.push('Israel', 'Romania');
-            if (projects.length === 0) projects.push('General');
-
-            fillSelect('new-emp-role', roles);
-            fillSelect('new-emp-location', locations);
-            fillSelect('new-emp-project', projects);
-        }
-
-        function fillSelect(elementId, items) {
-            const select = document.getElementById(elementId);
-            select.innerHTML = '';
-            items.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item;
-                opt.textContent = item;
-                select.appendChild(opt);
-            });
-        }
-
-        function saveNewEmployee() {
-            const name = document.getElementById('new-emp-name').value.trim();
-            const role = document.getElementById('new-emp-role').value;
-            const location = document.getElementById('new-emp-location').value;
-            const mainProject = document.getElementById('new-emp-project').value;
-            const fte = parseFloat(document.getElementById('new-emp-fte').value) || 1.0;
-
-            if (!name) {
-                alert('נא להזין שם עובד');
-                return;
-            }
-
-            employeeData.push({ name, role, location, mainProject, fte });
-            closeAddEmployeeModal();
+        function resetAllocationFilters() {
+            document.getElementById('filter-emp-name').value = '';
+            document.getElementById('filter-emp-role').value = '';
+            document.getElementById('filter-emp-loc').value = '';
+            document.getElementById('filter-emp-proj').value = '';
+            document.getElementById('filter-emp-fte').value = '';
+            currentSortColumn = '';
             updateDashboard();
+        }
 
-            // Clear inputs
-            document.getElementById('new-emp-name').value = '';
-            document.getElementById('new-emp-fte').value = '1.0';
+        // GitLab Logic
+        function handleGitLabUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    gitlabData = JSON.parse(e.target.result);
+                    localStorage.setItem('gitlab_activity_data_2026', JSON.stringify(gitlabData));
+                    renderGitLabTable(gitlabData);
+                    switchTab('gitlab');
+                } catch(err) { alert("Invalid JSON file for GitLab activity."); }
+            };
+            reader.readAsText(file);
+        }
+
+        function renderGitLabTable(data) {
+            const status = document.getElementById('gitlab-status-text');
+            const kpiGit = document.getElementById('kpi-gitlab');
+
+            if (!data || data.length === 0) {
+                normalizedGitLabData = [];
+                if (status) status.textContent = 'No records loaded';
+                if (kpiGit) kpiGit.textContent = '0 MRs';
+                displayFilteredGitLab();
+                return;
+            }
+
+            normalizedGitLabData = data.map(item => ({
+                author: item.author || item.Author || item.Developer || item.Name || 'Unknown',
+                week: item.week || item.Week || item.Date || item.year_week || item.date || 'N/A',
+                mrs_count: item.mrs_count ?? item.MRs ?? item.merge_requests ?? item.unique_tickets_count ?? item.mrs ?? 0
+            }));
+
+            let totalMRs = normalizedGitLabData.reduce((sum, item) => sum + (Number(item.mrs_count) || 0), 0);
+            if (kpiGit) kpiGit.textContent = `${totalMRs} MRs`;
+            if (status) status.textContent = `Loaded ${normalizedGitLabData.length} activity records successfully.`;
+
+            displayFilteredGitLab();
+        }
+
+        function displayFilteredGitLab() {
+            const tbody = document.getElementById('gitlab-table-body');
+            if (!tbody) return;
+
+            const fAuthor = document.getElementById('filter-git-author')?.value.toLowerCase() || '';
+            const fWeek = document.getElementById('filter-git-week')?.value || '';
+            const fMrs = document.getElementById('filter-git-mrs')?.value.toLowerCase() || '';
+
+            const filtered = normalizedGitLabData.filter(item => {
+                return (!fAuthor || item.author.toLowerCase().includes(fAuthor)) &&
+                       (!fWeek || String(item.week).includes(fWeek)) &&
+                       (!fMrs || String(item.mrs_count).toLowerCase().includes(fMrs));
+            });
+
+            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No matching GitLab records found.</td></tr>`;
+            filtered.forEach(item => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
+                        <td class="px-6 py-4 font-medium text-white">${escapeHtml(item.author)}</td>
+                        <td class="px-6 py-4 text-slate-300">${escapeHtml(item.week)}</td>
+                        <td class="px-6 py-4 text-center font-semibold text-orange-400">${escapeHtml(String(item.mrs_count))}</td>
+                    </tr>`;
+            });
+        }
+
+        function filterGitLabTable() { displayFilteredGitLab(); }
+        function resetGitLabFilters() {
+            document.getElementById('filter-git-author').value = '';
+            document.getElementById('filter-git-week').value = '';
+            document.getElementById('filter-git-mrs').value = '';
+            displayFilteredGitLab();
+        }
+
+        // Jira Logic
+        function handleJiraUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    parseAndRenderCSV(e.target.result);
+                    switchTab('jira');
+                } catch(err) { alert("Error reading Jira CSV file: " + err.message); }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseAndRenderCSV(text) {
+            const lines = text.split(/\r\n|\n/);
+            jiraData = [];
+            for (let i = 1; i < lines.length; i++) {
+                if (!lines[i].trim()) continue;
+                const rowData = parseCSVLine(lines[i]);
+                if (rowData.length >= 5) {
+                    jiraData.push({
+                        issueKey: rowData[0],
+                        summary: rowData[1],
+                        assignee: rowData[2],
+                        fromStatus: rowData[3],
+                        toStatus: rowData[4],
+                        transitionDate: rowData[5] || ''
+                    });
+                }
+            }
+            localStorage.setItem('jira_transitions_data_2026', JSON.stringify(jiraData));
+            renderJiraTable(jiraData);
+        }
+
+        function parseCSVLine(text) {
+            let result = [], current = '', inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') { inQuotes = !inQuotes; }
+                else if (char === ',' && !inQuotes) { result.push(current.trim()); current = ''; }
+                else { current += char; }
+            }
+            result.push(current.trim());
+            return result.map(val => val.replace(/^"|"$/g, ''));
+        }
+
+        function renderJiraTable(data) {
+            const status = document.getElementById('jira-status-text');
+            if (status) status.textContent = `Loaded ${data.length} Jira transition records successfully.`;
+            displayFilteredJira();
+        }
+
+        function displayFilteredJira() {
+            const tbody = document.getElementById('jira-table-body');
+            if (!tbody) return;
+
+            const fKey = document.getElementById('filter-jira-key')?.value.toLowerCase() || '';
+            const fSum = document.getElementById('filter-jira-summary')?.value.toLowerCase() || '';
+            const fAssignee = document.getElementById('filter-jira-assignee')?.value.toLowerCase() || '';
+            const fFrom = document.getElementById('filter-jira-from')?.value.toLowerCase() || '';
+            const fTo = document.getElementById('filter-jira-to')?.value.toLowerCase() || '';
+            const fDate = document.getElementById('filter-jira-date')?.value || '';
+
+            const filtered = jiraData.filter(item => {
+                return (!fKey || (item.issueKey && item.issueKey.toLowerCase().includes(fKey))) &&
+                       (!fSum || (item.summary && item.summary.toLowerCase().includes(fSum))) &&
+                       (!fAssignee || (item.assignee && item.assignee.toLowerCase().includes(fAssignee))) &&
+                       (!fFrom || (item.fromStatus && item.fromStatus.toLowerCase().includes(fFrom))) &&
+                       (!fTo || (item.toStatus && item.toStatus.toLowerCase().includes(fTo))) &&
+                       (!fDate || (item.transitionDate && item.transitionDate.includes(fDate)));
+            });
+
+            tbody.innerHTML = filtered.length ? '' : `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching records found.</td></tr>`;
+            filtered.forEach(item => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-800/40 border-b border-slate-800/50 transition">
+                        <td class="px-6 py-4 font-mono text-cyan-400 font-semibold">${escapeHtml(item.issueKey)}</td>
+                        <td class="px-6 py-4 text-slate-200">${escapeHtml(item.summary)}</td>
+                        <td class="px-6 py-4 text-slate-300">${escapeHtml(item.assignee)}</td>
+                        <td class="px-6 py-4 text-amber-400">${escapeHtml(item.fromStatus)}</td>
+                        <td class="px-6 py-4 text-emerald-400">${escapeHtml(item.toStatus)}</td>
+                        <td class="px-6 py-4 text-slate-400 font-mono">${escapeHtml(item.transitionDate)}</td>
+                    </tr>`;
+            });
+        }
+
+        function filterJiraTable() { displayFilteredJira(); }
+        function resetJiraFilters() {
+            ['filter-jira-key', 'filter-jira-summary', 'filter-jira-assignee', 'filter-jira-from', 'filter-jira-to', 'filter-jira-date'].forEach(id => {
+                const el = document.getElementById(id); if (el) el.value = '';
+            });
+            displayFilteredJira();
+        }
+
+        function escapeHtml(str) {
+            return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
     </script>
 </body>
