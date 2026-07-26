@@ -81,7 +81,7 @@
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
                 <div>
                     <p class="text-xs font-medium text-slate-400">GitLab Activity</p>
-                    <h3 id="kpi-gitlab" class="text-3xl font-extrabold text-white mt-1">0 MRs</h3>
+                    <h3 id="kpi-gitlab" class="text-3xl font-extrabold text-white mt-1">0 Tickets</h3>
                 </div>
                 <div class="bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 text-orange-400">
                     <i class="fa-brands fa-gitlab text-xl"></i>
@@ -182,9 +182,9 @@
                 <table class="w-full text-left text-sm" style="direction: ltr;">
                     <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
                         <tr>
-                            <th class="px-6 py-3.5">Developer</th>
-                            <th class="px-6 py-3.5">Period / Week</th>
-                            <th class="px-6 py-3.5 text-center">Merge Requests</th>
+                            <th class="px-6 py-3.5">Developer (Author)</th>
+                            <th class="px-6 py-3.5">Period / Week Range</th>
+                            <th class="px-6 py-3.5 text-center">Unique Tickets</th>
                         </tr>
                     </thead>
                     <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
@@ -350,49 +350,22 @@
                         tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No data found in JSON.</td></tr>`;
                     } else {
                         tbody.innerHTML = gitlabData.map(item => {
-                            const developer = item.Developer || item.developer || item.name || item.Author || item.author || item.username || item.user || '-';
-                            const period = item.Period || item.period || item.week || item.Week || item.date || item.Date || item.created_at || item.time || '-';
-                            
-                            let mrs = 0;
-                            const possibleKeys = ['MergeRequests', 'merge_requests', 'mrs', 'MRs', 'count', 'total', 'value', 'prs', 'issues', 'requests'];
-                            for (let key of possibleKeys) {
-                                if (item[key] !== undefined) {
-                                    mrs = item[key];
-                                    break;
-                                }
-                            }
-                            if (mrs === 0) {
-                                for (let k in item) {
-                                    if (typeof item[k] === 'number') {
-                                        mrs = item[k];
-                                        break;
-                                    }
-                                }
-                            }
+                            const author = item.author || '-';
+                            const displayRange = item.display_range || `${item.week_start || ''} to ${item.week_end || ''}`;
+                            const ticketsCount = item.unique_tickets_count !== undefined ? item.unique_tickets_count : 0;
                             
                             return `
                                 <tr class="hover:bg-slate-800/40 transition">
-                                    <td class="px-6 py-3.5 font-medium text-white">${developer}</td>
-                                    <td class="px-6 py-3.5 text-slate-300">${period}</td>
-                                    <td class="px-6 py-3.5 text-center font-bold text-orange-400">${mrs}</td>
+                                    <td class="px-6 py-3.5 font-medium text-white">${author}</td>
+                                    <td class="px-6 py-3.5 text-slate-300">${displayRange}</td>
+                                    <td class="px-6 py-3.5 text-center font-bold text-orange-400">${ticketsCount}</td>
                                 </tr>
                             `;
                         }).join('');
                     }
                     
-                    const totalMRs = gitlabData.reduce((sum, item) => {
-                        let val = 0;
-                        const possibleKeys = ['MergeRequests', 'merge_requests', 'mrs', 'MRs', 'count', 'total', 'value', 'prs'];
-                        for (let key of possibleKeys) {
-                            if (item[key] !== undefined) {
-                                val = item[key];
-                                break;
-                            }
-                        }
-                        return sum + (parseInt(val) || 0);
-                    }, 0);
-                    
-                    document.getElementById('kpi-gitlab').textContent = `${totalMRs} MRs`;
+                    const totalTickets = gitlabData.reduce((sum, item) => sum + (parseInt(item.unique_tickets_count) || 0), 0);
+                    document.getElementById('kpi-gitlab').textContent = `${totalTickets} Tickets`;
                 } catch (err) {
                     alert("Error reading GitLab JSON: " + err.message);
                 }
@@ -463,7 +436,7 @@
             document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
             document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
             document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-            document.getElementById('kpi-gitlab').textContent = "0 MRs";
+            document.getElementById('kpi-gitlab').textContent = "0 Tickets";
             updateDashboard();
         }
 
