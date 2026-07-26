@@ -332,36 +332,52 @@
             reader.readAsArrayBuffer(file);
         }
 
-        function handleGitLabUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    gitlabData = JSON.parse(e.target.result);
-                    document.getElementById('gitlab-status-text').textContent = `Loaded ${gitlabData.length} GitLab entries.`;
+       function handleGitLabUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            gitlabData = JSON.parse(e.target.result);
+            if (!Array.isArray(gitlabData) && typeof gitlabData === 'object') {
+                // במקרה שה-JSON הוא אובייקט מעטפת שמכיל מערך בפנים
+                gitlabData = gitlabData.data || gitlabData.items || Object.values(gitlabData).find(Array.isArray) || [];
+            }
+            
+            document.getElementById('gitlab-status-text').textContent = `Loaded ${gitlabData.length} GitLab entries.`;
+            
+            const tbody = document.getElementById('gitlab-table-body');
+            if (gitlabData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No data found in JSON.</td></tr>`;
+            } else {
+                tbody.innerHTML = gitlabData.map(item => {
+                    // חילוץ דינמי של השדות מתוך כל האפשרויות הנפוצות
+                    const developer = item.Developer || item.developer || item.name || item.Author || item.author || item.username || '-';
+                    const period = item.Period || item.period || item.week || item.Week || item.date || item.Date || '-';
+                    const mrs = item.MergeRequests || item.merge_requests || item.mrs || item.MRs || item.count || item.total || 0;
                     
-                    const tbody = document.getElementById('gitlab-table-body');
-                    if (gitlabData.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No data found in JSON.</td></tr>`;
-                    } else {
-                        tbody.innerHTML = gitlabData.map(item => `
-                            <tr class="hover:bg-slate-800/40 transition">
-                                <td class="px-6 py-3.5 font-medium text-white">${item.Developer || item.name || '-'}</td>
-                                <td class="px-6 py-3.5 text-slate-300">${item.Period || item.week || '-'}</td>
-                                <td class="px-6 py-3.5 text-center font-bold text-orange-400">${item.MergeRequests || item.mrs || 0}</td>
-                            </tr>
-                        `).join('');
-                    }
-                    
-                    const totalMRs = gitlabData.reduce((sum, item) => sum + (parseInt(item.MergeRequests || item.mrs) || 0), 0);
-                    document.getElementById('kpi-gitlab').textContent = `${totalMRs} MRs`;
-                } catch (err) {
-                    alert("Error reading GitLab JSON: " + err.message);
-                }
-            };
-            reader.readAsText(file);
+                    return `
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="px-6 py-3.5 font-medium text-white">${developer}</td>
+                            <td class="px-6 py-3.5 text-slate-300">${period}</td>
+                            <td class="px-6 py-3.5 text-center font-bold text-orange-400">${mrs}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            
+            const totalMRs = gitlabData.reduce((sum, item) => {
+                const val = item.MergeRequests || item.merge_requests || item.mrs || item.MRs || item.count || item.total || 0;
+                return sum + (parseInt(val) || 0);
+            }, 0);
+            
+            document.getElementById('kpi-gitlab').textContent = `${totalMRs} MRs`;
+        } catch (err) {
+            alert("Error reading GitLab JSON: " + err.message);
         }
+    };
+    reader.readAsText(file);
+}
 
         function handleJiraUpload(event) {
             const file = event.target.files[0];
