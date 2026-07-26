@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>דשבורד ניהול משאבים והקצאות</title>
+    <title>Resource Allocation & Development Dashboard</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
     <!-- FontAwesome Icons -->
@@ -23,17 +23,20 @@
                     <i class="fa-solid fa-chart-pie text-lg"></i>
                 </div>
                 <div>
-                    <h1 class="font-bold text-lg text-white">דשבורד ניהול משאבים</h1>
-                    <p class="text-xs text-slate-400">מעקב הקצאות, פרויקטים ופעילות פיתוח</p>
+                    <h1 class="font-bold text-lg text-white">Resource Allocation Dashboard</h1>
+                    <p class="text-xs text-slate-400">Allocations, Projects & Development Tracking</p>
                 </div>
             </div>
             
             <div class="flex items-center gap-3">
+                <button onclick="openAddEmployeeModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid fa-user-plus text-xs"></i> Add Employee
+                </button>
                 <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium border border-slate-700 transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i> טען קובץ הקצאות (XLSX)
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Import XLSX
                     <input type="file" id="upload-excel" class="hidden" accept=".xlsx, .xls" onchange="handleExcelUpload(event)">
                 </label>
-                <button onclick="resetAllData()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2.5 rounded-xl border border-rose-500/20 transition" title="איפוס נתונים">
+                <button onclick="resetAllData()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2.5 rounded-xl border border-rose-500/20 transition cursor-pointer" title="Reset All Data">
                     <i class="fa-solid fa-rotate-right text-sm"></i>
                 </button>
             </div>
@@ -47,7 +50,7 @@
         <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">סך עובדים (Headcount)</p>
+                    <p class="text-xs font-medium text-slate-400">Total Headcount</p>
                     <h3 id="kpi-headcount" class="text-3xl font-extrabold text-white mt-1">0</h3>
                 </div>
                 <div class="bg-blue-500/10 p-3 rounded-xl border border-blue-500/20 text-blue-400">
@@ -57,7 +60,7 @@
 
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">פרויקטים פעילים</p>
+                    <p class="text-xs font-medium text-slate-400">Active Projects</p>
                     <h3 id="kpi-projects" class="text-3xl font-extrabold text-white mt-1">0</h3>
                 </div>
                 <div class="bg-cyan-500/10 p-3 rounded-xl border border-cyan-500/20 text-cyan-400">
@@ -67,7 +70,7 @@
 
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">סך משרות (Total FTE)</p>
+                    <p class="text-xs font-medium text-slate-400">Total Allocated FTE</p>
                     <h3 id="kpi-fte" class="text-3xl font-extrabold text-white mt-1">0</h3>
                 </div>
                 <div class="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-emerald-400">
@@ -77,7 +80,7 @@
 
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">פעילות פיתוח (GitLab)</p>
+                    <p class="text-xs font-medium text-slate-400">GitLab Activity</p>
                     <h3 id="kpi-gitlab" class="text-3xl font-extrabold text-white mt-1">0 MRs</h3>
                 </div>
                 <div class="bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 text-orange-400">
@@ -89,9 +92,13 @@
         <!-- Charts Section -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-                <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-column text-cyan-400"></i> העמסת פרויקטים (Total FTE)
-                </h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-base font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-cyan-400"></i> Project Allocations (Total FTE)
+                    </h3>
+                    <span id="chart-filter-badge" class="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2.5 py-1 rounded-lg hidden">Filtered by Project</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-3">Tip: Click any bar to filter the employee table below for that project.</p>
                 <div class="h-72 relative">
                     <canvas id="projectChart"></canvas>
                 </div>
@@ -99,7 +106,7 @@
 
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
                 <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-pie text-blue-400"></i> התפלגות תפקידים (Headcount)
+                    <i class="fa-solid fa-chart-pie text-blue-400"></i> Role Distribution (Headcount)
                 </h3>
                 <div class="h-72 relative flex justify-center">
                     <canvas id="roleChart"></canvas>
@@ -110,13 +117,13 @@
         <!-- Tabs Navigation -->
         <div class="flex border-b border-slate-800 gap-6">
             <button onclick="switchTab('allocations')" id="tab-btn-allocations" class="pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer">
-                הקצאות כוח אדם
+                Allocations Table
             </button>
             <button onclick="switchTab('gitlab')" id="tab-btn-gitlab" class="pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer">
-                פעילות GitLab
+                GitLab Activity
             </button>
             <button onclick="switchTab('jira')" id="tab-btn-jira" class="pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer">
-                מעקב Jira
+                Jira Tracking
             </button>
         </div>
 
@@ -125,31 +132,31 @@
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
                 <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
                     <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold text-white">סינון הקצאות:</span>
+                        <span class="text-sm font-semibold text-white">Filter & Manage Allocations:</span>
                     </div>
                     <div class="flex flex-wrap items-center gap-3">
                         <button onclick="resetAllocationFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">
-                            איפוס סינונים
+                            Reset Filters
                         </button>
                     </div>
                 </div>
 
                 <div class="overflow-x-auto">
-                    <table class="w-full text-right text-sm">
+                    <table class="w-full text-left text-sm" style="direction: ltr;">
                         <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
                             <tr>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Name')">שם עובד <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Role')">תפקיד <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Location')">מיקום <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Project')">פרויקט מוביל <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortAllocationTable('FTE')">היקף משרה (FTE) <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 text-center">פעולות</th>
+                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Name')">Employee Name <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Role')">Role <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Location')">Location <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Project')">Main Project <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-5 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortAllocationTable('FTE')">FTE <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-5 py-3.5 text-center">Actions</th>
                             </tr>
                             <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
-                                <th class="px-4 py-2"><input type="text" id="filter-emp-name" placeholder="חפש שם..." oninput="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"></th>
-                                <th class="px-4 py-2"><select id="filter-emp-role" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">הכל</option></select></th>
-                                <th class="px-4 py-2"><select id="filter-emp-loc" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">הכל</option></select></th>
-                                <th class="px-4 py-2"><select id="filter-emp-proj" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">הכל</option></select></th>
+                                <th class="px-4 py-2"><input type="text" id="filter-emp-name" placeholder="Search name..." oninput="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"></th>
+                                <th class="px-4 py-2"><select id="filter-emp-role" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">All</option></select></th>
+                                <th class="px-4 py-2"><select id="filter-emp-loc" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">All</option></select></th>
+                                <th class="px-4 py-2"><select id="filter-emp-proj" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">All</option></select></th>
                                 <th class="px-4 py-2"><input type="text" id="filter-emp-fte" placeholder="FTE..." oninput="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-cyan-500"></th>
                                 <th class="px-4 py-2"></th>
                             </tr>
@@ -165,23 +172,23 @@
         <!-- Tab 2: GitLab Activity -->
         <div id="tab-content-gitlab" class="space-y-4 hidden">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-                <span id="gitlab-status-text" class="text-sm text-slate-400">אין נתוני GitLab טעונים.</span>
+                <span id="gitlab-status-text" class="text-sm text-slate-400">No GitLab data loaded.</span>
                 <label class="cursor-pointer bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                    <i class="fa-brands fa-gitlab"></i> טען קובץ GitLab (JSON)
+                    <i class="fa-brands fa-gitlab"></i> Import GitLab (JSON)
                     <input type="file" class="hidden" accept=".json" onchange="handleGitLabUpload(event)">
                 </label>
             </div>
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <table class="w-full text-right text-sm">
+                <table class="w-full text-left text-sm" style="direction: ltr;">
                     <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
                         <tr>
-                            <th class="px-6 py-3.5">מפתח / מפתח סอฟטוויר</th>
-                            <th class="px-6 py-3.5">שבוע / תקופה</th>
+                            <th class="px-6 py-3.5">Developer</th>
+                            <th class="px-6 py-3.5">Period / Week</th>
                             <th class="px-6 py-3.5 text-center">Merge Requests</th>
                         </tr>
                     </thead>
                     <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
-                        <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">טען קובץ לציפייה בנתונים.</td></tr>
+                        <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -190,32 +197,77 @@
         <!-- Tab 3: Jira Activity -->
         <div id="tab-content-jira" class="space-y-4 hidden">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-                <span id="jira-status-text" class="text-sm text-slate-400">אין נתוני Jira טעונים.</span>
+                <span id="jira-status-text" class="text-sm text-slate-400">No Jira data loaded.</span>
                 <label class="cursor-pointer bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel"></i> טען קובץ Jira (Excel/CSV)
+                    <i class="fa-solid fa-file-excel"></i> Import Jira (Excel/CSV)
                     <input type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleJiraUpload(event)">
                 </label>
             </div>
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <table class="w-full text-right text-sm">
+                <table class="w-full text-left text-sm" style="direction: ltr;">
                     <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
                         <tr>
-                            <th class="px-6 py-3.5">מפתח משימה</th>
-                            <th class="px-6 py-3.5">תיאור</th>
-                            <th class="px-6 py-3.5">אחראי</th>
-                            <th class="px-6 py-3.5">מסטטוס</th>
-                            <th class="px-6 py-3.5">לסטטוס</th>
-                            <th class="px-6 py-3.5">תאריך</th>
+                            <th class="px-6 py-3.5">Issue Key</th>
+                            <th class="px-6 py-3.5">Description</th>
+                            <th class="px-6 py-3.5">Assignee</th>
+                            <th class="px-6 py-3.5">From Status</th>
+                            <th class="px-6 py-3.5">To Status</th>
+                            <th class="px-6 py-3.5">Date</th>
                         </tr>
                     </thead>
                     <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
-                        <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">טען קובץ לציפייה בנתונים.</td></tr>
+                        <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
     </main>
+
+    <!-- Add / Edit Employee Modal -->
+    <div id="employeeModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-2xl" style="direction: ltr;">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+                <h3 id="modal-title" class="text-lg font-bold text-white">Add New Employee Allocation</h3>
+                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-white transition cursor-pointer">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            
+            <form id="employeeForm" onsubmit="saveEmployee(event)" class="space-y-4">
+                <input type="hidden" id="edit-index" value="-1">
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Employee Name</label>
+                    <input type="text" id="emp-name" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Role</label>
+                        <input type="text" id="emp-role" required placeholder="e.g. BE, QA, DevOps" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Location</label>
+                        <input type="text" id="emp-location" required placeholder="e.g. Israel, Romania" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Main Project</label>
+                        <input type="text" id="emp-project" required placeholder="e.g. Vasco, Netivot" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">FTE (Allocation)</label>
+                        <input type="number" step="0.01" min="0" max="1" id="emp-fte" required placeholder="0.5" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                    <button type="button" onclick="closeEmployeeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer">Cancel</button>
+                    <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 px-5 py-2 rounded-xl text-sm font-bold transition cursor-pointer">Save Employee</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Core Scripts -->
     <script>
@@ -227,7 +279,6 @@
         let projectChartInstance = null;
         let roleChartInstance = null;
 
-        // Default initial data loaded from the system analysis
         const defaultEmployeeData = [
             { Name: "Adriana Iovanut", Role: "Ro TL", Location: "Romania", Project: "Management", FTE: 1.0 },
             { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 },
@@ -265,14 +316,18 @@
                         FTE: parseFloat(row['% main project'] || row['FTE'] || 0)
                     })).filter(e => e.Name);
 
-                    localStorage.setItem('employee_allocations_2026', JSON.stringify(employeeData));
+                    saveToLocalStorage();
                     updateDashboard();
                     switchTab('allocations');
                 } catch (err) {
-                    alert("שגיאה בקריאת קובץ האקסל: " + err.message);
+                    alert("Error reading Excel file: " + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('employee_allocations_2026', JSON.stringify(employeeData));
         }
 
         function resetAllData() {
@@ -280,7 +335,65 @@
             employeeData = [...defaultEmployeeData];
             gitlabData = [];
             jiraData = [];
+            document.getElementById('chart-filter-badge').classList.add('hidden');
             updateDashboard();
+        }
+
+        function openAddEmployeeModal() {
+            document.getElementById('modal-title').textContent = "Add New Employee Allocation";
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('emp-name').value = "";
+            document.getElementById('emp-role').value = "";
+            document.getElementById('emp-location').value = "";
+            document.getElementById('emp-project').value = "";
+            document.getElementById('emp-fte').value = "1.0";
+            document.getElementById('employeeModal').classList.remove('hidden');
+        }
+
+        function openEditEmployeeModal(index) {
+            const emp = employeeData[index];
+            document.getElementById('modal-title').textContent = "Edit Employee Allocation";
+            document.getElementById('edit-index').value = index;
+            document.getElementById('emp-name').value = emp.Name;
+            document.getElementById('emp-role').value = emp.Role;
+            document.getElementById('emp-location').value = emp.Location;
+            document.getElementById('emp-project').value = emp.Project;
+            document.getElementById('emp-fte').value = emp.FTE;
+            document.getElementById('employeeModal').classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        function saveEmployee(event) {
+            event.preventDefault();
+            const index = parseInt(document.getElementById('edit-index').value);
+            const empObj = {
+                Name: document.getElementById('emp-name').value.trim(),
+                Role: document.getElementById('emp-role').value.trim(),
+                Location: document.getElementById('emp-location').value.trim(),
+                Project: document.getElementById('emp-project').value.trim(),
+                FTE: parseFloat(document.getElementById('emp-fte').value) || 0
+            };
+
+            if (index === -1) {
+                employeeData.push(empObj);
+            } else {
+                employeeData[index] = empObj;
+            }
+
+            saveToLocalStorage();
+            closeEmployeeModal();
+            updateDashboard();
+        }
+
+        function deleteEmployee(index) {
+            if (confirm("Are you sure you want to delete this allocation?")) {
+                employeeData.splice(index, 1);
+                saveToLocalStorage();
+                updateDashboard();
+            }
         }
 
         function populateDropdowns() {
@@ -296,9 +409,9 @@
             const currentLoc = locSelect.value;
             const currentProj = projSelect.value;
 
-            roleSelect.innerHTML = '<option value="">הכל</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
-            locSelect.innerHTML = '<option value="">הכל</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
-            projSelect.innerHTML = '<option value="">הכל</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+            roleSelect.innerHTML = '<option value="">All</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
+            locSelect.innerHTML = '<option value="">All</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
+            projSelect.innerHTML = '<option value="">All</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
 
             roleSelect.value = currentRole;
             locSelect.value = currentLoc;
@@ -311,6 +424,7 @@
             document.getElementById('filter-emp-loc').value = '';
             document.getElementById('filter-emp-proj').value = '';
             document.getElementById('filter-emp-fte').value = '';
+            document.getElementById('chart-filter-badge').classList.add('hidden');
             currentSortColumn = '';
             currentSortAsc = true;
             updateDashboard();
@@ -341,7 +455,7 @@
             const projFilter = document.getElementById('filter-emp-proj').value;
             const fteFilter = document.getElementById('filter-emp-fte').value.toLowerCase();
 
-            let filtered = employeeData.filter(emp => {
+            let filtered = employeeData.map((emp, originalIndex) => ({ ...emp, originalIndex })).filter(emp => {
                 if (nameFilter && !emp.Name.toLowerCase().includes(nameFilter)) return false;
                 if (roleFilter && emp.Role !== roleFilter) return false;
                 if (locFilter && emp.Location !== locFilter) return false;
@@ -364,7 +478,7 @@
 
             const tbody = document.getElementById('employee-table-body');
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">לא נמצאו עובדים תואמים לחיפוש.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching employee allocations found.</td></tr>`;
             } else {
                 tbody.innerHTML = filtered.map(emp => `
                     <tr class="hover:bg-slate-800/40 transition">
@@ -373,7 +487,14 @@
                         <td class="px-5 py-3.5 text-slate-300">${emp.Location}</td>
                         <td class="px-5 py-3.5 text-cyan-400 font-semibold">${emp.Project}</td>
                         <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${emp.FTE}</td>
-                        <td class="px-5 py-3.5 text-center">-</td>
+                        <td class="px-5 py-3.5 text-center flex items-center justify-center gap-2">
+                            <button onclick="openEditEmployeeModal(${emp.originalIndex})" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer" title="Edit">
+                                <i class="fa-solid fa-pen text-xs"></i>
+                            </button>
+                            <button onclick="deleteEmployee(${emp.originalIndex})" class="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer" title="Delete">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </td>
                     </tr>`).join('');
             }
 
@@ -383,7 +504,9 @@
         function renderCharts() {
             const projectMap = {};
             employeeData.forEach(e => {
-                projectMap[e.Project] = (projectMap[e.Project] || 0) + (parseFloat(e.FTE) || 0);
+                if (e.Project) {
+                    projectMap[e.Project] = (projectMap[e.Project] || 0) + (parseFloat(e.FTE) || 0);
+                }
             });
             const projLabels = Object.keys(projectMap);
             const projValues = Object.values(projectMap);
@@ -395,7 +518,7 @@
                 data: {
                     labels: projLabels,
                     datasets: [{
-                        label: 'סך FTE Allocated',
+                        label: 'Total FTE Allocated',
                         data: projValues,
                         backgroundColor: 'rgba(6, 182, 212, 0.7)',
                         borderColor: 'rgba(6, 182, 212, 1)',
@@ -407,6 +530,17 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const selectedProject = projLabels[index];
+                            document.getElementById('filter-emp-proj').value = selectedProject;
+                            document.getElementById('chart-filter-badge').textContent = `Filtered by: ${selectedProject}`;
+                            document.getElementById('chart-filter-badge').classList.remove('hidden');
+                            updateDashboard();
+                            switchTab('allocations');
+                        }
+                    },
                     scales: {
                         x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 } } },
                         y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } }
@@ -416,7 +550,9 @@
 
             const roleMap = {};
             employeeData.forEach(e => {
-                roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
+                if (e.Role) {
+                    roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
+                }
             });
             const roleLabels = Object.keys(roleMap);
             const roleValues = Object.values(roleMap);
@@ -443,9 +579,13 @@
             });
         }
 
-        // Initialize with default data on load
         window.onload = function() {
-            employeeData = [...defaultEmployeeData];
+            const saved = localStorage.getItem('employee_allocations_2026');
+            if (saved) {
+                try { employeeData = JSON.parse(saved); } catch(e) { employeeData = [...defaultEmployeeData]; }
+            } else {
+                employeeData = [...defaultEmployeeData];
+            }
             updateDashboard();
         };
     </script>
