@@ -238,22 +238,28 @@
                 <input type="hidden" id="edit-index" value="-1">
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1">Employee Name</label>
-                    <input type="text" id="emp-name" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                    <input type="text" id="emp-name" required placeholder="Full Name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Role</label>
-                        <input type="text" id="emp-role" required placeholder="e.g. BE, QA, DevOps" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                        <select id="emp-role" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                            <option value="">Select or type role...</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Location</label>
-                        <input type="text" id="emp-location" required placeholder="e.g. Israel, Romania" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                        <select id="emp-location" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                            <option value="">Select location...</option>
+                        </select>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Main Project</label>
-                        <input type="text" id="emp-project" required placeholder="e.g. Vasco, Netivot" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                        <select id="emp-project" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                            <option value="">Select project...</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">FTE (Allocation)</label>
@@ -339,14 +345,39 @@
             updateDashboard();
         }
 
+        function populateModalDropdowns(selectedRole = '', selectedLoc = '', selectedProj = '') {
+            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
+            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
+            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
+
+            const roleSelect = document.getElementById('emp-role');
+            const locSelect = document.getElementById('emp-location');
+            const projSelect = document.getElementById('emp-project');
+
+            roleSelect.innerHTML = '<option value="">Select role...</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
+            locSelect.innerHTML = '<option value="">Select location...</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
+            projSelect.innerHTML = '<option value="">Select project...</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            if (selectedRole) {
+                if (!roles.includes(selectedRole)) roleSelect.innerHTML += `<option value="${selectedRole}">${selectedRole}</option>`;
+                roleSelect.value = selectedRole;
+            }
+            if (selectedLoc) {
+                if (!locations.includes(selectedLoc)) locSelect.innerHTML += `<option value="${selectedLoc}">${selectedLoc}</option>`;
+                locSelect.value = selectedLoc;
+            }
+            if (selectedProj) {
+                if (!projects.includes(selectedProj)) projSelect.innerHTML += `<option value="${selectedProj}">${selectedProj}</option>`;
+                projSelect.value = selectedProj;
+            }
+        }
+
         function openAddEmployeeModal() {
             document.getElementById('modal-title').textContent = "Add New Employee Allocation";
             document.getElementById('edit-index').value = "-1";
             document.getElementById('emp-name').value = "";
-            document.getElementById('emp-role').value = "";
-            document.getElementById('emp-location').value = "";
-            document.getElementById('emp-project').value = "";
             document.getElementById('emp-fte').value = "1.0";
+            populateModalDropdowns();
             document.getElementById('employeeModal').classList.remove('hidden');
         }
 
@@ -355,10 +386,8 @@
             document.getElementById('modal-title').textContent = "Edit Employee Allocation";
             document.getElementById('edit-index').value = index;
             document.getElementById('emp-name').value = emp.Name;
-            document.getElementById('emp-role').value = emp.Role;
-            document.getElementById('emp-location').value = emp.Location;
-            document.getElementById('emp-project').value = emp.Project;
             document.getElementById('emp-fte').value = emp.FTE;
+            populateModalDropdowns(emp.Role, emp.Location, emp.Project);
             document.getElementById('employeeModal').classList.remove('hidden');
         }
 
@@ -396,7 +425,7 @@
             }
         }
 
-        function populateDropdowns() {
+        function populateTableFilters() {
             const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
             const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
             const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
@@ -441,7 +470,7 @@
         }
 
         function updateDashboard() {
-            populateDropdowns();
+            populateTableFilters();
 
             document.getElementById('kpi-headcount').textContent = new Set(employeeData.map(e => e.Name)).size;
             const uniqueProjects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean);
