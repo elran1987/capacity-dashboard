@@ -171,26 +171,55 @@
 
         <!-- Tab 2: GitLab Activity -->
         <div id="tab-content-gitlab" class="space-y-4 hidden">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
                 <span id="gitlab-status-text" class="text-sm text-slate-400">No GitLab data loaded.</span>
                 <label class="cursor-pointer bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
                     <i class="fa-brands fa-gitlab"></i> Import GitLab (JSON)
                     <input type="file" class="hidden" accept=".json" onchange="handleGitLabUpload(event)">
                 </label>
             </div>
+
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <table class="w-full text-left text-sm" style="direction: ltr;">
-                    <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
-                        <tr>
-                            <th class="px-6 py-3.5">Developer (Author)</th>
-                            <th class="px-6 py-3.5">Period / Week Range</th>
-                            <th class="px-6 py-3.5 text-center">Unique Tickets</th>
-                        </tr>
-                    </thead>
-                    <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
-                        <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
-                    </tbody>
-                </table>
+                <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-white">Filter GitLab Activity:</span>
+                    </div>
+                    <div>
+                        <button onclick="resetGitLabFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">
+                            Reset Filters
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm" style="direction: ltr;">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
+                            <tr>
+                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortGitLabTable('author')">Developer (Author) <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortGitLabTable('week_start')">Period / Week Range <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-6 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortGitLabTable('unique_tickets_count')">Unique Tickets <i class="fa-solid fa-sort text-[10px]"></i></th>
+                            </tr>
+                            <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
+                                <th class="px-4 py-2">
+                                    <select id="filter-gitlab-author" onchange="renderGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-orange-500">
+                                        <option value="">All Developers</option>
+                                    </select>
+                                </th>
+                                <th class="px-4 py-2">
+                                    <select id="filter-gitlab-week" onchange="renderGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-orange-500">
+                                        <option value="">All Weeks (Periods)</option>
+                                    </select>
+                                </th>
+                                <th class="px-4 py-2">
+                                    <input type="text" id="filter-gitlab-tickets" placeholder="Min tickets..." oninput="renderGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-orange-500">
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -282,6 +311,10 @@
         let jiraData = [];
         let currentSortColumn = '';
         let currentSortAsc = true;
+        
+        let gitlabSortColumn = '';
+        let gitlabSortAsc = true;
+
         let projectChartInstance = null;
         let roleChartInstance = null;
 
@@ -345,24 +378,8 @@
                     
                     document.getElementById('gitlab-status-text').textContent = `Loaded ${gitlabData.length} GitLab entries.`;
                     
-                    const tbody = document.getElementById('gitlab-table-body');
-                    if (gitlabData.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No data found in JSON.</td></tr>`;
-                    } else {
-                        tbody.innerHTML = gitlabData.map(item => {
-                            const author = item.author || '-';
-                            const displayRange = item.display_range || `${item.week_start || ''} to ${item.week_end || ''}`;
-                            const ticketsCount = item.unique_tickets_count !== undefined ? item.unique_tickets_count : 0;
-                            
-                            return `
-                                <tr class="hover:bg-slate-800/40 transition">
-                                    <td class="px-6 py-3.5 font-medium text-white">${author}</td>
-                                    <td class="px-6 py-3.5 text-slate-300">${displayRange}</td>
-                                    <td class="px-6 py-3.5 text-center font-bold text-orange-400">${ticketsCount}</td>
-                                </tr>
-                            `;
-                        }).join('');
-                    }
+                    populateGitLabFilters();
+                    renderGitLabTable();
                     
                     const totalTickets = gitlabData.reduce((sum, item) => sum + (parseInt(item.unique_tickets_count) || 0), 0);
                     document.getElementById('kpi-gitlab').textContent = `${totalTickets} Tickets`;
@@ -371,6 +388,90 @@
                 }
             };
             reader.readAsText(file);
+        }
+
+        function populateGitLabFilters() {
+            const authors = [...new Set(gitlabData.map(item => item.author))].filter(Boolean).sort();
+            const weeks = [...new Set(gitlabData.map(item => item.week_start))].filter(Boolean).sort();
+
+            const authorSelect = document.getElementById('filter-gitlab-author');
+            const weekSelect = document.getElementById('filter-gitlab-week');
+
+            const currentAuthor = authorSelect.value;
+            const currentWeek = weekSelect.value;
+
+            authorSelect.innerHTML = '<option value="">All Developers</option>' + authors.map(a => `<option value="${a}">${a}</option>`).join('');
+            weekSelect.innerHTML = '<option value="">All Weeks (Periods)</option>' + weeks.map(w => {
+                const sample = gitlabData.find(i => i.week_start === w);
+                const label = sample ? (sample.display_range || w) : w;
+                return `<option value="${w}">${label}</option>`;
+            }).join('');
+
+            authorSelect.value = currentAuthor;
+            weekSelect.value = currentWeek;
+        }
+
+        function resetGitLabFilters() {
+            document.getElementById('filter-gitlab-author').value = '';
+            document.getElementById('filter-gitlab-week').value = '';
+            document.getElementById('filter-gitlab-tickets').value = '';
+            gitlabSortColumn = '';
+            gitlabSortAsc = true;
+            renderGitLabTable();
+        }
+
+        function sortGitLabTable(column) {
+            if (gitlabSortColumn === column) {
+                gitlabSortAsc = !gitlabSortAsc;
+            } else {
+                gitlabSortColumn = column;
+                gitlabSortAsc = true;
+            }
+            renderGitLabTable();
+        }
+
+        function renderGitLabTable() {
+            const authorFilter = document.getElementById('filter-gitlab-author').value;
+            const weekFilter = document.getElementById('filter-gitlab-week').value;
+            const ticketsFilter = parseInt(document.getElementById('filter-gitlab-tickets').value) || 0;
+
+            let filtered = gitlabData.filter(item => {
+                if (authorFilter && item.author !== authorFilter) return false;
+                if (weekFilter && item.week_start !== weekFilter) return false;
+                if (ticketsFilter && (parseInt(item.unique_tickets_count) || 0) < ticketsFilter) return false;
+                return true;
+            });
+
+            if (gitlabSortColumn) {
+                filtered.sort((a, b) => {
+                    let valA = a[gitlabSortColumn];
+                    let valB = b[gitlabSortColumn];
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (valA < valB) return gitlabSortAsc ? -1 : 1;
+                    if (valA > valB) return gitlabSortAsc ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            const tbody = document.getElementById('gitlab-table-body');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No matching GitLab records found.</td></tr>`;
+            } else {
+                tbody.innerHTML = filtered.map(item => {
+                    const author = item.author || '-';
+                    const displayRange = item.display_range || `${item.week_start || ''} to ${item.week_end || ''}`;
+                    const ticketsCount = item.unique_tickets_count !== undefined ? item.unique_tickets_count : 0;
+                    
+                    return `
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="px-6 py-3.5 font-medium text-white">${author}</td>
+                            <td class="px-6 py-3.5 text-slate-300">${displayRange}</td>
+                            <td class="px-6 py-3.5 text-center font-bold text-orange-400">${ticketsCount}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
         }
 
         function handleJiraUpload(event) {
