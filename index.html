@@ -332,7 +332,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-       function handleGitLabUpload(event) {
+   function handleGitLabUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     const reader = new FileReader();
@@ -340,8 +340,13 @@
         try {
             gitlabData = JSON.parse(e.target.result);
             if (!Array.isArray(gitlabData) && typeof gitlabData === 'object') {
-                // במקרה שה-JSON הוא אובייקט מעטפת שמכיל מערך בפנים
                 gitlabData = gitlabData.data || gitlabData.items || Object.values(gitlabData).find(Array.isArray) || [];
+            }
+            
+            // הדפסת האובייקט הראשון לקונסול כדי שתוכל לראות את המפתחות המדויקים
+            if (gitlabData.length > 0) {
+                console.log("GitLab Sample Object keys:", Object.keys(gitlabData[0]));
+                console.log("GitLab Sample Object data:", gitlabData[0]);
             }
             
             document.getElementById('gitlab-status-text').textContent = `Loaded ${gitlabData.length} GitLab entries.`;
@@ -351,10 +356,28 @@
                 tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No data found in JSON.</td></tr>`;
             } else {
                 tbody.innerHTML = gitlabData.map(item => {
-                    // חילוץ דינמי של השדות מתוך כל האפשרויות הנפוצות
-                    const developer = item.Developer || item.developer || item.name || item.Author || item.author || item.username || '-';
-                    const period = item.Period || item.period || item.week || item.Week || item.date || item.Date || '-';
-                    const mrs = item.MergeRequests || item.merge_requests || item.mrs || item.MRs || item.count || item.total || 0;
+                    // נסה לאסוף את כל הערכים האפשריים או להציג את כל המפתחות אם צריך
+                    const developer = item.Developer || item.developer || item.name || item.Author || item.author || item.username || item.user || '-';
+                    const period = item.Period || item.period || item.week || item.Week || item.date || item.Date || item.created_at || item.time || '-';
+                    
+                    // חיפוש כל שדה אפשרי שמכיל מספר או כמויות
+                    let mrs = 0;
+                    const possibleKeys = ['MergeRequests', 'merge_requests', 'mrs', 'MRs', 'count', 'total', 'value', 'prs', 'issues', 'requests'];
+                    for (let key of possibleKeys) {
+                        if (item[key] !== undefined) {
+                            mrs = item[key];
+                            break;
+                        }
+                    }
+                    // אם עדיין 0, נסה לחפש כל מפתח שהוא מספר באובייקט
+                    if (mrs === 0) {
+                        for (let k in item) {
+                            if (typeof item[k] === 'number') {
+                                mrs = item[k];
+                                break;
+                            }
+                        }
+                    }
                     
                     return `
                         <tr class="hover:bg-slate-800/40 transition">
@@ -367,12 +390,19 @@
             }
             
             const totalMRs = gitlabData.reduce((sum, item) => {
-                const val = item.MergeRequests || item.merge_requests || item.mrs || item.MRs || item.count || item.total || 0;
+                let val = 0;
+                const possibleKeys = ['MergeRequests', 'merge_requests', 'mrs', 'MRs', 'count', 'total', 'value', 'prs'];
+                for (let key of possibleKeys) {
+                    if (item[key] !== undefined) {
+                        val = item[key];
+                        break;
+                    }
+                }
                 return sum + (parseInt(val) || 0);
             }, 0);
             
             document.getElementById('kpi-gitlab').textContent = `${totalMRs} MRs`;
-        } catch (err) {
+        } cmd /err (err) {
             alert("Error reading GitLab JSON: " + err.message);
         }
     };
