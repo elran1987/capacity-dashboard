@@ -519,29 +519,42 @@
             if (saved) {
                 try {
                     employeeData = JSON.parse(saved);
-                } catch(e) {
-                    employeeData = [...defaultEmployeeData];
+                } catch (e) {
+                    employeeData = defaultEmployeeData;
                 }
             } else {
-                employeeData = [...defaultEmployeeData];
+                employeeData = defaultEmployeeData;
             }
         }
 
         function resetAllData() {
-            localStorage.clear();
-            employeeData = [...defaultEmployeeData];
-            gitlabData = [];
-            jiraData = [];
-            document.getElementById('chart-filter-badge').classList.add('hidden');
-            document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
-            document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
-            document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-            document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-            document.getElementById('kpi-gitlab').textContent = "0 Tickets";
-            updateDashboard();
+            if (confirm("Are you sure you want to reset all data to default?")) {
+                localStorage.removeItem('employee_allocations_2026');
+                employeeData = [...defaultEmployeeData];
+                gitlabData = [];
+                jiraData = [];
+                document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
+                document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
+                document.getElementById('kpi-gitlab').textContent = "0 Tickets";
+                document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+                updateDashboard();
+            }
         }
 
-        function populateModalDropdowns(selectedRole = '', selectedLoc = '', selectedProj = '') {
+        function openAddEmployeeModal() {
+            document.getElementById('modal-title').textContent = "Add New Employee Allocation";
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('employeeForm').reset();
+            populateModalDropdowns();
+            document.getElementById('employeeModal').classList.remove('hidden');
+        }
+
+        function closeEmployeeModal() {
+            document.getElementById('employeeModal').classList.add('hidden');
+        }
+
+        function populateModalDropdowns() {
             const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
             const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
             const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
@@ -550,51 +563,15 @@
             const locSelect = document.getElementById('emp-location');
             const projSelect = document.getElementById('emp-project');
 
-            roleSelect.innerHTML = '<option value="">Select role...</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
+            roleSelect.innerHTML = '<option value="">Select or type role...</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
             locSelect.innerHTML = '<option value="">Select location...</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
             projSelect.innerHTML = '<option value="">Select project...</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-
-            if (selectedRole) {
-                if (!roles.includes(selectedRole)) roleSelect.innerHTML += `<option value="${selectedRole}">${selectedRole}</option>`;
-                roleSelect.value = selectedRole;
-            }
-            if (selectedLoc) {
-                if (!locations.includes(selectedLoc)) locSelect.innerHTML += `<option value="${selectedLoc}">${selectedLoc}</option>`;
-                locSelect.value = selectedLoc;
-            }
-            if (selectedProj) {
-                if (!projects.includes(selectedProj)) projSelect.innerHTML += `<option value="${selectedProj}">${selectedProj}</option>`;
-                projSelect.value = selectedProj;
-            }
-        }
-
-        function openAddEmployeeModal() {
-            document.getElementById('modal-title').textContent = "Add New Employee Allocation";
-            document.getElementById('edit-index').value = "-1";
-            document.getElementById('emp-name').value = "";
-            document.getElementById('emp-fte').value = "1.0";
-            populateModalDropdowns();
-            document.getElementById('employeeModal').classList.remove('hidden');
-        }
-
-        function openEditEmployeeModal(index) {
-            const emp = employeeData[index];
-            document.getElementById('modal-title').textContent = "Edit Employee Allocation";
-            document.getElementById('edit-index').value = index;
-            document.getElementById('emp-name').value = emp.Name;
-            document.getElementById('emp-fte').value = emp.FTE;
-            populateModalDropdowns(emp.Role, emp.Location, emp.Project);
-            document.getElementById('employeeModal').classList.remove('hidden');
-        }
-
-        function closeEmployeeModal() {
-            document.getElementById('employeeModal').classList.add('hidden');
         }
 
         function saveEmployee(event) {
             event.preventDefault();
             const index = parseInt(document.getElementById('edit-index').value);
-            const empObj = {
+            const newItem = {
                 Name: document.getElementById('emp-name').value.trim(),
                 Role: document.getElementById('emp-role').value.trim(),
                 Location: document.getElementById('emp-location').value.trim(),
@@ -603,14 +580,30 @@
             };
 
             if (index === -1) {
-                employeeData.push(empObj);
+                employeeData.push(newItem);
             } else {
-                employeeData[index] = empObj;
+                employeeData[index] = newItem;
             }
 
             saveToLocalStorage();
             closeEmployeeModal();
             updateDashboard();
+        }
+
+        function editEmployee(index) {
+            const item = employeeData[index];
+            if (!item) return;
+            document.getElementById('modal-title').textContent = "Edit Employee Allocation";
+            document.getElementById('edit-index').value = index;
+            populateModalDropdowns();
+            
+            document.getElementById('emp-name').value = item.Name || '';
+            document.getElementById('emp-role').value = item.Role || '';
+            document.getElementById('emp-location').value = item.Location || '';
+            document.getElementById('emp-project').value = item.Project || '';
+            document.getElementById('emp-fte').value = item.FTE || 0;
+
+            document.getElementById('employeeModal').classList.remove('hidden');
         }
 
         function deleteEmployee(index) {
@@ -621,37 +614,15 @@
             }
         }
 
-        function populateTableFilters() {
-            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
-            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
-            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
-
-            const roleSelect = document.getElementById('filter-emp-role');
-            const locSelect = document.getElementById('filter-emp-loc');
-            const projSelect = document.getElementById('filter-emp-proj');
-
-            const currentRole = roleSelect.value;
-            const currentLoc = locSelect.value;
-            const currentProj = projSelect.value;
-
-            roleSelect.innerHTML = '<option value="">All</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
-            locSelect.innerHTML = '<option value="">All</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
-            projSelect.innerHTML = '<option value="">All</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-
-            roleSelect.value = currentRole;
-            locSelect.value = currentLoc;
-            projSelect.value = currentProj;
-        }
-
         function resetAllocationFilters() {
             document.getElementById('filter-emp-name').value = '';
             document.getElementById('filter-emp-role').value = '';
             document.getElementById('filter-emp-loc').value = '';
             document.getElementById('filter-emp-proj').value = '';
             document.getElementById('filter-emp-fte').value = '';
-            document.getElementById('chart-filter-badge').classList.add('hidden');
             currentSortColumn = '';
             currentSortAsc = true;
+            document.getElementById('chart-filter-badge').classList.add('hidden');
             updateDashboard();
         }
 
@@ -665,60 +636,158 @@
             updateDashboard();
         }
 
-        function updateCharts(filteredData) {
-            const projectFTE = {};
-            employeeData.forEach(emp => {
-                if (emp.Project) {
-                    projectFTE[emp.Project] = (projectFTE[emp.Project] || 0) + (parseFloat(emp.FTE) || 0);
-                }
+        function filterByProject(projectName) {
+            document.getElementById('filter-emp-proj').value = projectName;
+            const badge = document.getElementById('chart-filter-badge');
+            badge.textContent = `Filtered by: ${projectName}`;
+            badge.classList.remove('hidden');
+            updateDashboard();
+        }
+
+        function updateDashboard() {
+            // Populate filter dropdowns based on current data
+            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
+            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
+            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
+
+            const roleFilterEl = document.getElementById('filter-emp-role');
+            const locFilterEl = document.getElementById('filter-emp-loc');
+            const projFilterEl = document.getElementById('filter-emp-proj');
+
+            const currentRole = roleFilterEl.value;
+            const currentLoc = locFilterEl.value;
+            const currentProj = projFilterEl.value;
+
+            roleFilterEl.innerHTML = '<option value="">All</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
+            locFilterEl.innerHTML = '<option value="">All</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
+            projFilterEl.innerHTML = '<option value="">All</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+
+            roleFilterEl.value = currentRole;
+            locFilterEl.value = currentLoc;
+            projFilterEl.value = currentProj;
+
+            // Get filter values
+            const nameQuery = document.getElementById('filter-emp-name').value.toLowerCase();
+            const roleQuery = roleFilterEl.value;
+            const locQuery = locFilterEl.value;
+            const projQuery = projFilterEl.value;
+            const fteQuery = document.getElementById('filter-emp-fte').value;
+
+            // Filter data
+            let filtered = employeeData.map((item, originalIndex) => ({ ...item, originalIndex })).filter(item => {
+                if (nameQuery && !item.Name.toLowerCase().includes(nameQuery)) return false;
+                if (roleQuery && item.Role !== roleQuery) return false;
+                if (locQuery && item.Location !== locQuery) return false;
+                if (projQuery && item.Project !== projQuery) return false;
+                if (fteQuery && item.FTE.toString() !== fteQuery) return false;
+                return true;
             });
 
-            const projLabels = Object.keys(projectFTE);
-            const projValues = Object.values(projectFTE);
+            // Sort data
+            if (currentSortColumn) {
+                filtered.sort((a, b) => {
+                    let valA = a[currentSortColumn];
+                    let valB = b[currentSortColumn];
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (valA < valB) return currentSortAsc ? -1 : 1;
+                    if (valA > valB) return currentSortAsc ? 1 : -1;
+                    return 0;
+                });
+            }
 
-            const ctxProj = document.getElementById('projectChart').getContext('2d');
+            // Update KPIs
+            const totalHeadcount = new Set(employeeData.map(e => e.Name)).size;
+            const totalProjects = new Set(employeeData.map(e => e.Project)).size;
+            const totalFte = employeeData.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
+
+            document.getElementById('kpi-headcount').textContent = totalHeadcount;
+            document.getElementById('kpi-projects').textContent = totalProjects;
+            document.getElementById('kpi-fte').textContent = totalFte.toFixed(2);
+
+            // Render Employee Table
+            const tbody = document.getElementById('employee-table-body');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No matching records found.</td></tr>`;
+            } else {
+                tbody.innerHTML = filtered.map(item => `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="px-5 py-3.5 font-medium text-white">${item.Name}</td>
+                        <td class="px-5 py-3.5 text-slate-300"><span class="bg-slate-800 px-2.5 py-1 rounded-lg text-xs">${item.Role || '-'}</span></td>
+                        <td class="px-5 py-3.5 text-slate-300">${item.Location || '-'}</td>
+                        <td class="px-5 py-3.5 text-cyan-400 font-medium">${item.Project || '-'}</td>
+                        <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${item.FTE}</td>
+                        <td class="px-5 py-3.5 text-center">
+                            <button onclick="editEmployee(${item.originalIndex})" class="text-slate-400 hover:text-cyan-400 p-1.5 transition cursor-pointer" title="Edit">
+                                <i class="fa-solid fa-pen-to-square text-xs"></i>
+                            </button>
+                            <button onclick="deleteEmployee(${item.originalIndex})" class="text-slate-400 hover:text-rose-400 p-1.5 transition cursor-pointer" title="Delete">
+                                <i class="fa-solid fa-trash text-xs"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            renderCharts();
+        }
+
+        function renderCharts() {
+            // Project Chart (FTE Sum per Project)
+            const projectFteMap = {};
+            employeeData.forEach(e => {
+                const p = e.Project || 'Unassigned';
+                projectFteMap[p] = (projectFteMap[p] || 0) + (parseFloat(e.FTE) || 0);
+            });
+
+            const projLabels = Object.keys(projectFteMap);
+            const projValues = Object.values(projectFteMap);
+
+            const ctxProject = document.getElementById('projectChart').getContext('2d');
             if (projectChartInstance) projectChartInstance.destroy();
 
-            projectChartInstance = new Chart(ctxProj, {
+            projectChartInstance = new Chart(ctxProject, {
                 type: 'bar',
                 data: {
                     labels: projLabels,
                     datasets: [{
                         label: 'Total FTE',
                         data: projValues,
-                        backgroundColor: '#06b6d4',
-                        borderRadius: 6
+                        backgroundColor: 'rgba(6, 182, 212, 0.7)',
+                        borderColor: 'rgb(6, 182, 212)',
+                        borderWidth: 1,
+                        borderRadius: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
-                    },
                     onClick: (event, elements) => {
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const clickedProject = projLabels[index];
-                            document.getElementById('filter-emp-proj').value = clickedProject;
-                            document.getElementById('chart-filter-badge').classList.remove('hidden');
-                            updateDashboard();
+                            filterByProject(clickedProject);
                         }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8' } }
                     }
                 }
             });
 
-            const roleCount = {};
-            employeeData.forEach(emp => {
-                if (emp.Role) {
-                    roleCount[emp.Role] = (roleCount[emp.Role] || 0) + 1;
-                }
+            // Role Chart (Headcount per Role)
+            const roleCountMap = {};
+            employeeData.forEach(e => {
+                const r = e.Role || 'Other';
+                roleCountMap[r] = (roleCountMap[r] || 0) + 1;
             });
 
-            const roleLabels = Object.keys(roleCount);
-            const roleValues = Object.values(roleCount);
+            const roleLabels = Object.keys(roleCountMap);
+            const roleValues = Object.values(roleCountMap);
 
             const ctxRole = document.getElementById('roleChart').getContext('2d');
             if (roleChartInstance) roleChartInstance.destroy();
@@ -729,7 +798,14 @@
                     labels: roleLabels,
                     datasets: [{
                         data: roleValues,
-                        backgroundColor: ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(6, 182, 212, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(239, 68, 68, 0.8)',
+                            'rgba(168, 85, 247, 0.8)'
+                        ],
                         borderWidth: 0
                     }]
                 },
@@ -743,68 +819,7 @@
             });
         }
 
-        function updateDashboard() {
-            populateTableFilters();
-
-            document.getElementById('kpi-headcount').textContent = new Set(employeeData.map(e => e.Name)).size;
-            const uniqueProjects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean);
-            document.getElementById('kpi-projects').textContent = uniqueProjects.length;
-            const totalFTE = employeeData.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
-            document.getElementById('kpi-fte').textContent = totalFTE.toFixed(1);
-
-            const nameFilter = document.getElementById('filter-emp-name').value.toLowerCase();
-            const roleFilter = document.getElementById('filter-emp-role').value;
-            const locFilter = document.getElementById('filter-emp-loc').value;
-            const projFilter = document.getElementById('filter-emp-proj').value;
-            const fteFilter = document.getElementById('filter-emp-fte').value.toLowerCase();
-
-            let filtered = employeeData.map((emp, originalIndex) => ({ ...emp, originalIndex })).filter(emp => {
-                if (nameFilter && !emp.Name.toLowerCase().includes(nameFilter)) return false;
-                if (roleFilter && emp.Role !== roleFilter) return false;
-                if (locFilter && emp.Location !== locFilter) return false;
-                if (projFilter && emp.Project !== projFilter) return false;
-                if (fteFilter && !String(emp.FTE).includes(fteFilter)) return false;
-                return true;
-            });
-
-            if (currentSortColumn) {
-                filtered.sort((a, b) => {
-                    let valA = a[currentSortColumn];
-                    let valB = b[currentSortColumn];
-                    if (typeof valA === 'string') valA = valA.toLowerCase();
-                    if (typeof valB === 'string') valB = valB.toLowerCase();
-                    if (valA < valB) return currentSortAsc ? -1 : 1;
-                    if (valA > valB) return currentSortAsc ? 1 : -1;
-                    return 0;
-                });
-            }
-
-            const tbody = document.getElementById('employee-table-body');
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-12 text-slate-500">No matching employee allocations found.</td></tr>`;
-            } else {
-                tbody.innerHTML = filtered.map(emp => `
-                    <tr class="hover:bg-slate-800/40 transition">
-                        <td class="px-5 py-3.5 font-medium text-white">${emp.Name}</td>
-                        <td class="px-5 py-3.5 text-slate-300"><span class="px-2.5 py-1 bg-slate-800 rounded-lg text-[11px]">${emp.Role}</span></td>
-                        <td class="px-5 py-3.5 text-slate-300">${emp.Location}</td>
-                        <td class="px-5 py-3.5 text-cyan-400 font-semibold">${emp.Project}</td>
-                        <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${emp.FTE}</td>
-                        <td class="px-5 py-3.5 text-center flex items-center justify-center gap-2">
-                            <button onclick="openEditEmployeeModal(${emp.originalIndex})" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition cursor-pointer" title="Edit">
-                                <i class="fa-solid fa-pen text-xs"></i>
-                            </button>
-                            <button onclick="deleteEmployee(${emp.originalIndex})" class="p-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded-lg transition cursor-pointer" title="Delete">
-                                <i class="fa-solid fa-trash text-xs"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('');
-            }
-
-            updateCharts(filtered);
-        }
-
+        // Initialize on load
         window.onload = function() {
             loadFromLocalStorage();
             updateDashboard();
