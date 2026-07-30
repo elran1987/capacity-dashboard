@@ -223,7 +223,7 @@
             </div>
         </div>
 
-        <!-- Tab 3: Jira Activity (Updated Structure) -->
+        <!-- Tab 3: Jira Activity -->
         <div id="tab-content-jira" class="space-y-4 hidden">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
                 <span id="jira-status-text" class="text-sm text-slate-400">No Jira data loaded.</span>
@@ -360,6 +360,17 @@
             document.getElementById(`tab-btn-${tabId}`).className = "pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer";
         }
 
+        // פונקציה חכמה לשליפת ערך מתוך שורת אקסל לפי מגוון שמות אפשריים
+        function getField(row, keys) {
+            for (let key of keys) {
+                const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === key.toLowerCase());
+                if (foundKey !== undefined && row[foundKey] !== '') {
+                    return row[foundKey];
+                }
+            }
+            return '';
+        }
+
         function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -372,19 +383,37 @@
                     const sheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
                     
-                    employeeData = json.map(row => ({
-                        Name: row.Name || row['שם'] || '',
-                        Role: row.Role || row['תפקיד'] || '',
-                        Location: row.Location || row['Location '] || row['מיקום'] || '',
-                        Project: row['main project'] || row['main project '] || row['פרויקט'] || '',
-                        FTE: parseFloat(row['% main project'] || row['FTE'] || 0)
-                    })).filter(e => e.Name);
+                    if (!json || json.length === 0) {
+                        alert("הקובץ ריק או שלא זוהו נתונים בגיליון.");
+                        return;
+                    }
+
+                    employeeData = json.map(row => {
+                        const name = getField(row, ['Name', 'Employee Name', 'שם', 'שם עובד']);
+                        const role = getField(row, ['Role', 'תפקיד', 'תפקיד/דרגה']);
+                        const location = getField(row, ['Location', 'Location ', 'מיקום', 'אתר']);
+                        const project = getField(row, ['main project', 'Main Project', 'Project', 'פרויקט', 'פרויקט ראשי']);
+                        const fteVal = getField(row, ['% main project', 'FTE', 'Allocation', 'היקף', 'אחוז משרה']);
+
+                        return {
+                            Name: name,
+                            Role: role,
+                            Location: location,
+                            Project: project,
+                            FTE: parseFloat(fteVal) || 0
+                        };
+                    }).filter(e => e.Name);
+
+                    if (employeeData.length === 0) {
+                        alert("לא הצלחנו לזהות שורות תקינות. ודא שלעמודות יש כותרות ברורות כמו Name, Role, Project, FTE.");
+                        return;
+                    }
 
                     saveToLocalStorage();
                     updateDashboard();
                     switchTab('allocations');
                 } catch (err) {
-                    alert("Error reading Excel file: " + err.message);
+                    alert("שגיאה בקריאת קובץ האקסל: " + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -415,6 +444,36 @@
             reader.readAsText(file);
         }
 
+        function handleJiraUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    
+                    jiraData = json.map(row => ({
+                        issueKey: getField(row, ['Issue Key', 'Key', 'Issue', 'מפתח']),
+                        project: getField(row, ['Project', 'Project Name', 'פרויקט']),
+                        assignee: getField(row, ['Assignee', 'User', 'Developer', 'משתמש', 'אחראי']),
+                        transition: getField(row, ['Transition', 'Status Change', 'מעבר']),
+                        count: parseInt(getField(row, ['Count', 'Transitions Count', 'כמות'])) || 1
+                    })).filter(j => j.issueKey || j.assignee);
+
+                    document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
+                    populateJiraFilters();
+                    renderJiraTable();
+                } catch (err) {
+                    alert("Error reading Jira file: " + err.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
         function populateGitLabFilters() {
             const authors = [...new Set(gitlabData.map(item => item.author))].filter(Boolean).sort();
             const weeks = [...new Set(gitlabData.map(item => item.week_start))].filter(Boolean).sort();
@@ -436,6 +495,17 @@
             weekSelect.value = currentWeek;
         }
 
+        function populateJiraFilters() {
+            const projects = [...new Set(jiraData.map(item => item.project))].filter(Boolean).sort();
+            const assignees = [...new Set(jiraData.map(item => item.assignee))].filter(Boolean).sort();
+
+            const projSelect = document.getElementById('filter-jira-proj');
+            const assigneeSelect = document.getElementById('filter-jira-assignee');
+
+            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+            assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
+        }
+
         function resetGitLabFilters() {
             document.getElementById('filter-gitlab-author').value = '';
             document.getElementById('filter-gitlab-week').value = '';
@@ -443,6 +513,28 @@
             gitlabSortColumn = '';
             gitlabSortAsc = true;
             renderGitLabTable();
+        }
+
+        function resetJiraFilters() {
+            document.getElementById('filter-jira-key').value = '';
+            document.getElementById('filter-jira-proj').value = '';
+            document.getElementById('filter-jira-assignee').value = '';
+            document.getElementById('filter-jira-transition').value = '';
+            document.getElementById('filter-jira-count').value = '';
+            jiraSortColumn = '';
+            jiraSortAsc = true;
+            renderJiraTable();
+        }
+
+        function resetAllocationFilters() {
+            document.getElementById('filter-emp-name').value = '';
+            document.getElementById('filter-emp-role').value = '';
+            document.getElementById('filter-emp-loc').value = '';
+            document.getElementById('filter-emp-proj').value = '';
+            document.getElementById('filter-emp-fte').value = '';
+            activeProjectFilter = '';
+            document.getElementById('chart-filter-badge').classList.add('hidden');
+            updateDashboard();
         }
 
         function sortGitLabTable(column) {
@@ -453,6 +545,26 @@
                 gitlabSortAsc = true;
             }
             renderGitLabTable();
+        }
+
+        function sortJiraTable(column) {
+            if (jiraSortColumn === column) {
+                jiraSortAsc = !jiraSortAsc;
+            } else {
+                jiraSortColumn = column;
+                jiraSortAsc = true;
+            }
+            renderJiraTable();
+        }
+
+        function sortAllocationTable(column) {
+            if (currentSortColumn === column) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortColumn = column;
+                currentSortAsc = true;
+            }
+            renderEmployeeTable();
         }
 
         function renderGitLabTable() {
@@ -483,114 +595,28 @@
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No matching GitLab records found.</td></tr>`;
             } else {
-                tbody.innerHTML = filtered.map(item => {
-                    const author = item.author || '-';
-                    const displayRange = item.display_range || `${item.week_start || ''} to ${item.week_end || ''}`;
-                    const ticketsCount = item.unique_tickets_count !== undefined ? item.unique_tickets_count : 0;
-                    
-                    return `
-                        <tr class="hover:bg-slate-800/40 transition">
-                            <td class="px-6 py-3.5 font-medium text-white">${author}</td>
-                            <td class="px-6 py-3.5 text-slate-300">${displayRange}</td>
-                            <td class="px-6 py-3.5 text-center font-bold text-orange-400">${ticketsCount}</td>
-                        </tr>
-                    `;
-                }).join('');
+                tbody.innerHTML = filtered.map(item => `
+                    <tr class="hover:bg-slate-900/40 transition">
+                        <td class="px-6 py-4 font-medium text-white">${item.author || '-'}</td>
+                        <td class="px-6 py-4 text-slate-300">${item.display_range || item.week_start || '-'}</td>
+                        <td class="px-6 py-4 text-center text-cyan-400 font-bold">${item.unique_tickets_count || 0}</td>
+                    </tr>
+                `).join('');
             }
-        }
-
-        function handleJiraUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const sheet = workbook.Sheets[sheetName];
-                    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-                    
-                    jiraData = rawJson.map(row => {
-                        const issueKey = row['Issue Key'] || row['Key'] || row['ISSUE KEY'] || '-';
-                        const project = row['Project'] || row['PROJECT'] || row['פרויקט'] || '-';
-                        const assignee = row['Assignee'] || row['User'] || row['ASSIGNEE'] || row['USER'] || '-';
-                        
-                        const fromStatus = row['From Status'] || row['from status'] || row['FROM STATUS'] || '';
-                        const toStatus = row['To Status'] || row['to status'] || row['TO STATUS'] || '';
-                        const transition = (fromStatus || toStatus) ? `${fromStatus} → ${toStatus}` : (row['Transition'] || '-');
-                        
-                        const count = parseInt(row['Count'] || row['COUNT'] || 1) || 1;
-
-                        return {
-                            issueKey,
-                            project,
-                            assignee,
-                            transition,
-                            count
-                        };
-                    });
-
-                    document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
-                    populateJiraFilters();
-                    renderJiraTable();
-                } catch (err) {
-                    alert("Error reading Jira file: " + err.message);
-                }
-            };
-            reader.readAsArrayBuffer(file);
-        }
-
-        function populateJiraFilters() {
-            const projects = [...new Set(jiraData.map(item => item.project))].filter(Boolean).sort();
-            const assignees = [...new Set(jiraData.map(item => item.assignee))].filter(Boolean).sort();
-
-            const projSelect = document.getElementById('filter-jira-proj');
-            const assigneeSelect = document.getElementById('filter-jira-assignee');
-
-            const curProj = projSelect.value;
-            const curAssignee = assigneeSelect.value;
-
-            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-            assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
-
-            projSelect.value = curProj;
-            assigneeSelect.value = curAssignee;
-        }
-
-        function resetJiraFilters() {
-            document.getElementById('filter-jira-key').value = '';
-            document.getElementById('filter-jira-proj').value = '';
-            document.getElementById('filter-jira-assignee').value = '';
-            document.getElementById('filter-jira-transition').value = '';
-            document.getElementById('filter-jira-count').value = '';
-            jiraSortColumn = '';
-            jiraSortAsc = true;
-            renderJiraTable();
-        }
-
-        function sortJiraTable(column) {
-            if (jiraSortColumn === column) {
-                jiraSortAsc = !jiraSortAsc;
-            } else {
-                jiraSortColumn = column;
-                jiraSortAsc = true;
-            }
-            renderJiraTable();
         }
 
         function renderJiraTable() {
-            const keySearch = document.getElementById('filter-jira-key').value.toLowerCase();
+            const keyFilter = document.getElementById('filter-jira-key').value.toLowerCase();
             const projFilter = document.getElementById('filter-jira-proj').value;
             const assigneeFilter = document.getElementById('filter-jira-assignee').value;
-            const transSearch = document.getElementById('filter-jira-transition').value.toLowerCase();
+            const transitionFilter = document.getElementById('filter-jira-transition').value.toLowerCase();
             const countFilter = parseInt(document.getElementById('filter-jira-count').value) || 0;
 
             let filtered = jiraData.filter(item => {
-                if (keySearch && !item.issueKey.toLowerCase().includes(keySearch)) return false;
+                if (keyFilter && !item.issueKey.toLowerCase().includes(keyFilter)) return false;
                 if (projFilter && item.project !== projFilter) return false;
                 if (assigneeFilter && item.assignee !== assigneeFilter) return false;
-                if (transSearch && !item.transition.toLowerCase().includes(transSearch)) return false;
+                if (transitionFilter && !item.transition.toLowerCase().includes(transitionFilter)) return false;
                 if (countFilter && item.count < countFilter) return false;
                 return true;
             });
@@ -612,105 +638,72 @@
                 tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">No matching Jira records found.</td></tr>`;
             } else {
                 tbody.innerHTML = filtered.map(item => `
-                    <tr class="hover:bg-slate-800/40 transition">
-                        <td class="px-6 py-3.5 font-semibold text-blue-400">${item.issueKey}</td>
-                        <td class="px-6 py-3.5 text-cyan-400 font-medium">${item.project}</td>
-                        <td class="px-6 py-3.5 text-slate-200">${item.assignee}</td>
-                        <td class="px-6 py-3.5 text-slate-300 text-xs font-mono bg-slate-950/40 px-2 py-1 rounded">${item.transition}</td>
-                        <td class="px-6 py-3.5 text-center font-bold text-emerald-400">${item.count}</td>
+                    <tr class="hover:bg-slate-900/40 transition">
+                        <td class="px-6 py-4 font-medium text-cyan-400">${item.issueKey || '-'}</td>
+                        <td class="px-6 py-4 text-slate-300">${item.project || '-'}</td>
+                        <td class="px-6 py-4 text-white">${item.assignee || '-'}</td>
+                        <td class="px-6 py-4 text-slate-300">${item.transition || '-'}</td>
+                        <td class="px-6 py-4 text-center font-bold text-blue-400">${item.count || 0}</td>
                     </tr>
                 `).join('');
             }
         }
 
-        function saveToLocalStorage() {
-            localStorage.setItem('employee_allocations_2026', JSON.stringify(employeeData));
-        }
-
-        function loadFromLocalStorage() {
-            const saved = localStorage.getItem('employee_allocations_2026');
-            if (saved) {
-                try {
-                    employeeData = JSON.parse(saved);
-                } catch (e) {
-                    employeeData = defaultEmployeeData;
-                }
-            } else {
-                employeeData = defaultEmployeeData;
-            }
-        }
-
-        function resetAllData() {
-            if (confirm("Are you sure you want to reset all data to defaults?")) {
-                localStorage.removeItem('employee_allocations_2026');
+        function updateDashboard() {
+            if (employeeData.length === 0) {
                 employeeData = [...defaultEmployeeData];
-                gitlabData = [];
-                jiraData = [];
-                activeProjectFilter = '';
-                document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
-                document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
-                document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-                document.getElementById('kpi-gitlab').textContent = "0 Tickets";
-                updateDashboard();
             }
+            updateDropdownFilters();
+            renderEmployeeTable();
+            updateKPIs();
+            renderCharts();
         }
 
-        function updateDropdownOptions() {
+        function updateDropdownFilters() {
             const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
             const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
             const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
 
-            const roleFilter = document.getElementById('filter-emp-role');
-            const locFilter = document.getElementById('filter-emp-loc');
-            const projFilter = document.getElementById('filter-emp-proj');
+            updateSelectOptions('filter-emp-role', roles);
+            updateSelectOptions('filter-emp-loc', locations);
+            updateSelectOptions('filter-emp-proj', projects, activeProjectFilter);
 
-            const curRole = roleFilter.value;
-            const curLoc = locFilter.value;
-            const curProj = activeProjectFilter || projFilter.value;
-
-            roleFilter.innerHTML = '<option value="">All</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
-            locFilter.innerHTML = '<option value="">All</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
-            projFilter.innerHTML = '<option value="">All</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-
-            roleFilter.value = curRole;
-            locFilter.value = curLoc;
-            projFilter.value = curProj;
-
-            const modalRole = document.getElementById('emp-role');
-            const modalLoc = document.getElementById('emp-location');
-            const modalProj = document.getElementById('emp-project');
-
-            modalRole.innerHTML = '<option value="">Select or type role...</option>' + roles.map(r => `<option value="${r}">${r}</option>`).join('');
-            modalLoc.innerHTML = '<option value="">Select location...</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
-            modalProj.innerHTML = '<option value="">Select project...</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+            updateSelectOptions('emp-role', roles);
+            updateSelectOptions('emp-location', locations);
+            updateSelectOptions('emp-project', projects);
         }
 
-        function updateDashboard() {
-            updateDropdownOptions();
+        function updateSelectOptions(elementId, items, selectedVal = '') {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            const current = selectedVal || el.value;
+            const isFilter = elementId.startsWith('filter-');
+            
+            let html = isFilter ? '<option value="">All</option>' : '<option value="">Select...</option>';
+            html += items.map(i => `<option value="${i}" ${i === current ? 'selected' : ''}>${i}</option>`).join('');
+            el.innerHTML = html;
+        }
 
-            const nameSearch = document.getElementById('filter-emp-name').value.toLowerCase();
-            const roleFilter = document.getElementById('filter-emp-role').value;
-            const locFilter = document.getElementById('filter-emp-loc').value;
-            const projFilter = activeProjectFilter || document.getElementById('filter-emp-proj').value;
-            const fteFilter = document.getElementById('filter-emp-fte').value;
+        function getFilteredEmployees() {
+            const nameQ = document.getElementById('filter-emp-name').value.toLowerCase();
+            const roleQ = document.getElementById('filter-emp-role').value;
+            const locQ = document.getElementById('filter-emp-loc').value;
+            const projQ = document.getElementById('filter-emp-proj').value;
+            const fteQ = document.getElementById('filter-emp-fte').value;
 
-            const badge = document.getElementById('chart-filter-badge');
-            if (activeProjectFilter) {
-                badge.textContent = `Filtered by Project: ${activeProjectFilter}`;
-                badge.classList.remove('hidden');
-            } else {
-                badge.classList.add('hidden');
-            }
-
-            let filtered = employeeData.filter(emp => {
-                if (nameSearch && !emp.Name.toLowerCase().includes(nameSearch)) return false;
-                if (roleFilter && emp.Role !== roleFilter) return false;
-                if (locFilter && emp.Location !== locFilter) return false;
-                if (projFilter && emp.Project !== projFilter) return false;
-                if (fteFilter && emp.FTE.toString().indexOf(fteFilter) === -1) return false;
+            return employeeData.filter(emp => {
+                if (nameQ && !emp.Name.toLowerCase().includes(nameQ)) return false;
+                if (roleQ && emp.Role !== roleQ) return false;
+                if (locQ && emp.Location !== locQ) return false;
+                if (projQ && emp.Project !== projQ) return false;
+                if (activeProjectFilter && emp.Project !== activeProjectFilter) return false;
+                if (fteQ && emp.FTE.toString() !== fteQ) return false;
                 return true;
             });
+        }
+
+        function renderEmployeeTable() {
+            let filtered = getFilteredEmployees();
 
             if (currentSortColumn) {
                 filtered.sort((a, b) => {
@@ -724,83 +717,144 @@
                 });
             }
 
-            document.getElementById('kpi-headcount').textContent = [...new Set(employeeData.map(e => e.Name))].length;
-            document.getElementById('kpi-projects').textContent = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).length;
-            const totalFTE = employeeData.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
-            document.getElementById('kpi-fte').textContent = totalFTE.toFixed(2);
-
             const tbody = document.getElementById('employee-table-body');
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No employees found.</td></tr>`;
-            } else {
-                tbody.innerHTML = filtered.map((emp, index) => {
-                    const originalIndex = employeeData.indexOf(emp);
-                    return `
-                        <tr class="hover:bg-slate-800/40 transition">
-                            <td class="px-5 py-3.5 font-medium text-white">${emp.Name}</td>
-                            <td class="px-5 py-3.5 text-slate-300">${emp.Role}</td>
-                            <td class="px-5 py-3.5 text-slate-300">${emp.Location}</td>
-                            <td class="px-5 py-3.5 text-cyan-400 font-medium">${emp.Project}</td>
-                            <td class="px-5 py-3.5 text-center font-bold text-emerald-400">${emp.FTE}</td>
-                            <td class="px-5 py-3.5 text-center flex items-center justify-center gap-2">
-                                <button onclick="editEmployee(${originalIndex})" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-lg transition cursor-pointer" title="Edit">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
-                                <button onclick="deleteEmployee(${originalIndex})" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2 rounded-lg transition cursor-pointer" title="Delete">
-                                    <i class="fa-solid fa-trash text-xs"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
+                tbody.innerHTML = `<tr><td colspan="6" class="px-5 py-8 text-center text-slate-500">No employees found.</td></tr>`;
+                return;
             }
 
-            renderCharts();
+            tbody.innerHTML = filtered.map((emp, idx) => {
+                const originalIndex = employeeData.indexOf(emp);
+                return `
+                    <tr class="hover:bg-slate-900/40 transition">
+                        <td class="px-5 py-4 font-medium text-white">${emp.Name}</td>
+                        <td class="px-5 py-4 text-slate-300">${emp.Role}</td>
+                        <td class="px-5 py-4 text-slate-300">${emp.Location}</td>
+                        <td class="px-5 py-4 text-cyan-400 font-medium">${emp.Project}</td>
+                        <td class="px-5 py-4 text-center font-bold text-emerald-400">${emp.FTE}</td>
+                        <td class="px-5 py-4 text-center">
+                            <button onclick="editEmployee(${originalIndex})" class="text-slate-400 hover:text-cyan-400 p-1.5 transition cursor-pointer" title="Edit"><i class="fa-solid fa-pen text-xs"></i></button>
+                            <button onclick="deleteEmployee(${originalIndex})" class="text-slate-400 hover:text-rose-400 p-1.5 transition cursor-pointer" title="Delete"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
-        function sortAllocationTable(column) {
-            if (currentSortColumn === column) {
-                currentSortAsc = !currentSortAsc;
-            } else {
-                currentSortColumn = column;
-                currentSortAsc = true;
-            }
-            updateDashboard();
+        function updateKPIs() {
+            const filtered = getFilteredEmployees();
+            const uniqueHeadcount = new Set(filtered.map(e => e.Name)).size;
+            const uniqueProjects = new Set(filtered.map(e => e.Project)).size;
+            const totalFTE = filtered.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
+
+            document.getElementById('kpi-headcount').textContent = uniqueHeadcount;
+            document.getElementById('kpi-projects').textContent = uniqueProjects;
+            document.getElementById('kpi-fte').textContent = totalFTE.toFixed(2);
         }
 
-        function resetAllocationFilters() {
-            document.getElementById('filter-emp-name').value = '';
-            document.getElementById('filter-emp-role').value = '';
-            document.getElementById('filter-emp-loc').value = '';
-            document.getElementById('filter-emp-proj').value = '';
-            document.getElementById('filter-emp-fte').value = '';
-            activeProjectFilter = '';
-            currentSortColumn = '';
-            currentSortAsc = true;
-            updateDashboard();
+        function renderCharts() {
+            const filtered = getFilteredEmployees();
+
+            // Project Allocations Chart
+            const projectFTE = {};
+            filtered.forEach(e => {
+                if (!e.Project) return;
+                projectFTE[e.Project] = (projectFTE[e.Project] || 0) + (parseFloat(e.FTE) || 0);
+            });
+
+            const projLabels = Object.keys(projectFTE);
+            const projValues = Object.values(projectFTE);
+
+            const ctxProj = document.getElementById('projectChart').getContext('2d');
+            if (projectChartInstance) projectChartInstance.destroy();
+
+            projectChartInstance = new Chart(ctxProj, {
+                type: 'bar',
+                data: {
+                    labels: projLabels,
+                    datasets: [{
+                        label: 'Total FTE',
+                        data: projValues,
+                        backgroundColor: '#06b6d4',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+                    },
+                    onClick: (event, elements) => {
+                        if (elements.length > 0) {
+                            const index = elements[0].index;
+                            const clickedProj = projLabels[index];
+                            if (activeProjectFilter === clickedProj) {
+                                activeProjectFilter = '';
+                                document.getElementById('chart-filter-badge').classList.add('hidden');
+                            } else {
+                                activeProjectFilter = clickedProj;
+                                const badge = document.getElementById('chart-filter-badge');
+                                badge.textContent = `Filtered by: ${clickedProj}`;
+                                badge.classList.remove('hidden');
+                            }
+                            updateDashboard();
+                        }
+                    }
+                }
+            });
+
+            // Role Distribution Chart
+            const roleCount = {};
+            filtered.forEach(e => {
+                if (!e.Role) return;
+                roleCount[e.Role] = (roleCount[e.Role] || 0) + 1;
+            });
+
+            const roleLabels = Object.keys(roleCount);
+            const roleValues = Object.values(roleCount);
+
+            const ctxRole = document.getElementById('roleChart').getContext('2d');
+            if (roleChartInstance) roleChartInstance.destroy();
+
+            roleChartInstance = new Chart(ctxRole, {
+                type: 'doughnut',
+                data: {
+                    labels: roleLabels,
+                    datasets: [{
+                        data: roleValues,
+                        backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#ec4899', '#f59e0b', '#10b981'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } }
+                    }
+                }
+            });
         }
 
         function openAddEmployeeModal() {
             document.getElementById('modal-title').textContent = "Add New Employee Allocation";
             document.getElementById('edit-index').value = "-1";
             document.getElementById('employeeForm').reset();
-            updateDropdownOptions();
             document.getElementById('employeeModal').classList.remove('hidden');
         }
 
         function editEmployee(index) {
             const emp = employeeData[index];
-            if (!emp) return;
             document.getElementById('modal-title').textContent = "Edit Employee Allocation";
             document.getElementById('edit-index').value = index;
             document.getElementById('emp-name').value = emp.Name;
-            document.getElementById('emp-fte').value = emp.FTE;
-            
-            updateDropdownOptions();
             document.getElementById('emp-role').value = emp.Role;
             document.getElementById('emp-location').value = emp.Location;
             document.getElementById('emp-project').value = emp.Project;
-
+            document.getElementById('emp-fte').value = emp.FTE;
             document.getElementById('employeeModal').classList.remove('hidden');
         }
 
@@ -811,18 +865,18 @@
         function saveEmployee(event) {
             event.preventDefault();
             const index = parseInt(document.getElementById('edit-index').value);
-            const newItem = {
-                Name: document.getElementById('emp-name').value.trim(),
-                Role: document.getElementById('emp-role').value.trim(),
-                Location: document.getElementById('emp-location').value.trim(),
-                Project: document.getElementById('emp-project').value.trim(),
+            const empObj = {
+                Name: document.getElementById('emp-name').value,
+                Role: document.getElementById('emp-role').value,
+                Location: document.getElementById('emp-location').value,
+                Project: document.getElementById('emp-project').value,
                 FTE: parseFloat(document.getElementById('emp-fte').value) || 0
             };
 
             if (index === -1) {
-                employeeData.push(newItem);
+                employeeData.push(empObj);
             } else {
-                employeeData[index] = newItem;
+                employeeData[index] = empObj;
             }
 
             saveToLocalStorage();
@@ -838,105 +892,36 @@
             }
         }
 
-        function renderCharts() {
-            const projMap = {};
-            employeeData.forEach(e => {
-                if (!e.Project) return;
-                projMap[e.Project] = (projMap[e.Project] || 0) + (parseFloat(e.FTE) || 0);
-            });
+        function resetAllData() {
+            if (confirm("Reset all dashboard data to defaults?")) {
+                employeeData = [...defaultEmployeeData];
+                gitlabData = [];
+                jiraData = [];
+                localStorage.removeItem('employeeData');
+                document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
+                document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
+                document.getElementById('kpi-gitlab').textContent = "0 Tickets";
+                document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+                resetAllocationFilters();
+            }
+        }
 
-            const projLabels = Object.keys(projMap);
-            const projValues = Object.values(projMap);
+        function saveToLocalStorage() {
+            localStorage.setItem('employeeData', JSON.stringify(employeeData));
+        }
 
-            const ctxProj = document.getElementById('projectChart').getContext('2d');
-            if (projectChartInstance) projectChartInstance.destroy();
-
-            projectChartInstance = new Chart(ctxProj, {
-                type: 'bar',
-                data: {
-                    labels: projLabels,
-                    datasets: [{
-                        label: 'Total FTE',
-                        data: projValues,
-                        backgroundColor: 'rgba(6, 182, 212, 0.6)',
-                        borderColor: 'rgba(6, 182, 212, 1)',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const clickedProj = projLabels[index];
-                            if (activeProjectFilter === clickedProj) {
-                                activeProjectFilter = '';
-                            } else {
-                                activeProjectFilter = clickedProj;
-                            }
-                            updateDashboard();
-                        }
-                    },
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#94a3b8' }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#94a3b8' }
-                        }
-                    }
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('employeeData');
+            if (saved) {
+                try {
+                    employeeData = JSON.parse(saved);
+                } catch (e) {
+                    employeeData = [...defaultEmployeeData];
                 }
-            });
-
-            const roleMap = {};
-            const uniqueEmpByRole = {};
-            employeeData.forEach(e => {
-                if (!e.Role) return;
-                if (!uniqueEmpByRole[e.Role]) uniqueEmpByRole[e.Role] = new Set();
-                uniqueEmpByRole[e.Role].add(e.Name);
-            });
-
-            const roleLabels = Object.keys(uniqueEmpByRole);
-            const roleValues = roleLabels.map(r => uniqueEmpByRole[r].size);
-
-            const ctxRole = document.getElementById('roleChart').getContext('2d');
-            if (roleChartInstance) roleChartInstance.destroy();
-
-            roleChartInstance = new Chart(ctxRole, {
-                type: 'doughnut',
-                data: {
-                    labels: roleLabels,
-                    datasets: [{
-                        data: roleValues,
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.8)',
-                            'rgba(6, 182, 212, 0.8)',
-                            'rgba(16, 185, 129, 0.8)',
-                            'rgba(249, 115, 22, 0.8)',
-                            'rgba(168, 85, 247, 0.8)',
-                            'rgba(236, 72, 153, 0.8)'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { color: '#94a3b8', boxWidth: 12 }
-                        }
-                    }
-                }
-            });
+            } else {
+                employeeData = [...defaultEmployeeData];
+            }
         }
 
         window.onload = function() {
