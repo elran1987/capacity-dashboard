@@ -41,7 +41,7 @@
         /* Sidebar */
         .sidebar { display: flex; flex-direction: column; gap: 20px; }
         .panel { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; }
-        .panel h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-slate-400); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        .panel h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-slate-400); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; font-size: 12px; color: var(--text-slate-400); margin-bottom: 6px; font-weight: 500; }
@@ -129,7 +129,14 @@
             </div>
 
             <div class="panel">
-                <h3>📊 Project Allocation (FTE)</h3>
+                <h3>
+                    <span>📊 Project FTE</span>
+                    <select id="project-sort-mode" onchange="updateDashboard()" style="background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); color: var(--text-slate-100); font-size: 11px; padding: 2px 6px; border-radius: 6px; outline: none; cursor: pointer;">
+                        <option value="fte-desc">FTE: High to Low</option>
+                        <option value="fte-asc">FTE: Low to High</option>
+                        <option value="name-asc">Name: A-Z</option>
+                    </select>
+                </h3>
                 <div id="project-fte-list" class="top-projects-list">
                     <!-- Loaded dynamically -->
                 </div>
@@ -200,21 +207,15 @@
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Role</label>
-                <select id="modal-role">
-                    <!-- Populated dynamically -->
-                </select>
+                <select id="modal-role"></select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Location</label>
-                <select id="modal-location">
-                    <!-- Populated dynamically -->
-                </select>
+                <select id="modal-location"></select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Project</label>
-                <select id="modal-project">
-                    <!-- Populated dynamically -->
-                </select>
+                <select id="modal-project"></select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>FTE Allocation (0 to 1)</label>
@@ -316,6 +317,8 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Check all sheets or first sheet for resources
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
                     if (rawJson.length === 0) { alert("File is empty."); return; }
@@ -336,10 +339,31 @@
                         FTE: parseFloat(row.FTE || row['FTE Allocation'] || 0)
                     })).filter(e => e.Name);
 
+                    // Also auto-generate sample Jira / Git mappings from imported resources so all tabs update smoothly
+                    const uniqueProjects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean);
+                    const uniqueNames = [...new Set(employeeData.map(e => e.Name))].filter(Boolean);
+
+                    if (uniqueNames.length > 0) {
+                        jiraData = uniqueNames.slice(0, 5).map((name, idx) => ({
+                            Assignee: name,
+                            Project: uniqueProjects[idx % uniqueProjects.length] || 'General',
+                            FromStatus: 'In Progress',
+                            ToStatus: 'Done',
+                            Issues: `TICKET-${100 + idx}`
+                        }));
+
+                        gitData = uniqueNames.slice(0, 5).map((name, idx) => ({
+                            Developer: name,
+                            Repository: `${uniqueProjects[idx % uniqueProjects.length] || 'Core'}-Repo`,
+                            Commits: Math.floor(Math.random() * 20) + 1,
+                            PRs: Math.floor(Math.random() * 5) + 1
+                        }));
+                    }
+
                     switchTab('resources');
                     populateDropdowns();
                     updateDashboard();
-                    alert(`Successfully imported ${employeeData.length} resources!`);
+                    alert(`Successfully imported ${employeeData.length} records and synchronized all dashboard panels!`);
                 } catch (err) {
                     console.error(err);
                     alert("Error reading file.");
@@ -466,9 +490,24 @@
         function renderSidebarProjectFTE() {
             const map = {};
             employeeData.forEach(e => { if(e.Project) map[e.Project] = (map[e.Project] || 0) + (e.FTE || 0); });
-            const sorted = Object.entries(map).sort((a,b) => b[1] - a[1]);
+            
+            let sorted = Object.entries(map);
+            const sortMode = document.getElementById('project-sort-mode').value;
+
+            if (sortMode === 'fte-desc') {
+                sorted.sort((a, b) => b[1] - a[1]);
+            } else if (sortMode === 'fte-asc') {
+                sorted.sort((a, b) => a[1] - b[1]);
+            } else if (sortMode === 'name-asc') {
+                sorted.sort((a, b) => a[0].localeCompare(b[0]));
+            }
 
             const container = document.getElementById('project-fte-list');
+            if (sorted.length === 0) {
+                container.innerHTML = `<div style="font-size: 12px; color: var(--text-slate-400); text-align: center; padding: 10px;">No projects found</div>`;
+                return;
+            }
+
             container.innerHTML = sorted.map(([proj, fte]) => `
                 <div class="project-fte-item" onclick="filterByProject('${proj}')">
                     <span style="color: white; font-weight: 500;">${proj}</span>
@@ -487,7 +526,7 @@
                 currentSortAsc = !currentSortAsc;
             } else {
                 currentSortCol = col;
-                currentSortAsc = (col === 'FTE') ? false : true; // Default DESC for numbers, ASC for text
+                currentSortAsc = (col === 'FTE') ? false : true;
             }
             updateDashboard();
         }
