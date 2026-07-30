@@ -223,7 +223,7 @@
             </div>
         </div>
 
-        <!-- Tab 3: Jira Activity -->
+        <!-- Tab 3: Jira Activity (Updated Structure) -->
         <div id="tab-content-jira" class="space-y-4 hidden">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
                 <span id="jira-status-text" class="text-sm text-slate-400">No Jira data loaded.</span>
@@ -232,22 +232,42 @@
                     <input type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleJiraUpload(event)">
                 </label>
             </div>
+            
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <table class="w-full text-left text-sm" style="direction: ltr;">
-                    <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
-                        <tr>
-                            <th class="px-6 py-3.5">Issue Key</th>
-                            <th class="px-6 py-3.5">Description</th>
-                            <th class="px-6 py-3.5">Assignee</th>
-                            <th class="px-6 py-3.5">From Status</th>
-                            <th class="px-6 py-3.5">To Status</th>
-                            <th class="px-6 py-3.5">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
-                        <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
-                    </tbody>
-                </table>
+                <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <span class="text-sm font-semibold text-white">Filter Jira Transitions:</span>
+                    </div>
+                    <div>
+                        <button onclick="resetJiraFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">
+                            Reset Filters
+                        </button>
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm" style="direction: ltr;">
+                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
+                            <tr>
+                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('issueKey')">Issue Key <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('project')">Project <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('assignee')">Assignee (User) <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('transition')">Transition (From → To) <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-6 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortJiraTable('count')">Count <i class="fa-solid fa-sort text-[10px]"></i></th>
+                            </tr>
+                            <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
+                                <th class="px-4 py-2"><input type="text" id="filter-jira-key" placeholder="Search key..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
+                                <th class="px-4 py-2"><select id="filter-jira-proj" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Projects</option></select></th>
+                                <th class="px-4 py-2"><select id="filter-jira-assignee" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Users</option></select></th>
+                                <th class="px-4 py-2"><input type="text" id="filter-jira-transition" placeholder="Search transition..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
+                                <th class="px-4 py-2"><input type="text" id="filter-jira-count" placeholder="Count..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-blue-500"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
+                            <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -314,6 +334,9 @@
         
         let gitlabSortColumn = '';
         let gitlabSortAsc = true;
+
+        let jiraSortColumn = '';
+        let jiraSortAsc = true;
 
         let projectChartInstance = null;
         let roleChartInstance = null;
@@ -486,30 +509,118 @@
                     const workbook = XLSX.read(data, { type: 'array' });
                     const sheetName = workbook.SheetNames[0];
                     const sheet = workbook.Sheets[sheetName];
-                    jiraData = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    const rawJson = XLSX.utils.sheet_to_json(sheet, { defval: "" });
                     
+                    jiraData = rawJson.map(row => {
+                        const issueKey = row['Issue Key'] || row['Key'] || row['ISSUE KEY'] || '-';
+                        const project = row['Project'] || row['PROJECT'] || row['פרויקט'] || '-';
+                        const assignee = row['Assignee'] || row['User'] || row['ASSIGNEE'] || row['USER'] || '-';
+                        
+                        const fromStatus = row['From Status'] || row['from status'] || row['FROM STATUS'] || '';
+                        const toStatus = row['To Status'] || row['to status'] || row['TO STATUS'] || '';
+                        const transition = (fromStatus || toStatus) ? `${fromStatus} → ${toStatus}` : (row['Transition'] || '-');
+                        
+                        const count = parseInt(row['Count'] || row['COUNT'] || 1) || 1;
+
+                        return {
+                            issueKey,
+                            project,
+                            assignee,
+                            transition,
+                            count
+                        };
+                    });
+
                     document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
-                    
-                    const tbody = document.getElementById('jira-table-body');
-                    if (jiraData.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No records found.</td></tr>`;
-                    } else {
-                        tbody.innerHTML = jiraData.map(item => `
-                            <tr class="hover:bg-slate-800/40 transition">
-                                <td class="px-6 py-3.5 font-semibold text-blue-400">${item['Issue Key'] || item.Key || '-'}</td>
-                                <td class="px-6 py-3.5 text-slate-300 truncate max-w-xs">${item.Description || item.Summary || '-'}</td>
-                                <td class="px-6 py-3.5 text-slate-200">${item.Assignee || '-'}</td>
-                                <td class="px-6 py-3.5 text-slate-400 text-xs">${item['From Status'] || '-'}</td>
-                                <td class="px-6 py-3.5 text-slate-200 text-xs">${item['To Status'] || '-'}</td>
-                                <td class="px-6 py-3.5 text-slate-400 text-xs">${item.Date || item.Created || '-'}</td>
-                            </tr>
-                        `).join('');
-                    }
+                    populateJiraFilters();
+                    renderJiraTable();
                 } catch (err) {
                     alert("Error reading Jira file: " + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        function populateJiraFilters() {
+            const projects = [...new Set(jiraData.map(item => item.project))].filter(Boolean).sort();
+            const assignees = [...new Set(jiraData.map(item => item.assignee))].filter(Boolean).sort();
+
+            const projSelect = document.getElementById('filter-jira-proj');
+            const assigneeSelect = document.getElementById('filter-jira-assignee');
+
+            const curProj = projSelect.value;
+            const curAssignee = assigneeSelect.value;
+
+            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+            assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
+
+            projSelect.value = curProj;
+            assigneeSelect.value = curAssignee;
+        }
+
+        function resetJiraFilters() {
+            document.getElementById('filter-jira-key').value = '';
+            document.getElementById('filter-jira-proj').value = '';
+            document.getElementById('filter-jira-assignee').value = '';
+            document.getElementById('filter-jira-transition').value = '';
+            document.getElementById('filter-jira-count').value = '';
+            jiraSortColumn = '';
+            jiraSortAsc = true;
+            renderJiraTable();
+        }
+
+        function sortJiraTable(column) {
+            if (jiraSortColumn === column) {
+                jiraSortAsc = !jiraSortAsc;
+            } else {
+                jiraSortColumn = column;
+                jiraSortAsc = true;
+            }
+            renderJiraTable();
+        }
+
+        function renderJiraTable() {
+            const keySearch = document.getElementById('filter-jira-key').value.toLowerCase();
+            const projFilter = document.getElementById('filter-jira-proj').value;
+            const assigneeFilter = document.getElementById('filter-jira-assignee').value;
+            const transSearch = document.getElementById('filter-jira-transition').value.toLowerCase();
+            const countFilter = parseInt(document.getElementById('filter-jira-count').value) || 0;
+
+            let filtered = jiraData.filter(item => {
+                if (keySearch && !item.issueKey.toLowerCase().includes(keySearch)) return false;
+                if (projFilter && item.project !== projFilter) return false;
+                if (assigneeFilter && item.assignee !== assigneeFilter) return false;
+                if (transSearch && !item.transition.toLowerCase().includes(transSearch)) return false;
+                if (countFilter && item.count < countFilter) return false;
+                return true;
+            });
+
+            if (jiraSortColumn) {
+                filtered.sort((a, b) => {
+                    let valA = a[jiraSortColumn];
+                    let valB = b[jiraSortColumn];
+                    if (typeof valA === 'string') valA = valA.toLowerCase();
+                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (valA < valB) return jiraSortAsc ? -1 : 1;
+                    if (valA > valB) return jiraSortAsc ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            const tbody = document.getElementById('jira-table-body');
+            if (filtered.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">No matching Jira records found.</td></tr>`;
+            } else {
+                tbody.innerHTML = filtered.map(item => `
+                    <tr class="hover:bg-slate-800/40 transition">
+                        <td class="px-6 py-3.5 font-semibold text-blue-400">${item.issueKey}</td>
+                        <td class="px-6 py-3.5 text-cyan-400 font-medium">${item.project}</td>
+                        <td class="px-6 py-3.5 text-slate-200">${item.assignee}</td>
+                        <td class="px-6 py-3.5 text-slate-300 text-xs font-mono bg-slate-950/40 px-2 py-1 rounded">${item.transition}</td>
+                        <td class="px-6 py-3.5 text-center font-bold text-emerald-400">${item.count}</td>
+                    </tr>
+                `).join('');
+            }
         }
 
         function saveToLocalStorage() {
@@ -539,7 +650,7 @@
                 document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
                 document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
                 document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
+                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
                 document.getElementById('kpi-gitlab').textContent = "0 Tickets";
                 updateDashboard();
             }
@@ -550,7 +661,6 @@
             const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
             const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
 
-            // Table filter dropdowns
             const roleFilter = document.getElementById('filter-emp-role');
             const locFilter = document.getElementById('filter-emp-loc');
             const projFilter = document.getElementById('filter-emp-proj');
@@ -567,7 +677,6 @@
             locFilter.value = curLoc;
             projFilter.value = curProj;
 
-            // Modal dropdowns
             const modalRole = document.getElementById('emp-role');
             const modalLoc = document.getElementById('emp-location');
             const modalProj = document.getElementById('emp-project');
@@ -580,14 +689,12 @@
         function updateDashboard() {
             updateDropdownOptions();
 
-            // Filter data
             const nameSearch = document.getElementById('filter-emp-name').value.toLowerCase();
             const roleFilter = document.getElementById('filter-emp-role').value;
             const locFilter = document.getElementById('filter-emp-loc').value;
             const projFilter = activeProjectFilter || document.getElementById('filter-emp-proj').value;
             const fteFilter = document.getElementById('filter-emp-fte').value;
 
-            // Badge filter
             const badge = document.getElementById('chart-filter-badge');
             if (activeProjectFilter) {
                 badge.textContent = `Filtered by Project: ${activeProjectFilter}`;
@@ -605,7 +712,6 @@
                 return true;
             });
 
-            // Sorting
             if (currentSortColumn) {
                 filtered.sort((a, b) => {
                     let valA = a[currentSortColumn];
@@ -618,13 +724,11 @@
                 });
             }
 
-            // Update KPIs
             document.getElementById('kpi-headcount').textContent = [...new Set(employeeData.map(e => e.Name))].length;
             document.getElementById('kpi-projects').textContent = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).length;
             const totalFTE = employeeData.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
             document.getElementById('kpi-fte').textContent = totalFTE.toFixed(2);
 
-            // Render Employee Table
             const tbody = document.getElementById('employee-table-body');
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No employees found.</td></tr>`;
@@ -735,7 +839,6 @@
         }
 
         function renderCharts() {
-            // Project Allocations Chart (Bar)
             const projMap = {};
             employeeData.forEach(e => {
                 if (!e.Project) return;
@@ -792,7 +895,6 @@
                 }
             });
 
-            // Role Distribution Chart (Doughnut)
             const roleMap = {};
             const uniqueEmpByRole = {};
             employeeData.forEach(e => {
@@ -837,7 +939,6 @@
             });
         }
 
-        // Initialize on load
         window.onload = function() {
             loadFromLocalStorage();
             updateDashboard();
