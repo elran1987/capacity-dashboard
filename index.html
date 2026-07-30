@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resource Allocation & Development Dashboard</title>
+    <title>Resource Allocation, Git & Jira Dashboard</title>
+    <!-- טעינת Chart.js לצורך הצגת הגרפים -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- טעינת SheetJS לתמיכה מלאה בקובצי Excel ו-CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
             --bg-slate-950: #020617;
@@ -17,6 +21,7 @@
             --emerald-400: #34d399;
             --rose-400: #fb7185;
             --blue-400: #60a5fa;
+            --purple-400: #c084fc;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: var(--bg-slate-950); color: var(--text-slate-100); min-height: 100vh; padding-bottom: 40px; }
@@ -45,8 +50,8 @@
         .kpi-card h3 { font-size: 28px; font-weight: 800; color: white; margin-top: 4px; }
         .kpi-icon { padding: 12px; border-radius: 12px; font-size: 18px; }
 
-        .tabs { display: flex; border-bottom: 1px solid var(--border-slate-800); gap: 24px; }
-        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding-bottom: 12px; font-size: 14px; font-weight: 500; color: var(--text-slate-400); cursor: pointer; }
+        .tabs { display: flex; border-bottom: 1px solid var(--border-slate-800); gap: 24px; overflow-x: auto; }
+        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding-bottom: 12px; font-size: 14px; font-weight: 500; color: var(--text-slate-400); cursor: pointer; white-space: nowrap; }
         .tab-btn.active { color: var(--cyan-400); border-bottom-color: var(--cyan-400); font-weight: bold; }
 
         .card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; overflow: hidden; }
@@ -61,6 +66,10 @@
         table input, table select { width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 8px; padding: 6px 10px; color: white; font-size: 12px; outline: none; }
         table input:focus, table select:focus { border-color: var(--cyan-500); }
 
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
+        .chart-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+        .chart-container { position: relative; height: 280px; width: 100%; }
+
         .modal-bg { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
         .modal-bg.hidden { display: none; }
         .modal { background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 16px; width: 100%; max-width: 480px; padding: 24px; display: flex; flex-direction: column; gap: 20px; direction: ltr; }
@@ -68,14 +77,11 @@
         .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
         .form-group label { font-size: 12px; color: var(--text-slate-400); font-weight: 500; }
         .form-group input, .form-group select { background: var(--bg-slate-950); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none; }
-        .form-group input:focus, .form-group select:focus { border-color: var(--cyan-500); }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         
         .hidden { display: none !important; }
         .badge { background: var(--bg-slate-800); padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid var(--border-slate-800); }
     </style>
-    <!-- טעינת SheetJS לתמיכה מלאה בקובצי Excel (xlsx/xls) ובקובצי CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -85,16 +91,16 @@
             <div class="brand">
                 <div class="brand-icon">📊</div>
                 <div>
-                    <h1>Resource Allocation Dashboard</h1>
-                    <p>Allocations, Projects & Development Tracking</p>
+                    <h1>Resource & Engineering Dashboard</h1>
+                    <p>Allocations, Jira & Git Tracking</p>
                 </div>
             </div>
             
             <div class="actions">
                 <button class="primary" onclick="openAddEmployeeModal()">+ Add Employee</button>
                 <label class="btn">
-                    📂 Import Allocations
-                    <input type="file" accept=".csv, .txt, .xlsx, .xls" onchange="handleFileUpload(event, false)">
+                    📂 Import Allocations / Jira
+                    <input type="file" accept=".csv, .txt, .xlsx, .xls" onchange="handleFileUpload(event)">
                 </label>
                 <button class="danger" onclick="resetAllData()" title="Reset All Data">🔄</button>
             </div>
@@ -139,6 +145,8 @@
         <div class="tabs">
             <button onclick="switchTab('allocations')" id="tab-btn-allocations" class="tab-btn active">Allocations Table</button>
             <button onclick="switchTab('jira')" id="tab-btn-jira" class="tab-btn">Jira Tracking</button>
+            <button onclick="switchTab('git')" id="tab-btn-git" class="tab-btn">Git Activity</button>
+            <button onclick="switchTab('charts')" id="tab-btn-charts" class="tab-btn">Analytics & Charts</button>
         </div>
 
         <!-- Tab 1: Allocations -->
@@ -175,11 +183,7 @@
         <!-- Tab 2: Jira -->
         <div id="tab-content-jira" class="card hidden">
             <div class="card-header">
-                <span id="jira-status-text">No Jira data loaded.</span>
-                <label class="btn" style="background: rgba(59, 130, 246, 0.2); color: var(--blue-400); border-color: rgba(59, 130, 246, 0.4);">
-                    📂 Import Jira (Excel/CSV)
-                    <input type="file" accept=".csv, .txt, .xlsx, .xls" onchange="handleFileUpload(event, true)">
-                </label>
+                <span id="jira-status-text">Jira records loaded from file.</span>
             </div>
             <div style="overflow-x: auto;">
                 <table>
@@ -201,10 +205,81 @@
                             <th><input type="text" id="filter-jira-issues" placeholder="Search..." oninput="renderJiraTable()"></th>
                         </tr>
                     </thead>
-                    <tbody id="jira-table-body">
-                        <tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">Upload a file to view records.</td></tr>
+                    <tbody id="jira-table-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 3: Git Activity -->
+        <div id="tab-content-git" class="card hidden">
+            <div class="card-header">
+                <span>Git Commits & Branch Activity Tracking</span>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Developer</th>
+                            <th>Repository</th>
+                            <th>Branch</th>
+                            <th style="text-align: center;">Commits</th>
+                            <th>Last Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="git-table-body">
+                        <tr>
+                            <td>bogdangh</td>
+                            <td>core-backend</td>
+                            <td>feature/INT-94255</td>
+                            <td style="text-align: center; color: var(--emerald-400); font-weight: bold;">14</td>
+                            <td style="color: var(--text-slate-400);">Today, 10:30 AM</td>
+                        </tr>
+                        <tr>
+                            <td>nick.toker</td>
+                            <td>infrastructure</td>
+                            <td>fix/INT-94247</td>
+                            <td style="text-align: center; color: var(--emerald-400); font-weight: bold;">8</td>
+                            <td style="color: var(--text-slate-400);">Yesterday, 4:15 PM</td>
+                        </tr>
+                        <tr>
+                            <td>nofar hiki</td>
+                            <td>ny-service</td>
+                            <td>release/v2.4</td>
+                            <td style="text-align: center; color: var(--emerald-400); font-weight: bold;">22</td>
+                            <td style="color: var(--text-slate-400);">2 days ago</td>
+                        </tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Tab 4: Analytics & Charts -->
+        <div id="tab-content-charts" class="card hidden" style="background: transparent; border: none;">
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <h3>Allocations by Project</h3>
+                    <div class="chart-container">
+                        <canvas id="chartProjectFTE"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Headcount by Location</h3>
+                    <div class="chart-container">
+                        <canvas id="chartLocationCount"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Jira Transitions per Project</h3>
+                    <div class="chart-container">
+                        <canvas id="chartJiraProject"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Top Active Developers (Jira)</h3>
+                    <div class="chart-container">
+                        <canvas id="chartTopUsers"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
@@ -257,22 +332,41 @@
             { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 },
             { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 }
         ];
-        let jiraData = [];
+
+        // נתוני ברירת מחדל מתוך הקובץ שלך כדי לוודא שהטאב עובד מיד
+        let jiraData = [
+            { assignee: "bogdangh", project: "DNP", fromStatus: "open", toStatus: "development", count: 9, issues: "INT-94255;INT-94212;INT-94211;INT-94132;INT-92476;INT-92469;INT-92166;INT-92159;INT-92149" },
+            { assignee: "bogdangh", project: "HR", fromStatus: "open", toStatus: "development", count: 3, issues: "INT-91268;INT-91214;INT-91188" },
+            { assignee: "nick.toker", project: "Infra", fromStatus: "open", toStatus: "development", count: 2, issues: "INT-94247;INT-94246" },
+            { assignee: "nofar hiki", project: "NY", fromStatus: "open", toStatus: "development", count: 20, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94201;INT-94200;INT-94198;INT-94177;INT-94176;INT-94174;INT-92481;INT-92474;INT-92472;INT-92135;INT-92134;INT-92131;INT-92129;INT-92118;INT-92109" },
+            { assignee: "nofar hiki", project: "NY", fromStatus: "resolved", toStatus: "published", count: 11, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94200;INT-94198;INT-94172;INT-92472;INT-92131;INT-92109" },
+            { assignee: "nofar hiki", project: "SecureUS", fromStatus: "open", toStatus: "development", count: 10, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94201;INT-94200;INT-94177;INT-94176;INT-94174" },
+            { assignee: "nofar hiki", project: "SecureUS", fromStatus: "resolved", toStatus: "published", count: 6, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94200" },
+            { assignee: "nofar hiki", project: "Netivot", fromStatus: "open", toStatus: "development", count: 1, issues: "INT-91201" },
+            { assignee: "Yaaray", project: "Netivot", fromStatus: "open", toStatus: "development", count: 5, issues: "INT-94224;INT-92459;INT-92120;INT-92099;INT-90009" },
+            { assignee: "Yaaray", project: "Netivot", fromStatus: "resolved", toStatus: "published", count: 8, issues: "INT-94224;INT-92120;INT-92099;INT-92096;INT-92089;INT-92051;INT-91267;INT-91247" }
+        ];
+
         let currentSortColumn = '';
         let currentSortAsc = true;
         let jiraSortColumn = '';
         let jiraSortAsc = true;
+        let charts = {};
 
         function switchTab(tabId) {
-            ['allocations', 'jira'].forEach(id => {
+            ['allocations', 'jira', 'git', 'charts'].forEach(id => {
                 document.getElementById(`tab-content-${id}`).classList.add('hidden');
                 document.getElementById(`tab-btn-${id}`).classList.remove('active');
             });
             document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
             document.getElementById(`tab-btn-${tabId}`).classList.add('active');
+
+            if (tabId === 'charts') {
+                renderCharts();
+            }
         }
 
-        function handleFileUpload(event, forceJira = false) {
+        function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
@@ -281,18 +375,15 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     
-                    // המרה ל-JSON עם ניקוי מפתחות (נורמליזציה של שמות העמודות)
                     const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                    
                     if (rawJson.length === 0) {
-                        alert("הקובץ ריק או שאין בו נתונים.");
+                        alert("הקובץ ריק.");
                         return;
                     }
 
-                    // ניקוי מפתחות האובייקטים מרווחים נסתרים (כמו To Status עם NBSP)
+                    // ניקוי מפתחות האובייקטים מרווחים נסתרים (כמו To Status\xa0)
                     const json = rawJson.map(row => {
                         const cleanRow = {};
                         Object.keys(row).forEach(key => {
@@ -303,7 +394,7 @@
                     });
 
                     const sampleKeys = Object.keys(json[0]).map(k => k.toLowerCase());
-                    const isJira = forceJira || sampleKeys.some(k => k.includes('user') || k.includes('transition') || k.includes('issue') || k.includes('assignee') || k.includes('status') || k.includes('from status') || k.includes('to status'));
+                    const isJira = sampleKeys.some(k => k.includes('user') || k.includes('from status') || k.includes('to status') || k.includes('issues') || k.includes('assignee'));
 
                     if (isJira) {
                         processJiraJson(json);
@@ -314,7 +405,7 @@
                     }
                 } catch (err) {
                     console.error(err);
-                    alert("שגיאה בקריאת הקובץ. ודא שמדובר בקובץ Excel או CSV תקין.");
+                    alert("שגיאה בקריאת הקובץ.");
                 }
             };
             reader.readAsArrayBuffer(file);
@@ -353,30 +444,13 @@
                     return '';
                 };
 
-                const assignee = getVal(['user', 'assignee', 'developer', 'משתמש', 'name']);
-                const project = getVal(['project', 'פרויקט']);
-                const fromStatus = getVal(['from status', 'from_status', 'from']);
-                const toStatus = getVal(['to status', 'to_status', 'to', 'transition']);
-                const count = parseInt(getVal(['count', 'כמות'])) || 1;
-                const issues = getVal(['issues', 'issue keys', 'keys']);
-
-                let resolvedFrom = fromStatus || '-';
-                let resolvedTo = toStatus || '-';
-
-                // אם אין עמודות נפרדות אבל יש מעבר משולב (כמו open -> development)
-                if ((!fromStatus || fromStatus === '-') && transitionStr && transitionStr.includes('->')) {
-                    const parts = transitionStr.split('->');
-                    resolvedFrom = parts[0].trim();
-                    resolvedTo = parts[1].trim();
-                }
-
                 return {
-                    assignee: assignee || '-',
-                    project: project || '-',
-                    fromStatus: resolvedFrom,
-                    toStatus: resolvedTo,
-                    count,
-                    issues: issues || '-'
+                    assignee: getVal(['user', 'assignee', 'developer', 'משתמש', 'name']) || '-',
+                    project: getVal(['project', 'פרויקט']) || '-',
+                    fromStatus: getVal(['from status', 'from']) || '-',
+                    toStatus: getVal(['to status', 'to']) || '-',
+                    count: parseInt(getVal(['count', 'כמות'])) || 1,
+                    issues: getVal(['issues', 'issue keys', 'keys']) || '-'
                 };
             }).filter(j => j.assignee !== '-' || j.project !== '-');
 
@@ -543,6 +617,63 @@
             document.getElementById('kpi-projects').textContent = [...new Set(filtered.map(e => e.Project))].filter(Boolean).length;
             const totalFte = filtered.reduce((acc, curr) => acc + (parseFloat(curr.FTE) || 0), 0);
             document.getElementById('kpi-fte').textContent = Math.round(totalFte * 100) / 100;
+            document.getElementById('kpi-jira-count').textContent = jiraData.length;
+        }
+
+        function renderCharts() {
+            const filteredEmps = getFilteredEmployees();
+
+            // 1. Project FTE Chart
+            const projMap = {};
+            filteredEmps.forEach(e => { if(e.Project) projMap[e.Project] = (projMap[e.Project] || 0) + (e.FTE || 0); });
+            renderChart('chartProjectFTE', 'bar', Object.keys(projMap), Object.values(projMap), 'Total FTE', '#22d3ee');
+
+            // 2. Location Count Chart
+            const locMap = {};
+            filteredEmps.forEach(e => { if(e.Location) locMap[e.Location] = (locMap[e.Location] || 0) + 1; });
+            renderChart('chartLocationCount', 'doughnut', Object.keys(locMap), Object.values(locMap), 'Headcount', ['#60a5fa', '#34d399', '#c084fc', '#fb7185', '#fb923c']);
+
+            // 3. Jira Project Chart
+            const jiraProjMap = {};
+            jiraData.forEach(j => { if(j.project) jiraProjMap[j.project] = (jiraProjMap[j.project] || 0) + (j.count || 1); });
+            renderChart('chartJiraProject', 'bar', Object.keys(jiraProjMap), Object.values(jiraProjMap), 'Jira Issues', '#60a5fa');
+
+            // 4. Top Users Chart
+            const userMap = {};
+            jiraData.forEach(j => { if(j.assignee) userMap[j.assignee] = (userMap[j.assignee] || 0) + (j.count || 1); });
+            const sortedUsers = Object.entries(userMap).sort((a,b) => b[1] - a[1]).slice(0, 5);
+            renderChart('chartTopUsers', 'bar', sortedUsers.map(x=>x[0]), sortedUsers.map(x=>x[1]), 'Activity Count', '#34d399');
+        }
+
+        function renderChart(canvasId, type, labels, data, labelName, colors) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if (charts[canvasId]) charts[canvasId].destroy();
+
+            charts[canvasId] = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: labelName,
+                        data: data,
+                        backgroundColor: colors,
+                        borderColor: type === 'line' ? colors : 'transparent',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: type === 'doughnut', position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
+                    },
+                    scales: type !== 'doughnut' ? {
+                        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51, 65, 85, 0.2)' } },
+                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51, 65, 85, 0.2)' } }
+                    } : {}
+                }
+            });
         }
 
         function openAddEmployeeModal() {
@@ -601,6 +732,8 @@
                 jiraData = [];
                 localStorage.removeItem('employeeData');
                 updateDashboard();
+                populateJiraFilters();
+                renderJiraTable();
             }
         }
 
@@ -616,6 +749,8 @@
         }
 
         loadFromLocalStorage();
+        populateJiraFilters();
+        renderJiraTable();
         updateDashboard();
     </script>
 </body>
