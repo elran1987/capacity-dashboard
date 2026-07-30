@@ -578,7 +578,7 @@
 
         function updateKPIs() {
             const filtered = getFilteredEmployees();
-            document.getElementById('kpi-headcount.textContent' || 'kpi-headcount').textContent = filtered.length;
+            document.getElementById('kpi-headcount').textContent = filtered.length;
             const uniqueProjects = [...new Set(filtered.map(e => e.Project))].filter(Boolean);
             document.getElementById('kpi-projects').textContent = uniqueProjects.length;
             const totalFte = filtered.reduce((acc, curr) => acc + (parseFloat(curr.FTE) || 0), 0);
