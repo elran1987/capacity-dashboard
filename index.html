@@ -33,8 +33,8 @@
                     <i class="fa-solid fa-user-plus text-xs"></i> Add Employee
                 </button>
                 <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium border border-slate-700 transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Import XLSX/CSV
-                    <input type="file" id="upload-excel" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event)">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Import Allocations
+                    <input type="file" id="upload-excel" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event, false)">
                 </label>
                 <button onclick="resetAllData()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2.5 rounded-xl border border-rose-500/20 transition cursor-pointer" title="Reset All Data">
                     <i class="fa-solid fa-rotate-right text-sm"></i>
@@ -162,7 +162,7 @@
                 <span id="jira-status-text" class="text-sm text-slate-400">No Jira data loaded.</span>
                 <label class="cursor-pointer bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 border border-blue-500/40 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
                     <i class="fa-solid fa-file-excel"></i> Import Jira (XLSX/CSV)
-                    <input type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleJiraUpload(event)">
+                    <input type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event, true)">
                 </label>
             </div>
             
@@ -264,14 +264,18 @@
 
         function switchTab(tabId) {
             ['allocations', 'jira'].forEach(id => {
-                document.getElementById(`tab-content-${id}`).classList.add('hidden');
-                document.getElementById(`tab-btn-${id}`).className = "pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer";
+                const contentEl = document.getElementById(`tab-content-${id}`);
+                const btnEl = document.getElementById(`tab-btn-${id}`);
+                if (contentEl) contentEl.classList.add('hidden');
+                if (btnEl) btnEl.className = "pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer";
             });
-            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
-            document.getElementById(`tab-btn-${tabId}`).className = "pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer";
+            const activeContent = document.getElementById(`tab-content-${tabId}`);
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            if (activeContent) activeContent.classList.remove('hidden');
+            if (activeBtn) activeBtn.className = "pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer";
         }
 
-        function handleExcelUpload(event, isJiraExplicit = false) {
+        function handleExcelUpload(event, forceJira = false) {
             const file = event.target.files[0];
             if (!file) return;
             const reader = new FileReader();
@@ -283,27 +287,44 @@
                     const sheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
                     
-                    if (!json || json.length === 0) return;
+                    if (!json || json.length === 0) {
+                        alert("הקובץ ריק או שלא זוהו בו נתונים.");
+                        return;
+                    }
 
                     const firstRow = json[0];
                     const keys = Object.keys(firstRow).map(k => k.trim().toLowerCase());
-                    
-                    if (isJiraExplicit || keys.includes('user') || keys.includes('transition') || keys.includes('issues') || keys.includes('assignee')) {
+                    console.log("Excel Keys detected:", keys);
+                    console.log("Force Jira flag:", forceJira);
+
+                    // בדיקה האם זוהה קובץ ג'ירה לפי הכותרות או לפי הכפתור שממנו הועלה
+                    const isJira = forceJira || keys.some(k => 
+                        k.includes('user') || 
+                        k.includes('transition') || 
+                        k.includes('issue') || 
+                        k.includes('assignee') || 
+                        k.includes('status') ||
+                        k.includes('from') ||
+                        k.includes('to')
+                    );
+
+                    if (isJira) {
+                        console.log("Processing as Jira Data...");
                         processJiraJson(json);
                         switchTab('jira');
                     } else {
+                        console.log("Processing as Allocation Data...");
                         processAllocationJson(json);
                         switchTab('allocations');
                     }
                 } catch (err) {
                     alert("שגיאה בקריאת הקובץ: " + err.message);
+                    console.error(err);
                 }
             };
             reader.readAsArrayBuffer(file);
-        }
-
-        function handleJiraUpload(event) {
-            handleExcelUpload(event, true);
+            // איפוס ה-input כדי לאפשר טעינה חוזרת של אותו קובץ במידת הצורך
+            event.target.value = '';
         }
 
         function processAllocationJson(json) {
@@ -338,11 +359,11 @@
                     return '';
                 };
 
-                const assignee = getVal(['User', 'Assignee', 'Developer', 'משתמש']);
+                const assignee = getVal(['User', 'Assignee', 'Developer', 'משתמש', 'name']);
                 const project = getVal(['Project', 'פרויקט']);
-                const transitionStr = getVal(['Transition', 'Status Change', 'מעבר']);
+                const transitionStr = getVal(['Transition', 'Status Change', 'מעבר', 'status']);
                 const count = parseInt(getVal(['Count', 'כמות'])) || 1;
-                const issues = getVal(['Issues', 'Issue Keys', 'מפתחות']);
+                const issues = getVal(['Issues', 'Issue Keys', 'مפתחות', 'keys']);
 
                 let fromStatus = '-';
                 let toStatus = '-';
@@ -374,8 +395,11 @@
                 };
             }).filter(j => j.assignee !== '-' || j.project !== '-');
 
-            document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
-            document.getElementById('kpi-jira-count').textContent = jiraData.length;
+            const statusText = document.getElementById('jira-status-text');
+            const kpiJira = document.getElementById('kpi-jira-count');
+            if (statusText) statusText.textContent = `Loaded ${jiraData.length} Jira records.`;
+            if (kpiJira) kpiJira.textContent = jiraData.length;
+            
             populateJiraFilters();
             renderJiraTable();
         }
@@ -387,8 +411,8 @@
             const assigneeSelect = document.getElementById('filter-jira-assignee');
             const projSelect = document.getElementById('filter-jira-proj');
 
-            assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
-            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+            if (assigneeSelect) assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
+            if (projSelect) projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
         }
 
         function resetJiraFilters() {
@@ -443,6 +467,8 @@
             }
 
             const tbody = document.getElementById('jira-table-body');
+            if (!tbody) return;
+
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No matching Jira records found.</td></tr>`;
             } else {
@@ -491,11 +517,11 @@
         }
 
         function getFilteredEmployees() {
-            const nameQ = document.getElementById('filter-emp-name').value.toLowerCase();
-            const roleQ = document.getElementById('filter-emp-role').value;
-            const locQ = document.getElementById('filter-emp-loc').value;
-            const projQ = document.getElementById('filter-emp-proj').value;
-            const fteQ = document.getElementById('filter-emp-fte').value;
+            const nameQ = document.getElementById('filter-emp-name')?.value.toLowerCase() || '';
+            const roleQ = document.getElementById('filter-emp-role')?.value || '';
+            const locQ = document.getElementById('filter-emp-loc')?.value || '';
+            const projQ = document.getElementById('filter-emp-proj')?.value || '';
+            const fteQ = document.getElementById('filter-emp-fte')?.value || '';
 
             return employeeData.filter(emp => {
                 if (nameQ && !emp.Name.toLowerCase().includes(nameQ)) return false;
@@ -522,6 +548,8 @@
             }
 
             const tbody = document.getElementById('employee-table-body');
+            if (!tbody) return;
+
             if (filtered.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No matching employee records found.</td></tr>`;
                 return;
@@ -599,7 +627,9 @@
             const projData = Object.values(projectMap);
 
             if (projectChartInstance) projectChartInstance.destroy();
-            const ctxProj = document.getElementById('projectChart').getContext('2d');
+            const canvasProj = document.getElementById('projectChart');
+            if (!canvasProj) return;
+            const ctxProj = canvasProj.getContext('2d');
             projectChartInstance = new Chart(ctxProj, {
                 type: 'bar',
                 data: {
@@ -650,7 +680,9 @@
             const roleData = Object.values(roleMap);
 
             if (roleChartInstance) roleChartInstance.destroy();
-            const ctxRole = document.getElementById('roleChart').getContext('2d');
+            const canvasRole = document.getElementById('roleChart');
+            if (!canvasRole) return;
+            const ctxRole = canvasRole.getContext('2d');
             roleChartInstance = new Chart(ctxRole, {
                 type: 'doughnut',
                 data: {
