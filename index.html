@@ -88,6 +88,15 @@
         .badge { background: var(--bg-slate-800); padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid var(--border-slate-800); color: var(--purple-400); font-weight: 500; }
         .fte-bar-container { display: flex; align-items: center; gap: 10px; }
         .fte-bar { height: 6px; border-radius: 3px; background: var(--cyan-400); }
+
+        /* Modal styling */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: 0.2s; }
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+        .modal { background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 24px; width: 400px; display: flex; flex-direction: column; gap: 16px; }
+        .modal h3 { font-size: 16px; color: white; margin-bottom: 4px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+        .btn-secondary { background: var(--bg-slate-800); color: var(--text-slate-100); border: 1px solid var(--border-slate-800); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+        .btn-secondary:hover { background: var(--border-slate-800); }
     </style>
 </head>
 <body>
@@ -99,19 +108,19 @@
                 <h3>🔍 Filters & Controls</h3>
                 <div class="form-group">
                     <label>Project</label>
-                    <select id="filter-project" onchange="applyFilters()">
+                    <select id="filter-project" onchange="updateDashboard()">
                         <option value="">All Projects</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Role / Discipline</label>
-                    <select id="filter-role" onchange="applyFilters()">
+                    <select id="filter-role" onchange="updateDashboard()">
                         <option value="">All Roles</option>
                     </select>
                 </div>
                 <div class="form-group">
                     <label>Location</label>
-                    <select id="filter-location" onchange="applyFilters()">
+                    <select id="filter-location" onchange="updateDashboard()">
                         <option value="">All Locations</option>
                     </select>
                 </div>
@@ -121,7 +130,7 @@
             <div class="panel">
                 <h3>📊 Project Allocation (FTE)</h3>
                 <div id="project-fte-list" class="top-projects-list">
-                    <!-- Sorted Project Totals Loaded Dynamically -->
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
         </div>
@@ -164,21 +173,49 @@
                             📂 Import Excel / CSV
                             <input type="file" accept=".csv, .xlsx, .xls" onchange="handleFileUpload(event)">
                         </label>
-                        <button class="primary" id="btn-add-action" onclick="openAddModal()">+ Add Employee</button>
+                        <button class="primary" id="btn-add-action" onclick="openModal()">+ Add Employee</button>
                     </div>
                 </div>
                 <div style="overflow-x: auto;">
                     <table id="main-table">
                         <thead>
-                            <tr id="table-header-row">
-                                <!-- Loaded dynamically -->
-                            </tr>
+                            <tr id="table-header-row"></tr>
                         </thead>
-                        <tbody id="resource-table-body">
-                            <!-- Loaded dynamically -->
-                        </tbody>
+                        <tbody id="resource-table-body"></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form for Add / Edit -->
+    <div class="modal-overlay" id="employeeModal">
+        <div class="modal">
+            <h3 id="modal-title">Add New Employee</h3>
+            <input type="hidden" id="edit-index" value="-1">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Name</label>
+                <input type="text" id="modal-name" placeholder="e.g. John Doe">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Role</label>
+                <input type="text" id="modal-role" placeholder="e.g. BE, QA, Ro TL">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Location</label>
+                <input type="text" id="modal-location" placeholder="e.g. Romania">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>Project</label>
+                <input type="text" id="modal-project" placeholder="e.g. Vasco">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label>FTE Allocation (0 to 1)</label>
+                <input type="number" id="modal-fte" step="0.01" min="0" max="1" placeholder="1.0">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="primary" onclick="saveEmployee()">Save</button>
             </div>
         </div>
     </div>
@@ -196,13 +233,11 @@
         ];
 
         let jiraData = [
-            { Assignee: "Alexandru Mihai", Project: "Vasco", FromStatus: "In Progress", ToStatus: "Done", Issues: "VAS-102" },
-            { Assignee: "Adriana Iovanut", Project: "Management", FromStatus: "To Do", ToStatus: "In Progress", Issues: "MGM-45" }
+            { Assignee: "Alexandru Mihai", Project: "Vasco", FromStatus: "In Progress", ToStatus: "Done", Issues: "VAS-102" }
         ];
 
         let gitData = [
-            { Developer: "alexandru.roman", Repository: "Fenix-Core", Commits: 14, PRs: 3 },
-            { Developer: "Alexandru Mihai", Repository: "Vasco-API", Commits: 22, PRs: 5 }
+            { Developer: "alexandru.roman", Repository: "Fenix-Core", Commits: 14, PRs: 3 }
         ];
 
         let currentSortCol = 'FTE';
@@ -236,11 +271,9 @@
                 chartsSection.style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Jira Issue';
-                currentSortCol = 'Project';
             } else if (tab === 'git') {
                 chartsSection.style.display = 'none';
                 btnAdd.style.display = 'none';
-                currentSortCol = 'Commits';
             }
             updateDashboard();
         }
@@ -283,42 +316,18 @@
                         return cleanRow;
                     });
 
-                    const sampleKeys = Object.keys(json[0]).map(k => k.toLowerCase());
-                    const isJira = sampleKeys.some(k => k.includes('status') || k.includes('issue') || k.includes('assignee'));
-                    const isGit = sampleKeys.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr'));
+                    employeeData = json.map(row => ({
+                        Name: row.Name || row['Employee Name'] || '',
+                        Role: row.Role || '',
+                        Location: row.Location || '',
+                        Project: row.Project || '',
+                        FTE: parseFloat(row.FTE || row['FTE Allocation'] || 0)
+                    })).filter(e => e.Name);
 
-                    if (isJira) {
-                        jiraData = json.map(row => ({
-                            Assignee: row.Assignee || row.User || '-',
-                            Project: row.Project || '-',
-                            FromStatus: row['From Status'] || row.From || '-',
-                            ToStatus: row['To Status'] || row.To || '-',
-                            Issues: row.Issues || row.Key || '-'
-                        }));
-                        switchTab('jira');
-                        alert(`Successfully imported ${jiraData.length} Jira records!`);
-                    } else if (isGit) {
-                        gitData = json.map(row => ({
-                            Developer: row.Developer || row.Name || '-',
-                            Repository: row.Repository || row.Repo || '-',
-                            Commits: parseInt(row.Commits) || 0,
-                            PRs: parseInt(row.PRs) || 0
-                        }));
-                        switchTab('git');
-                        alert(`Successfully imported ${gitData.length} Git records!`);
-                    } else {
-                        employeeData = json.map(row => ({
-                            Name: row.Name || row['Employee Name'] || '',
-                            Role: row.Role || '',
-                            Location: row.Location || '',
-                            Project: row.Project || '',
-                            FTE: parseFloat(row.FTE || row['FTE Allocation'] || 0)
-                        })).filter(e => e.Name);
-
-                        switchTab('resources');
-                        populateDropdowns();
-                        alert(`Successfully imported ${employeeData.length} resources!`);
-                    }
+                    switchTab('resources');
+                    populateDropdowns();
+                    updateDashboard();
+                    alert(`Successfully imported ${employeeData.length} resources!`);
                 } catch (err) {
                     console.error(err);
                     alert("Error reading file.");
@@ -346,7 +355,6 @@
                 document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
                 const filtered = getFilteredResources();
 
-                // Sort data
                 filtered.sort((a, b) => {
                     let valA = a[currentSortCol], valB = b[currentSortCol];
                     if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
@@ -399,6 +407,7 @@
                             </div>
                         </td>
                         <td style="text-align: center;">
+                            <button onclick="editEmployee(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--blue-400); font-size: 14px; margin-right: 8px;" title="Edit">✏️</button>
                             <button onclick="deleteEmployee(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
                         </td>
                     </tr>
@@ -408,11 +417,7 @@
 
         function renderJiraTable() {
             document.getElementById('table-header-row').innerHTML = `
-                <th>Assignee</th>
-                <th>Project</th>
-                <th>From Status</th>
-                <th>To Status</th>
-                <th>Issues</th>
+                <th>Assignee</th><th>Project</th><th>From Status</th><th>To Status</th><th>Issues</th>
             `;
             const tbody = document.getElementById('resource-table-body');
             tbody.innerHTML = jiraData.map(j => `
@@ -428,10 +433,7 @@
 
         function renderGitTable() {
             document.getElementById('table-header-row').innerHTML = `
-                <th>Developer</th>
-                <th>Repository</th>
-                <th style="text-align: right;">Commits</th>
-                <th style="text-align: right;">PRs</th>
+                <th>Developer</th><th>Repository</th><th style="text-align: right;">Commits</th><th style="text-align: right;">PRs</th>
             `;
             const tbody = document.getElementById('resource-table-body');
             tbody.innerHTML = gitData.map(g => `
@@ -447,8 +449,6 @@
         function renderSidebarProjectFTE() {
             const map = {};
             employeeData.forEach(e => { if(e.Project) map[e.Project] = (map[e.Project] || 0) + (e.FTE || 0); });
-            
-            // SORTED: Highest FTE to Lowest FTE
             const sorted = Object.entries(map).sort((a,b) => b[1] - a[1]);
 
             const container = document.getElementById('project-fte-list');
@@ -470,7 +470,7 @@
                 currentSortAsc = !currentSortAsc;
             } else {
                 currentSortCol = col;
-                currentSortAsc = false; // Default highest to lowest
+                currentSortAsc = false;
             }
             updateDashboard();
         }
@@ -483,18 +483,14 @@
         }
 
         function renderCharts(filteredEmps) {
-            // 1. Project FTE Bar Chart (Sorted high to low)
             const projMap = {};
             filteredEmps.forEach(e => { if(e.Project) projMap[e.Project] = (projMap[e.Project] || 0) + (e.FTE || 0); });
             const sortedProj = Object.entries(projMap).sort((a,b) => b[1] - a[1]);
 
             renderChart('chartProjectFTE', 'bar', sortedProj.map(x=>x[0]), sortedProj.map(x=>x[1]), 'FTE Burden', vibrantColors.slice(0, sortedProj.length), (evt, item) => {
-                if (item.length > 0) {
-                    filterByProject(sortedProj[item[0].index][0]);
-                }
+                if (item.length > 0) filterByProject(sortedProj[item[0].index][0]);
             });
 
-            // 2. Org Composition Donut Chart
             const roleMap = {};
             filteredEmps.forEach(e => { if(e.Role) roleMap[e.Role] = (roleMap[e.Role] || 0) + 1; });
             const sortedRoles = Object.entries(roleMap).sort((a,b) => b[1] - a[1]);
@@ -510,13 +506,7 @@
                 type: type,
                 data: {
                     labels: labels,
-                    datasets: [{
-                        label: labelName,
-                        data: data,
-                        backgroundColor: colors,
-                        borderWidth: 0,
-                        borderRadius: 6
-                    }]
+                    datasets: [{ label: labelName, data: data, backgroundColor: colors, borderWidth: 0, borderRadius: 6 }]
                 },
                 options: {
                     responsive: true,
@@ -533,35 +523,60 @@
             });
         }
 
+        function openModal() {
+            document.getElementById('modal-title').innerText = "Add New Employee";
+            document.getElementById('edit-index').value = "-1";
+            document.getElementById('modal-name').value = "";
+            document.getElementById('modal-role').value = "";
+            document.getElementById('modal-location').value = "";
+            document.getElementById('modal-project').value = "";
+            document.getElementById('modal-fte').value = "1.0";
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function editEmployee(index) {
+            const emp = employeeData[index];
+            document.getElementById('modal-title').innerText = "Edit Employee";
+            document.getElementById('edit-index').value = index;
+            document.getElementById('modal-name').value = emp.Name;
+            document.getElementById('modal-role').value = emp.Role;
+            document.getElementById('modal-location').value = emp.Location;
+            document.getElementById('modal-project').value = emp.Project;
+            document.getElementById('modal-fte').value = emp.FTE;
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('employeeModal').classList.remove('active');
+        }
+
+        function saveEmployee() {
+            const index = parseInt(document.getElementById('edit-index').value);
+            const name = document.getElementById('modal-name').value.trim();
+            const role = document.getElementById('modal-role').value.trim();
+            const location = document.getElementById('modal-location').value.trim();
+            const project = document.getElementById('modal-project').value.trim();
+            const fte = parseFloat(document.getElementById('modal-fte').value);
+
+            if (!name) { alert("Please enter employee name."); return; }
+
+            const empObj = { Name: name, Role: role, Location: location, Project: project, FTE: isNaN(fte) ? 1.0 : fte };
+
+            if (index === -1) {
+                employeeData.push(empObj);
+            } else {
+                employeeData[index] = empObj;
+            }
+
+            closeModal();
+            populateDropdowns();
+            updateDashboard();
+        }
+
         function deleteEmployee(index) {
             if (confirm("Are you sure you want to delete this employee?")) {
                 employeeData.splice(index, 1);
                 populateDropdowns();
-                updateDashboard();
-            }
-        }
-
-        function openAddModal() {
-            if (currentTab === 'resources') {
-                const name = prompt("Enter employee name:");
-                if (!name) return;
-                const role = prompt("Enter role (e.g. BE, QA, Ro TL):") || "BE";
-                const location = prompt("Enter location:") || "Romania";
-                const project = prompt("Enter project:") || "Vasco";
-                const fte = parseFloat(prompt("Enter FTE allocation (0 to 1):")) || 1.0;
-
-                employeeData.push({ Name: name, Role: role, Location: location, Project: project, FTE: fte });
-                populateDropdowns();
-                updateDashboard();
-            } else if (currentTab === 'jira') {
-                const assignee = prompt("Enter assignee name:");
-                if (!assignee) return;
-                const project = prompt("Enter project:") || "Vasco";
-                const fromStatus = prompt("From status:") || "To Do";
-                const toStatus = prompt("To status:") || "Done";
-                const issues = prompt("Issue key:") || "TSK-1";
-
-                jiraData.push({ Assignee: assignee, Project: project, FromStatus: fromStatus, ToStatus: toStatus, Issues: issues });
                 updateDashboard();
             }
         }
