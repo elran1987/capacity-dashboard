@@ -4,344 +4,338 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resource Allocation & Development Dashboard</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- SheetJS (XLSX) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-</head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen">
+    <style>
+        :root {
+            --bg-slate-950: #020617;
+            --bg-slate-900: #0f172a;
+            --bg-slate-800: #1e293b;
+            --border-slate-800: #334155;
+            --text-slate-100: #f1f5f9;
+            --text-slate-400: #94a3b8;
+            --cyan-400: #22d3ee;
+            --cyan-500: #06b6d4;
+            --emerald-400: #34d399;
+            --rose-400: #fb7185;
+            --blue-400: #60a5fa;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: var(--bg-slate-950); color: var(--text-slate-100); min-height: 100vh; padding-bottom: 40px; }
+        
+        header { background-color: var(--bg-slate-900); border-bottom: 1px solid var(--border-slate-800); position: sticky; top: 0; z-index: 50; }
+        .max-w-7xl { max-width: 1280px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
+        
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-icon { background: rgba(6, 182, 212, 0.1); padding: 10px; border-radius: 12px; border: 1px solid rgba(6, 182, 212, 0.2); color: var(--cyan-400); font-weight: bold; }
+        .brand h1 { font-size: 16px; font-weight: bold; color: white; }
+        .brand p { font-size: 11px; color: var(--text-slate-400); }
 
-    <!-- Header / Navigation -->
-    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="bg-cyan-500/10 p-2.5 rounded-xl border border-cyan-500/20 text-cyan-400">
-                    <i class="fa-solid fa-chart-pie text-lg"></i>
-                </div>
+        .actions { display: flex; align-items: center; gap: 12px; }
+        button, label.btn { background: var(--bg-slate-800); color: var(--text-slate-100); border: 1px solid var(--border-slate-800); padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+        button:hover, label.btn:hover { background: var(--border-slate-800); }
+        button.primary { background: var(--cyan-500); color: var(--bg-slate-950); border: none; font-weight: bold; }
+        button.primary:hover { background: var(--cyan-400); }
+        button.danger { background: rgba(251, 113, 133, 0.1); color: var(--rose-400); border-color: rgba(251, 113, 133, 0.2); }
+        input[type="file"] { display: none; }
+
+        main { max-width: 1280px; margin: 24px auto; padding: 0 24px; display: flex; flex-direction: column; gap: 24px; }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .kpi-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; display: flex; align-items: center; justify-content: space-between; }
+        .kpi-card p { font-size: 12px; color: var(--text-slate-400); font-weight: 500; }
+        .kpi-card h3 { font-size: 28px; font-weight: 800; color: white; margin-top: 4px; }
+        .kpi-icon { padding: 12px; border-radius: 12px; font-size: 18px; }
+
+        .tabs { display: flex; border-bottom: 1px solid var(--border-slate-800); gap: 24px; }
+        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding-bottom: 12px; font-size: 14px; font-weight: 500; color: var(--text-slate-400); cursor: pointer; }
+        .tab-btn.active { color: var(--cyan-400); border-bottom-color: var(--cyan-400); font-weight: bold; }
+
+        .card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; overflow: hidden; }
+        .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border-slate-800); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
+        
+        table { width: 100%; border-collapse: collapse; text-align: left; direction: ltr; font-size: 13px; }
+        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 12px 16px; border-bottom: 1px solid var(--border-slate-800); }
+        td { padding: 14px 16px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
+        tr:hover td { background: rgba(30, 41, 59, 0.3); }
+
+        .filter-row th { background: rgba(2, 6, 23, 0.5); padding: 8px 12px; }
+        table input, table select { width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 8px; padding: 6px 10px; color: white; font-size: 12px; outline: none; }
+        table input:focus, table select:focus { border-color: var(--cyan-500); }
+
+        .modal-bg { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .modal-bg.hidden { display: none; }
+        .modal { background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 16px; width: 100%; max-width: 480px; padding: 24px; display: flex; flex-direction: column; gap: 20px; direction: ltr; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 12px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .form-group label { font-size: 12px; color: var(--text-slate-400); font-weight: 500; }
+        .form-group input, .form-group select { background: var(--bg-slate-950); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none; }
+        .form-group input:focus, .form-group select:focus { border-color: var(--cyan-500); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        
+        .hidden { display: none !important; }
+        .badge { background: var(--bg-slate-800); padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid var(--border-slate-800); }
+    </style>
+    <!-- טעינת SheetJS לתמיכה מלאה בקובצי Excel (xlsx/xls) ובקובצי CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="max-w-7xl">
+            <div class="brand">
+                <div class="brand-icon">📊</div>
                 <div>
-                    <h1 class="font-bold text-lg text-white">Resource Allocation Dashboard</h1>
-                    <p class="text-xs text-slate-400">Allocations, Projects & Development Tracking</p>
+                    <h1>Resource Allocation Dashboard</h1>
+                    <p>Allocations, Projects & Development Tracking</p>
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
-                <button onclick="openAddEmployeeModal()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 cursor-pointer shadow-lg shadow-cyan-500/20">
-                    <i class="fa-solid fa-user-plus text-xs"></i> Add Employee
-                </button>
-                <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium border border-slate-700 transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Import Allocations
-                    <input type="file" id="upload-excel" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event, false)">
+            <div class="actions">
+                <button class="primary" onclick="openAddEmployeeModal()">+ Add Employee</button>
+                <label class="btn">
+                    📂 Import Allocations
+                    <input type="file" accept=".csv, .txt, .xlsx, .xls" onchange="handleFileUpload(event, false)">
                 </label>
-                <button onclick="resetAllData()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2.5 rounded-xl border border-rose-500/20 transition cursor-pointer" title="Reset All Data">
-                    <i class="fa-solid fa-rotate-right text-sm"></i>
-                </button>
+                <button class="danger" onclick="resetAllData()" title="Reset All Data">🔄</button>
             </div>
         </div>
     </header>
 
-    <!-- Main Container -->
-    <main class="max-w-7xl mx-auto px-6 py-8 space-y-8">
-
-        <!-- KPI Cards Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+    <!-- Main Content -->
+    <main>
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">Total Headcount</p>
-                    <h3 id="kpi-headcount" class="text-3xl font-extrabold text-white mt-1">0</h3>
+                    <p>Total Headcount</p>
+                    <h3 id="kpi-headcount">0</h3>
                 </div>
-                <div class="bg-blue-500/10 p-3 rounded-xl border border-blue-500/20 text-blue-400">
-                    <i class="fa-solid fa-users text-xl"></i>
-                </div>
+                <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--blue-400);">👥</div>
             </div>
-
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+            <div class="kpi-card">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">Active Projects</p>
-                    <h3 id="kpi-projects" class="text-3xl font-extrabold text-white mt-1">0</h3>
+                    <p>Active Projects</p>
+                    <h3 id="kpi-projects">0</h3>
                 </div>
-                <div class="bg-cyan-500/10 p-3 rounded-xl border border-cyan-500/20 text-cyan-400">
-                    <i class="fa-solid fa-diagram-project text-xl"></i>
-                </div>
+                <div class="kpi-icon" style="background: rgba(6, 182, 212, 0.1); color: var(--cyan-400);">📈</div>
             </div>
-
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+            <div class="kpi-card">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">Total Allocated FTE</p>
-                    <h3 id="kpi-fte" class="text-3xl font-extrabold text-white mt-1">0</h3>
+                    <p>Total Allocated FTE</p>
+                    <h3 id="kpi-fte">0</h3>
                 </div>
-                <div class="bg-emerald-500/10 p-3 rounded-xl border border-emerald-500/20 text-emerald-400">
-                    <i class="fa-solid fa-chart-line text-xl"></i>
-                </div>
+                <div class="kpi-icon" style="background: rgba(52, 211, 153, 0.1); color: var(--emerald-400);">⚡</div>
             </div>
-
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+            <div class="kpi-card">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">Jira Records</p>
-                    <h3 id="kpi-jira-count" class="text-3xl font-extrabold text-white mt-1">0</h3>
+                    <p>Jira Records</p>
+                    <h3 id="kpi-jira-count">0</h3>
                 </div>
-                <div class="bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 text-orange-400">
-                    <i class="fa-solid fa-list-check text-xl"></i>
-                </div>
-            </div>
-        </div>
-
-        <!-- Charts Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-base font-bold text-white flex items-center gap-2">
-                        <i class="fa-solid fa-chart-column text-cyan-400"></i> Project Allocations (Total FTE)
-                    </h3>
-                    <span id="chart-filter-badge" class="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2.5 py-1 rounded-lg hidden">Filtered by Project</span>
-                </div>
-                <div class="h-72 relative">
-                    <canvas id="projectChart"></canvas>
-                </div>
-            </div>
-
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-                <h3 class="text-base font-bold text-white mb-4 flex items-center gap-2">
-                    <i class="fa-solid fa-chart-pie text-blue-400"></i> Role Distribution (Headcount)
-                </h3>
-                <div class="h-72 relative flex justify-center">
-                    <canvas id="roleChart"></canvas>
-                </div>
+                <div class="kpi-icon" style="background: rgba(249, 115, 22, 0.1); color: #fb923c;">📋</div>
             </div>
         </div>
 
         <!-- Tabs Navigation -->
-        <div class="flex border-b border-slate-800 gap-6">
-            <button onclick="switchTab('allocations')" id="tab-btn-allocations" class="pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer">
-                Allocations Table
-            </button>
-            <button onclick="switchTab('jira')" id="tab-btn-jira" class="pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer">
-                Jira Tracking
-            </button>
+        <div class="tabs">
+            <button onclick="switchTab('allocations')" id="tab-btn-allocations" class="tab-btn active">Allocations Table</button>
+            <button onclick="switchTab('jira')" id="tab-btn-jira" class="tab-btn">Jira Tracking</button>
         </div>
 
-        <!-- Tab 1: Allocations Table -->
-        <div id="tab-content-allocations" class="space-y-4">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
-                    <span class="text-sm font-semibold text-white">Filter & Manage Allocations:</span>
-                    <button onclick="resetAllocationFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">Reset Filters</button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm" style="direction: ltr;">
-                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
-                            <tr>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Name')">Employee Name <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Role')">Role <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Location')">Location <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 cursor-pointer hover:text-white" onclick="sortAllocationTable('Project')">Main Project <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortAllocationTable('FTE')">FTE <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-5 py-3.5 text-center">Actions</th>
-                            </tr>
-                            <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
-                                <th class="px-4 py-2"><input type="text" id="filter-emp-name" placeholder="Search name..." oninput="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"></th>
-                                <th class="px-4 py-2"><select id="filter-emp-role" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">All</option></select></th>
-                                <th class="px-4 py-2"><select id="filter-emp-loc" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">All</option></select></th>
-                                <th class="px-4 py-2"><select id="filter-emp-proj" onchange="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-cyan-500"><option value="">All</option></select></th>
-                                <th class="px-4 py-2"><input type="text" id="filter-emp-fte" placeholder="FTE..." oninput="updateDashboard()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-cyan-500"></th>
-                                <th class="px-4 py-2"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="employee-table-body" class="divide-y divide-slate-800/60"></tbody>
-                    </table>
-                </div>
+        <!-- Tab 1: Allocations -->
+        <div id="tab-content-allocations" class="card">
+            <div class="card-header">
+                <span>Filter & Manage Allocations</span>
+                <button onclick="resetAllocationFilters()">Reset Filters</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="sortAllocationTable('Name')">Employee Name ↕</th>
+                            <th onclick="sortAllocationTable('Role')">Role ↕</th>
+                            <th onclick="sortAllocationTable('Location')">Location ↕</th>
+                            <th onclick="sortAllocationTable('Project')">Main Project ↕</th>
+                            <th style="text-align: center;" onclick="sortAllocationTable('FTE')">FTE ↕</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><input type="text" id="filter-emp-name" placeholder="Search..." oninput="updateDashboard()"></th>
+                            <th><select id="filter-emp-role" onchange="updateDashboard()"><option value="">All</option></select></th>
+                            <th><select id="filter-emp-loc" onchange="updateDashboard()"><option value="">All</option></select></th>
+                            <th><select id="filter-emp-proj" onchange="updateDashboard()"><option value="">All</option></select></th>
+                            <th><input type="text" id="filter-emp-fte" placeholder="FTE..." oninput="updateDashboard()" style="text-align: center;"></th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="employee-table-body"></tbody>
+                </table>
             </div>
         </div>
 
-        <!-- Tab 2: Jira Tracking -->
-        <div id="tab-content-jira" class="space-y-4 hidden">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-                <span id="jira-status-text" class="text-sm text-slate-400">No Jira data loaded.</span>
-                <label class="cursor-pointer bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 border border-blue-500/40 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel"></i> Import Jira (XLSX/CSV)
-                    <input type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event, true)">
+        <!-- Tab 2: Jira -->
+        <div id="tab-content-jira" class="card hidden">
+            <div class="card-header">
+                <span id="jira-status-text">No Jira data loaded.</span>
+                <label class="btn" style="background: rgba(59, 130, 246, 0.2); color: var(--blue-400); border-color: rgba(59, 130, 246, 0.4);">
+                    📂 Import Jira (Excel/CSV)
+                    <input type="file" accept=".csv, .txt, .xlsx, .xls" onchange="handleFileUpload(event, true)">
                 </label>
             </div>
-            
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
-                    <span class="text-sm font-semibold text-white">Filter Jira Transitions:</span>
-                    <button onclick="resetJiraFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">Reset Filters</button>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm" style="direction: ltr;">
-                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
-                            <tr>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('assignee')">Assignee (User) <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('project')">Project <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('fromStatus')">From Status <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('toStatus')">To Status <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-4 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortJiraTable('count')">Count <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('issues')">Issues <i class="fa-solid fa-sort text-[10px]"></i></th>
-                            </tr>
-                            <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
-                                <th class="px-3 py-2"><select id="filter-jira-assignee" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Users</option></select></th>
-                                <th class="px-3 py-2"><select id="filter-jira-proj" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Projects</option></select></th>
-                                <th class="px-3 py-2"><input type="text" id="filter-jira-from" placeholder="From..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
-                                <th class="px-3 py-2"><input type="text" id="filter-jira-to" placeholder="To..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
-                                <th class="px-3 py-2"><input type="text" id="filter-jira-count" placeholder="Count..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-blue-500"></th>
-                                <th class="px-3 py-2"><input type="text" id="filter-jira-issues" placeholder="Search issues..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file or import data to view records.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th onclick="sortJiraTable('assignee')">Assignee (User) ↕</th>
+                            <th onclick="sortJiraTable('project')">Project ↕</th>
+                            <th onclick="sortJiraTable('fromStatus')">From Status ↕</th>
+                            <th onclick="sortJiraTable('toStatus')">To Status ↕</th>
+                            <th style="text-align: center;" onclick="sortJiraTable('count')">Count ↕</th>
+                            <th>Issues ↕</th>
+                        </tr>
+                        <tr class="filter-row">
+                            <th><select id="filter-jira-assignee" onchange="renderJiraTable()"><option value="">All Users</option></select></th>
+                            <th><select id="filter-jira-proj" onchange="renderJiraTable()"><option value="">All Projects</option></select></th>
+                            <th><input type="text" id="filter-jira-from" placeholder="From..." oninput="renderJiraTable()"></th>
+                            <th><input type="text" id="filter-jira-to" placeholder="To..." oninput="renderJiraTable()"></th>
+                            <th><input type="text" id="filter-jira-count" placeholder="Count..." oninput="renderJiraTable()" style="text-align: center;"></th>
+                            <th><input type="text" id="filter-jira-issues" placeholder="Search..." oninput="renderJiraTable()"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="jira-table-body">
+                        <tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">Upload a file to view records.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
-
     </main>
 
-    <!-- Add / Edit Employee Modal -->
-    <div id="employeeModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-2xl" style="direction: ltr;">
-            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
-                <h3 id="modal-title" class="text-lg font-bold text-white">Add New Employee Allocation</h3>
-                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
+    <!-- Modal -->
+    <div id="employeeModal" class="modal-bg hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Add Employee Allocation</h3>
+                <button onclick="closeEmployeeModal()" style="background:none; border:none; color:white; font-size:16px;">✕</button>
             </div>
-            <form id="employeeForm" onsubmit="saveEmployee(event)" class="space-y-4">
+            <form id="employeeForm" onsubmit="saveEmployee(event)">
                 <input type="hidden" id="edit-index" value="-1">
-                <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Employee Name</label>
-                    <input type="text" id="emp-name" required placeholder="Full Name" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                <div class="form-group">
+                    <label>Employee Name</label>
+                    <input type="text" id="emp-name" required placeholder="Full Name">
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Role</label>
-                        <select id="emp-role" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm"><option value="">Select...</option></select>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Role</label>
+                        <select id="emp-role" required><option value="">Select...</option></select>
                     </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Location</label>
-                        <select id="emp-location" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm"><option value="">Select...</option></select>
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">Main Project</label>
-                        <select id="emp-project" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm"><option value="">Select...</option></select>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-medium text-slate-300 mb-1">FTE (Allocation)</label>
-                        <input type="number" step="0.01" min="0" max="1" id="emp-fte" required placeholder="0.5" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
+                    <div class="form-group">
+                        <label>Location</label>
+                        <select id="emp-location" required><option value="">Select...</option></select>
                     </div>
                 </div>
-                <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-                    <button type="button" onclick="closeEmployeeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer">Cancel</button>
-                    <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 px-5 py-2 rounded-xl text-sm font-bold transition cursor-pointer">Save Employee</button>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Main Project</label>
+                        <select id="emp-project" required><option value="">Select...</option></select>
+                    </div>
+                    <div class="form-group">
+                        <label>FTE (Allocation)</label>
+                        <input type="number" step="0.01" min="0" max="1" id="emp-fte" required placeholder="0.5">
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+                    <button type="button" onclick="closeEmployeeModal()">Cancel</button>
+                    <button type="submit" class="primary">Save Employee</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Core Scripts -->
+    <!-- Script Logic -->
     <script>
-        let employeeData = [];
-        let jiraData = [];
-        let currentSortColumn = '';
-        let currentSortAsc = true;
-        
-        let jiraSortColumn = '';
-        let jiraSortAsc = true;
-
-        let projectChartInstance = null;
-        let roleChartInstance = null;
-        let activeProjectFilter = '';
-
-        const defaultEmployeeData = [
+        let employeeData = [
             { Name: "Adriana Iovanut", Role: "Ro TL", Location: "Romania", Project: "Management", FTE: 1.0 },
             { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 },
             { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 }
         ];
+        let jiraData = [];
+        let currentSortColumn = '';
+        let currentSortAsc = true;
+        let jiraSortColumn = '';
+        let jiraSortAsc = true;
 
         function switchTab(tabId) {
             ['allocations', 'jira'].forEach(id => {
-                const contentEl = document.getElementById(`tab-content-${id}`);
-                const btnEl = document.getElementById(`tab-btn-${id}`);
-                if (contentEl) contentEl.classList.add('hidden');
-                if (btnEl) btnEl.className = "pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer";
+                document.getElementById(`tab-content-${id}`).classList.add('hidden');
+                document.getElementById(`tab-btn-${id}`).classList.remove('active');
             });
-            const activeContent = document.getElementById(`tab-content-${tabId}`);
-            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
-            if (activeContent) activeContent.classList.remove('hidden');
-            if (activeBtn) activeBtn.className = "pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer";
+            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
+            document.getElementById(`tab-btn-${tabId}`).classList.add('active');
         }
 
-        function handleExcelUpload(event, forceJira = false) {
+        function handleFileUpload(event, forceJira = false) {
             const file = event.target.files[0];
             if (!file) return;
+
             const reader = new FileReader();
             reader.onload = function(e) {
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const sheet = workbook.Sheets[sheetName];
-                    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
                     
-                    if (!json || json.length === 0) {
-                        alert("הקובץ ריק או שלא זוהו בו נתונים.");
+                    // המרה ל-JSON עם ניקוי מפתחות (נורמליזציה של שמות העמודות)
+                    const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                    
+                    if (rawJson.length === 0) {
+                        alert("הקובץ ריק או שאין בו נתונים.");
                         return;
                     }
 
-                    const firstRow = json[0];
-                    const keys = Object.keys(firstRow).map(k => k.trim().toLowerCase());
-                    console.log("Excel Keys detected:", keys);
-                    console.log("Force Jira flag:", forceJira);
+                    // ניקוי מפתחות האובייקטים מרווחים נסתרים (כמו To Status עם NBSP)
+                    const json = rawJson.map(row => {
+                        const cleanRow = {};
+                        Object.keys(row).forEach(key => {
+                            const cleanKey = key.trim().replace(/\s+/g, ' ');
+                            cleanRow[cleanKey] = row[key];
+                        });
+                        return cleanRow;
+                    });
 
-                    // בדיקה האם זוהה קובץ ג'ירה לפי הכותרות או לפי הכפתור שממנו הועלה
-                    const isJira = forceJira || keys.some(k => 
-                        k.includes('user') || 
-                        k.includes('transition') || 
-                        k.includes('issue') || 
-                        k.includes('assignee') || 
-                        k.includes('status') ||
-                        k.includes('from') ||
-                        k.includes('to')
-                    );
+                    const sampleKeys = Object.keys(json[0]).map(k => k.toLowerCase());
+                    const isJira = forceJira || sampleKeys.some(k => k.includes('user') || k.includes('transition') || k.includes('issue') || k.includes('assignee') || k.includes('status') || k.includes('from status') || k.includes('to status'));
 
                     if (isJira) {
-                        console.log("Processing as Jira Data...");
                         processJiraJson(json);
                         switchTab('jira');
                     } else {
-                        console.log("Processing as Allocation Data...");
                         processAllocationJson(json);
                         switchTab('allocations');
                     }
                 } catch (err) {
-                    alert("שגיאה בקריאת הקובץ: " + err.message);
                     console.error(err);
+                    alert("שגיאה בקריאת הקובץ. ודא שמדובר בקובץ Excel או CSV תקין.");
                 }
             };
             reader.readAsArrayBuffer(file);
-            // איפוס ה-input כדי לאפשר טעינה חוזרת של אותו קובץ במידת הצורך
             event.target.value = '';
         }
 
         function processAllocationJson(json) {
             employeeData = json.map(row => {
-                const getVal = (possibleKeys) => {
-                    for (let k of possibleKeys) {
-                        const found = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                const getVal = (keys) => {
+                    for (let k of keys) {
+                        const found = Object.keys(row).find(x => x.toLowerCase() === k.toLowerCase());
                         if (found !== undefined) return row[found];
                     }
                     return '';
                 };
                 return {
-                    Name: getVal(['Name', 'Employee Name', 'שם']),
-                    Role: getVal(['Role', 'תפקיד']),
-                    Location: getVal(['Location', 'מיקום']),
-                    Project: getVal(['Project', 'Main Project', 'פרויקט']),
-                    FTE: parseFloat(getVal(['FTE', '% main project', 'אחוז משרה'])) || 0
+                    Name: getVal(['name', 'employee name', 'שם']),
+                    Role: getVal(['role', 'תפקיד']),
+                    Location: getVal(['location', 'מיקום']),
+                    Project: getVal(['project', 'main project', 'פרויקט']),
+                    FTE: parseFloat(getVal(['fte', '% main project', 'אחוז משרה'])) || 0
                 };
             }).filter(e => e.Name);
 
@@ -351,54 +345,43 @@
 
         function processJiraJson(json) {
             jiraData = json.map(row => {
-                const getVal = (possibleKeys) => {
-                    for (let k of possibleKeys) {
-                        const found = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                const getVal = (keys) => {
+                    for (let k of keys) {
+                        const found = Object.keys(row).find(x => x.toLowerCase().replace(/\s+/g, ' ') === k.toLowerCase());
                         if (found !== undefined) return row[found];
                     }
                     return '';
                 };
 
-                const assignee = getVal(['User', 'Assignee', 'Developer', 'משתמש', 'name']);
-                const project = getVal(['Project', 'פרויקט']);
-                const transitionStr = getVal(['Transition', 'Status Change', 'מעבר', 'status']);
-                const count = parseInt(getVal(['Count', 'כמות'])) || 1;
-                const issues = getVal(['Issues', 'Issue Keys', 'مפתחות', 'keys']);
+                const assignee = getVal(['user', 'assignee', 'developer', 'משתמש', 'name']);
+                const project = getVal(['project', 'פרויקט']);
+                const fromStatus = getVal(['from status', 'from_status', 'from']);
+                const toStatus = getVal(['to status', 'to_status', 'to', 'transition']);
+                const count = parseInt(getVal(['count', 'כמות'])) || 1;
+                const issues = getVal(['issues', 'issue keys', 'keys']);
 
-                let fromStatus = '-';
-                let toStatus = '-';
+                let resolvedFrom = fromStatus || '-';
+                let resolvedTo = toStatus || '-';
 
-                if (transitionStr) {
-                    const separators = ['->', '-->', '→', '=>'];
-                    let splitFound = false;
-                    for (let sep of separators) {
-                        if (transitionStr.includes(sep)) {
-                            const parts = transitionStr.split(sep);
-                            fromStatus = parts[0].trim();
-                            toStatus = parts[1].trim();
-                            splitFound = true;
-                            break;
-                        }
-                    }
-                    if (!splitFound) {
-                        toStatus = transitionStr.trim();
-                    }
+                // אם אין עמודות נפרדות אבל יש מעבר משולב (כמו open -> development)
+                if ((!fromStatus || fromStatus === '-') && transitionStr && transitionStr.includes('->')) {
+                    const parts = transitionStr.split('->');
+                    resolvedFrom = parts[0].trim();
+                    resolvedTo = parts[1].trim();
                 }
 
                 return {
                     assignee: assignee || '-',
                     project: project || '-',
-                    fromStatus: fromStatus,
-                    toStatus: toStatus,
-                    count: count,
+                    fromStatus: resolvedFrom,
+                    toStatus: resolvedTo,
+                    count,
                     issues: issues || '-'
                 };
             }).filter(j => j.assignee !== '-' || j.project !== '-');
 
-            const statusText = document.getElementById('jira-status-text');
-            const kpiJira = document.getElementById('kpi-jira-count');
-            if (statusText) statusText.textContent = `Loaded ${jiraData.length} Jira records.`;
-            if (kpiJira) kpiJira.textContent = jiraData.length;
+            document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
+            document.getElementById('kpi-jira-count').textContent = jiraData.length;
             
             populateJiraFilters();
             renderJiraTable();
@@ -408,33 +391,8 @@
             const assignees = [...new Set(jiraData.map(i => i.assignee))].filter(x => x !== '-').sort();
             const projects = [...new Set(jiraData.map(i => i.project))].filter(x => x !== '-').sort();
 
-            const assigneeSelect = document.getElementById('filter-jira-assignee');
-            const projSelect = document.getElementById('filter-jira-proj');
-
-            if (assigneeSelect) assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
-            if (projSelect) projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-        }
-
-        function resetJiraFilters() {
-            document.getElementById('filter-jira-assignee').value = '';
-            document.getElementById('filter-jira-proj').value = '';
-            document.getElementById('filter-jira-from').value = '';
-            document.getElementById('filter-jira-to').value = '';
-            document.getElementById('filter-jira-count').value = '';
-            document.getElementById('filter-jira-issues').value = '';
-            jiraSortColumn = '';
-            jiraSortAsc = true;
-            renderJiraTable();
-        }
-
-        function sortJiraTable(column) {
-            if (jiraSortColumn === column) {
-                jiraSortAsc = !jiraSortAsc;
-            } else {
-                jiraSortColumn = column;
-                jiraSortAsc = true;
-            }
-            renderJiraTable();
+            document.getElementById('filter-jira-assignee').innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
+            document.getElementById('filter-jira-proj').innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
         }
 
         function renderJiraTable() {
@@ -457,40 +415,33 @@
 
             if (jiraSortColumn) {
                 filtered.sort((a, b) => {
-                    let valA = a[jiraSortColumn];
-                    let valB = b[jiraSortColumn];
+                    let valA = a[jiraSortColumn], valB = b[jiraSortColumn];
                     if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                    if (valA < valB) return jiraSortAsc ? -1 : 1;
-                    if (valA > valB) return jiraSortAsc ? 1 : -1;
-                    return 0;
+                    return valA < valB ? (jiraSortAsc ? -1 : 1) : (valA > valB ? (jiraSortAsc ? 1 : -1) : 0);
                 });
             }
 
             const tbody = document.getElementById('jira-table-body');
-            if (!tbody) return;
-
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No matching Jira records found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No matching Jira records found.</td></tr>`;
             } else {
                 tbody.innerHTML = filtered.map(item => `
-                    <tr class="hover:bg-slate-900/40 transition">
-                        <td class="px-4 py-4 font-medium text-white">${item.assignee}</td>
-                        <td class="px-4 py-4 text-slate-300">${item.project}</td>
-                        <td class="px-4 py-4 text-slate-400">${item.fromStatus}</td>
-                        <td class="px-4 py-4 text-cyan-300 font-medium">${item.toStatus}</td>
-                        <td class="px-4 py-4 text-center font-bold text-blue-400">${item.count}</td>
-                        <td class="px-4 py-4 text-xs text-slate-400 font-mono truncate max-w-xs" title="${item.issues}">${item.issues}</td>
+                    <tr>
+                        <td style="font-weight: 500; color: white;">${item.assignee}</td>
+                        <td style="color: var(--text-slate-400);">${item.project}</td>
+                        <td style="color: var(--text-slate-400);">${item.fromStatus}</td>
+                        <td style="color: var(--cyan-400); font-weight: 500;">${item.toStatus}</td>
+                        <td style="text-align: center; font-weight: bold; color: var(--blue-400);">${item.count}</td>
+                        <td style="font-family: monospace; font-size: 11px; color: var(--text-slate-400);">${item.issues}</td>
                     </tr>
                 `).join('');
             }
         }
 
         function updateDashboard() {
-            if (employeeData.length === 0) employeeData = [...defaultEmployeeData];
             updateDropdownFilters();
             renderEmployeeTable();
             updateKPIs();
-            renderCharts();
         }
 
         function updateDropdownFilters() {
@@ -498,37 +449,33 @@
             const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
             const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
 
-            updateSelectOptions('filter-emp-role', roles);
-            updateSelectOptions('filter-emp-loc', locations);
-            updateSelectOptions('filter-emp-proj', projects, activeProjectFilter);
-            updateSelectOptions('emp-role', roles);
-            updateSelectOptions('emp-location', locations);
-            updateSelectOptions('emp-project', projects);
+            fillSelect('filter-emp-role', roles, 'All');
+            fillSelect('filter-emp-loc', locations, 'All');
+            fillSelect('filter-emp-proj', projects, 'All');
+            fillSelect('emp-role', roles, 'Select...');
+            fillSelect('emp-location', locations, 'Select...');
+            fillSelect('emp-project', projects, 'Select...');
         }
 
-        function updateSelectOptions(elementId, items, selectedVal = '') {
-            const el = document.getElementById(elementId);
+        function fillSelect(id, items, defaultText) {
+            const el = document.getElementById(id);
             if (!el) return;
-            const current = selectedVal || el.value;
-            const isFilter = elementId.startsWith('filter-');
-            let html = isFilter ? '<option value="">All</option>' : '<option value="">Select...</option>';
-            html += items.map(i => `<option value="${i}" ${i === current ? 'selected' : ''}>${i}</option>`).join('');
-            el.innerHTML = html;
+            const current = el.value;
+            el.innerHTML = `<option value="">${defaultText}</option>` + items.map(i => `<option value="${i}" ${i === current ? 'selected' : ''}>${i}</option>`).join('');
         }
 
         function getFilteredEmployees() {
-            const nameQ = document.getElementById('filter-emp-name')?.value.toLowerCase() || '';
-            const roleQ = document.getElementById('filter-emp-role')?.value || '';
-            const locQ = document.getElementById('filter-emp-loc')?.value || '';
-            const projQ = document.getElementById('filter-emp-proj')?.value || '';
-            const fteQ = document.getElementById('filter-emp-fte')?.value || '';
+            const nameQ = document.getElementById('filter-emp-name').value.toLowerCase();
+            const roleQ = document.getElementById('filter-emp-role').value;
+            const locQ = document.getElementById('filter-emp-loc').value;
+            const projQ = document.getElementById('filter-emp-proj').value;
+            const fteQ = document.getElementById('filter-emp-fte').value;
 
             return employeeData.filter(emp => {
                 if (nameQ && !emp.Name.toLowerCase().includes(nameQ)) return false;
                 if (roleQ && emp.Role !== roleQ) return false;
                 if (locQ && emp.Location !== locQ) return false;
                 if (projQ && emp.Project !== projQ) return false;
-                if (activeProjectFilter && emp.Project !== activeProjectFilter) return false;
                 if (fteQ && !emp.FTE.toString().includes(fteQ)) return false;
                 return true;
             });
@@ -538,57 +485,46 @@
             const filtered = getFilteredEmployees();
             if (currentSortColumn) {
                 filtered.sort((a, b) => {
-                    let valA = a[currentSortColumn];
-                    let valB = b[currentSortColumn];
+                    let valA = a[currentSortColumn], valB = b[currentSortColumn];
                     if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                    if (valA < valB) return currentSortAsc ? -1 : 1;
-                    if (valA > valB) return currentSortAsc ? 1 : -1;
-                    return 0;
+                    return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
                 });
             }
 
             const tbody = document.getElementById('employee-table-body');
-            if (!tbody) return;
-
             if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">No matching employee records found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No matching employee records found.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = filtered.map((emp, index) => {
+            tbody.innerHTML = filtered.map((emp) => {
                 const globalIndex = employeeData.indexOf(emp);
                 return `
-                    <tr class="hover:bg-slate-900/40 transition">
-                        <td class="px-5 py-4 font-medium text-white">${emp.Name}</td>
-                        <td class="px-5 py-4 text-slate-300">
-                            <span class="bg-slate-800 text-slate-300 border border-slate-700/60 px-2.5 py-1 rounded-lg text-xs">${emp.Role}</span>
-                        </td>
-                        <td class="px-5 py-4 text-slate-300">${emp.Location}</td>
-                        <td class="px-5 py-4 text-cyan-300 font-medium">${emp.Project}</td>
-                        <td class="px-5 py-4 text-center font-bold text-emerald-400">${emp.FTE}</td>
-                        <td class="px-5 py-4 text-center">
-                            <div class="flex items-center justify-center gap-2">
-                                <button onclick="openEditEmployeeModal(${globalIndex})" class="bg-slate-800 hover:bg-slate-700 text-cyan-400 p-2 rounded-xl transition cursor-pointer" title="Edit">
-                                    <i class="fa-solid fa-pen text-xs"></i>
-                                </button>
-                                <button onclick="deleteEmployee(${globalIndex})" class="bg-slate-800 hover:bg-slate-700 text-rose-400 p-2 rounded-xl transition cursor-pointer" title="Delete">
-                                    <i class="fa-solid fa-trash text-xs"></i>
-                                </button>
-                            </div>
+                    <tr>
+                        <td style="font-weight: 500; color: white;">${emp.Name}</td>
+                        <td><span class="badge">${emp.Role}</span></td>
+                        <td style="color: var(--text-slate-400);">${emp.Location}</td>
+                        <td style="color: var(--cyan-400); font-weight: 500;">${emp.Project}</td>
+                        <td style="text-align: center; font-weight: bold; color: var(--emerald-400);">${emp.FTE}</td>
+                        <td style="text-align: center;">
+                            <button onclick="openEditEmployeeModal(${globalIndex})" style="padding: 4px 8px; font-size: 11px;">✏️</button>
+                            <button onclick="deleteEmployee(${globalIndex})" style="padding: 4px 8px; font-size: 11px; color: var(--rose-400);">🗑️</button>
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        function sortAllocationTable(column) {
-            if (currentSortColumn === column) {
-                currentSortAsc = !currentSortAsc;
-            } else {
-                currentSortColumn = column;
-                currentSortAsc = true;
-            }
+        function sortAllocationTable(col) {
+            if (currentSortColumn === col) currentSortAsc = !currentSortAsc;
+            else { currentSortColumn = col; currentSortAsc = true; }
             renderEmployeeTable();
+        }
+
+        function sortJiraTable(col) {
+            if (jiraSortColumn === col) jiraSortAsc = !jiraSortAsc;
+            else { jiraSortColumn = col; jiraSortAsc = true; }
+            renderJiraTable();
         }
 
         function resetAllocationFilters() {
@@ -597,134 +533,30 @@
             document.getElementById('filter-emp-loc').value = '';
             document.getElementById('filter-emp-proj').value = '';
             document.getElementById('filter-emp-fte').value = '';
-            activeProjectFilter = '';
-            document.getElementById('chart-filter-badge').classList.add('hidden');
             currentSortColumn = '';
-            currentSortAsc = true;
             updateDashboard();
         }
 
         function updateKPIs() {
             const filtered = getFilteredEmployees();
             document.getElementById('kpi-headcount').textContent = filtered.length;
-            const uniqueProjects = [...new Set(filtered.map(e => e.Project))].filter(Boolean);
-            document.getElementById('kpi-projects').textContent = uniqueProjects.length;
+            document.getElementById('kpi-projects').textContent = [...new Set(filtered.map(e => e.Project))].filter(Boolean).length;
             const totalFte = filtered.reduce((acc, curr) => acc + (parseFloat(curr.FTE) || 0), 0);
             document.getElementById('kpi-fte').textContent = Math.round(totalFte * 100) / 100;
         }
 
-        function renderCharts() {
-            const filtered = getFilteredEmployees();
-
-            // Project Chart Data
-            const projectMap = {};
-            filtered.forEach(e => {
-                if (!e.Project) return;
-                projectMap[e.Project] = (projectMap[e.Project] || 0) + (parseFloat(e.FTE) || 0);
-            });
-
-            const projLabels = Object.keys(projectMap);
-            const projData = Object.values(projectMap);
-
-            if (projectChartInstance) projectChartInstance.destroy();
-            const canvasProj = document.getElementById('projectChart');
-            if (!canvasProj) return;
-            const ctxProj = canvasProj.getContext('2d');
-            projectChartInstance = new Chart(ctxProj, {
-                type: 'bar',
-                data: {
-                    labels: projLabels,
-                    datasets: [{
-                        label: 'Total FTE',
-                        data: projData,
-                        backgroundColor: 'rgba(6, 182, 212, 0.6)',
-                        borderColor: 'rgba(6, 182, 212, 1)',
-                        borderWidth: 1,
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: 'rgba(51, 65, 85, 0.4)' }, ticks: { color: '#94a3b8' } }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const projName = projLabels[index];
-                            if (activeProjectFilter === projName) {
-                                activeProjectFilter = '';
-                                document.getElementById('chart-filter-badge').classList.add('hidden');
-                            } else {
-                                activeProjectFilter = projName;
-                                document.getElementById('chart-filter-badge').classList.remove('hidden');
-                            }
-                            document.getElementById('filter-emp-proj').value = activeProjectFilter;
-                            updateDashboard();
-                        }
-                    }
-                }
-            });
-
-            // Role Chart Data
-            const roleMap = {};
-            filtered.forEach(e => {
-                if (!e.Role) return;
-                roleMap[e.Role] = (roleMap[e.Role] || 0) + 1;
-            });
-
-            const roleLabels = Object.keys(roleMap);
-            const roleData = Object.values(roleMap);
-
-            if (roleChartInstance) roleChartInstance.destroy();
-            const canvasRole = document.getElementById('roleChart');
-            if (!canvasRole) return;
-            const ctxRole = canvasRole.getContext('2d');
-            roleChartInstance = new Chart(ctxRole, {
-                type: 'doughnut',
-                data: {
-                    labels: roleLabels,
-                    datasets: [{
-                        data: roleData,
-                        backgroundColor: [
-                            'rgba(59, 130, 246, 0.7)',
-                            'rgba(6, 182, 212, 0.7)',
-                            'rgba(16, 185, 129, 0.7)',
-                            'rgba(249, 115, 22, 0.7)',
-                            'rgba(168, 85, 247, 0.7)',
-                            'rgba(236, 72, 153, 0.7)'
-                        ],
-                        borderWidth: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } }
-                    }
-                }
-            });
-        }
-
         function openAddEmployeeModal() {
-            document.getElementById('modal-title').textContent = 'Add New Employee Allocation';
+            document.getElementById('modal-title').textContent = 'Add Employee Allocation';
             document.getElementById('edit-index').value = '-1';
             document.getElementById('employeeForm').reset();
-            updateDropdownFilters();
             document.getElementById('employeeModal').classList.remove('hidden');
         }
 
-        function openEditEmployeeModal(globalIndex) {
-            const emp = employeeData[globalIndex];
-            if (!emp) return;
+        function openEditEmployeeModal(index) {
+            const emp = employeeData[index];
             document.getElementById('modal-title').textContent = 'Edit Employee Allocation';
-            document.getElementById('edit-index').value = globalIndex;
+            document.getElementById('edit-index').value = index;
             document.getElementById('emp-name').value = emp.Name;
-            updateDropdownFilters();
             document.getElementById('emp-role').value = emp.Role;
             document.getElementById('emp-location').value = emp.Location;
             document.getElementById('emp-project').value = emp.Project;
@@ -738,8 +570,8 @@
 
         function saveEmployee(event) {
             event.preventDefault();
-            const editIndex = parseInt(document.getElementById('edit-index').value);
-            const newEmp = {
+            const index = parseInt(document.getElementById('edit-index').value);
+            const emp = {
                 Name: document.getElementById('emp-name').value.trim(),
                 Role: document.getElementById('emp-role').value.trim(),
                 Location: document.getElementById('emp-location').value.trim(),
@@ -747,34 +579,28 @@
                 FTE: parseFloat(document.getElementById('emp-fte').value) || 0
             };
 
-            if (editIndex === -1) {
-                employeeData.push(newEmp);
-            } else {
-                employeeData[editIndex] = newEmp;
-            }
+            if (index === -1) employeeData.push(emp);
+            else employeeData[index] = emp;
 
             saveToLocalStorage();
             closeEmployeeModal();
             updateDashboard();
         }
 
-        function deleteEmployee(globalIndex) {
-            if (confirm("האם אתה בטוח שברצונך למחוק רשומה זו?")) {
-                employeeData.splice(globalIndex, 1);
+        function deleteEmployee(index) {
+            if (confirm("האם למחוק רשומה זו?")) {
+                employeeData.splice(index, 1);
                 saveToLocalStorage();
                 updateDashboard();
             }
         }
 
         function resetAllData() {
-            if (confirm("האם לאפס את כל הנתונים לברירת המחדל?")) {
-                employeeData = [...defaultEmployeeData];
+            if (confirm("לאפס את כל הנתונים?")) {
+                employeeData = [];
                 jiraData = [];
-                document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
-                document.getElementById('kpi-jira-count').textContent = "0";
-                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file or import data to view records.</td></tr>`;
                 localStorage.removeItem('employeeData');
-                resetAllocationFilters();
+                updateDashboard();
             }
         }
 
@@ -785,17 +611,10 @@
         function loadFromLocalStorage() {
             const saved = localStorage.getItem('employeeData');
             if (saved) {
-                try {
-                    employeeData = JSON.parse(saved);
-                } catch (e) {
-                    employeeData = [...defaultEmployeeData];
-                }
-            } else {
-                employeeData = [...defaultEmployeeData];
+                try { employeeData = JSON.parse(saved); } catch (e) {}
             }
         }
 
-        // Initialize on load
         loadFromLocalStorage();
         updateDashboard();
     </script>
