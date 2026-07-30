@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resource Allocation, Git & Jira Dashboard</title>
-    <!-- טעינת Chart.js לצורך הצגת הגרפים -->
+    <title>Resource Allocation & Jira Dashboard</title>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- טעינת SheetJS לתמיכה מלאה בקובצי Excel ו-CSV -->
+    <!-- SheetJS לתמיכה באקסל -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         :root {
@@ -24,304 +24,154 @@
             --purple-400: #c084fc;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-        body { background-color: var(--bg-slate-950); color: var(--text-slate-100); min-height: 100vh; padding-bottom: 40px; }
-        
-        header { background-color: var(--bg-slate-900); border-bottom: 1px solid var(--border-slate-800); position: sticky; top: 0; z-index: 50; }
-        .max-w-7xl { max-width: 1280px; margin: 0 auto; padding: 0 24px; height: 64px; display: flex; align-items: center; justify-content: space-between; }
-        
-        .brand { display: flex; align-items: center; gap: 12px; }
-        .brand-icon { background: rgba(6, 182, 212, 0.1); padding: 10px; border-radius: 12px; border: 1px solid rgba(6, 182, 212, 0.2); color: var(--cyan-400); font-weight: bold; }
-        .brand h1 { font-size: 16px; font-weight: bold; color: white; }
-        .brand p { font-size: 11px; color: var(--text-slate-400); }
+        body { background-color: var(--bg-slate-950); color: var(--text-slate-100); min-height: 100vh; padding: 24px; }
 
-        .actions { display: flex; align-items: center; gap: 12px; }
-        button, label.btn { background: var(--bg-slate-800); color: var(--text-slate-100); border: 1px solid var(--border-slate-800); padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px; }
-        button:hover, label.btn:hover { background: var(--border-slate-800); }
-        button.primary { background: var(--cyan-500); color: var(--bg-slate-950); border: none; font-weight: bold; }
-        button.primary:hover { background: var(--cyan-400); }
-        button.danger { background: rgba(251, 113, 133, 0.1); color: var(--rose-400); border-color: rgba(251, 113, 133, 0.2); }
+        .dashboard-layout {
+            max-width: 1500px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 320px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-layout { grid-template-columns: 1fr; }
+        }
+
+        /* Sidebar */
+        .sidebar { display: flex; flex-direction: column; gap: 20px; }
+        .panel { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; }
+        .panel h3 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-slate-400); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+        
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 12px; color: var(--text-slate-400); margin-bottom: 6px; font-weight: 500; }
+        .form-group select, .form-group input { width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none; }
+        .form-group select:focus, .form-group input:focus { border-color: var(--cyan-500); }
+
+        .btn-reset { width: 100%; background: var(--bg-slate-800); color: var(--text-slate-100); border: 1px solid var(--border-slate-800); padding: 10px; border-radius: 10px; font-size: 13px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+        .btn-reset:hover { background: var(--border-slate-800); color: var(--cyan-400); }
+
+        .top-projects-list { display: flex; flex-direction: column; gap: 8px; }
+        .project-fte-item { display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); padding: 8px 12px; border-radius: 8px; font-size: 13px; }
+        .project-fte-badge { background: rgba(6, 182, 212, 0.1); color: var(--cyan-400); padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 12px; border: 1px solid rgba(6, 182, 212, 0.2); }
+
+        /* Main Content */
+        .main-content { display: flex; flex-direction: column; gap: 24px; }
+        
+        .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; }
+        @media (max-width: 1200px) { .charts-row { grid-template-columns: 1fr; } }
+
+        .chart-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+        .chart-container { position: relative; height: 320px; width: 100%; }
+
+        /* Table Section */
+        .table-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; overflow: hidden; }
+        .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border-slate-800); display: flex; justify-content: space-between; align-items: center; }
+        .table-header h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+
+        .actions-bar { display: flex; gap: 10px; }
+        button.primary, label.btn-upload { background: var(--cyan-500); color: var(--bg-slate-950); border: none; padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+        button.primary:hover, label.btn-upload:hover { background: var(--cyan-400); }
         input[type="file"] { display: none; }
 
-        main { max-width: 1280px; margin: 24px auto; padding: 0 24px; display: flex; flex-direction: column; gap: 24px; }
-
-        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
-        .kpi-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; display: flex; align-items: center; justify-content: space-between; }
-        .kpi-card p { font-size: 12px; color: var(--text-slate-400); font-weight: 500; }
-        .kpi-card h3 { font-size: 28px; font-weight: 800; color: white; margin-top: 4px; }
-        .kpi-icon { padding: 12px; border-radius: 12px; font-size: 18px; }
-
-        .tabs { display: flex; border-bottom: 1px solid var(--border-slate-800); gap: 24px; overflow-x: auto; }
-        .tab-btn { background: none; border: none; border-bottom: 2px solid transparent; padding-bottom: 12px; font-size: 14px; font-weight: 500; color: var(--text-slate-400); cursor: pointer; white-space: nowrap; }
-        .tab-btn.active { color: var(--cyan-400); border-bottom-color: var(--cyan-400); font-weight: bold; }
-
-        .card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; overflow: hidden; }
-        .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border-slate-800); display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; }
-        
         table { width: 100%; border-collapse: collapse; text-align: left; direction: ltr; font-size: 13px; }
-        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 12px 16px; border-bottom: 1px solid var(--border-slate-800); }
+        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 12px 16px; border-bottom: 1px solid var(--border-slate-800); cursor: pointer; }
         td { padding: 14px 16px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
         tr:hover td { background: rgba(30, 41, 59, 0.3); }
 
-        .filter-row th { background: rgba(2, 6, 23, 0.5); padding: 8px 12px; }
-        table input, table select { width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 8px; padding: 6px 10px; color: white; font-size: 12px; outline: none; }
-        table input:focus, table select:focus { border-color: var(--cyan-500); }
-
-        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 20px; }
-        .chart-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
-        .chart-container { position: relative; height: 280px; width: 100%; }
-
-        .modal-bg { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; }
-        .modal-bg.hidden { display: none; }
-        .modal { background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 16px; width: 100%; max-width: 480px; padding: 24px; display: flex; flex-direction: column; gap: 20px; direction: ltr; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 12px; }
-        .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
-        .form-group label { font-size: 12px; color: var(--text-slate-400); font-weight: 500; }
-        .form-group input, .form-group select { background: var(--bg-slate-950); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none; }
-        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        
-        .hidden { display: none !important; }
-        .badge { background: var(--bg-slate-800); padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid var(--border-slate-800); }
+        .badge { background: var(--bg-slate-800); padding: 4px 8px; border-radius: 6px; font-size: 11px; border: 1px solid var(--border-slate-800); color: var(--purple-400); font-weight: 500; }
+        .fte-bar-container { display: flex; align-items: center; gap: 10px; }
+        .fte-bar { height: 6px; border-radius: 3px; background: var(--cyan-400); }
     </style>
 </head>
 <body>
 
-    <!-- Header -->
-    <header>
-        <div class="max-w-7xl">
-            <div class="brand">
-                <div class="brand-icon">📊</div>
-                <div>
-                    <h1>Resource & Engineering Dashboard</h1>
-                    <p>Allocations, Jira & Git Tracking</p>
+    <div class="dashboard-layout">
+        <!-- Sidebar: Filters & Quick Project Totals -->
+        <div class="sidebar">
+            <div class="panel">
+                <h3>🔍 Filters & Controls</h3>
+                <div class="form-group">
+                    <label>Project</label>
+                    <select id="filter-project" onchange="applyFilters()">
+                        <option value="">All Projects</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Role / Discipline</label>
+                    <select id="filter-role" onchange="applyFilters()">
+                        <option value="">All Roles</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Location</label>
+                    <select id="filter-location" onchange="applyFilters()">
+                        <option value="">All Locations</option>
+                    </select>
+                </div>
+                <button class="btn-reset" onclick="resetFilters()">Reset Filters</button>
+            </div>
+
+            <div class="panel">
+                <h3>📊 Project Allocation (FTE)</h3>
+                <div id="project-fte-list" class="top-projects-list">
+                    <!-- Loaded dynamically -->
                 </div>
             </div>
-            
-            <div class="actions">
-                <button class="primary" onclick="openAddEmployeeModal()">+ Add Employee</button>
-                <label class="btn">
-                    📂 Import Allocations / Jira
-                    <input type="file" accept=".csv, .txt, .xlsx, .xls" onchange="handleFileUpload(event)">
-                </label>
-                <button class="danger" onclick="resetAllData()" title="Reset All Data">🔄</button>
-            </div>
-        </div>
-    </header>
-
-    <!-- Main Content -->
-    <main>
-        <!-- KPI Cards -->
-        <div class="kpi-grid">
-            <div class="kpi-card">
-                <div>
-                    <p>Total Headcount</p>
-                    <h3 id="kpi-headcount">0</h3>
-                </div>
-                <div class="kpi-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--blue-400);">👥</div>
-            </div>
-            <div class="kpi-card">
-                <div>
-                    <p>Active Projects</p>
-                    <h3 id="kpi-projects">0</h3>
-                </div>
-                <div class="kpi-icon" style="background: rgba(6, 182, 212, 0.1); color: var(--cyan-400);">📈</div>
-            </div>
-            <div class="kpi-card">
-                <div>
-                    <p>Total Allocated FTE</p>
-                    <h3 id="kpi-fte">0</h3>
-                </div>
-                <div class="kpi-icon" style="background: rgba(52, 211, 153, 0.1); color: var(--emerald-400);">⚡</div>
-            </div>
-            <div class="kpi-card">
-                <div>
-                    <p>Jira Records</p>
-                    <h3 id="kpi-jira-count">0</h3>
-                </div>
-                <div class="kpi-icon" style="background: rgba(249, 115, 22, 0.1); color: #fb923c;">📋</div>
-            </div>
         </div>
 
-        <!-- Tabs Navigation -->
-        <div class="tabs">
-            <button onclick="switchTab('allocations')" id="tab-btn-allocations" class="tab-btn active">Allocations Table</button>
-            <button onclick="switchTab('jira')" id="tab-btn-jira" class="tab-btn">Jira Tracking</button>
-            <button onclick="switchTab('git')" id="tab-btn-git" class="tab-btn">Git Activity</button>
-            <button onclick="switchTab('charts')" id="tab-btn-charts" class="tab-btn">Analytics & Charts</button>
-        </div>
-
-        <!-- Tab 1: Allocations -->
-        <div id="tab-content-allocations" class="card">
-            <div class="card-header">
-                <span>Filter & Manage Allocations</span>
-                <button onclick="resetAllocationFilters()">Reset Filters</button>
-            </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th onclick="sortAllocationTable('Name')">Employee Name ↕</th>
-                            <th onclick="sortAllocationTable('Role')">Role ↕</th>
-                            <th onclick="sortAllocationTable('Location')">Location ↕</th>
-                            <th onclick="sortAllocationTable('Project')">Main Project ↕</th>
-                            <th style="text-align: center;" onclick="sortAllocationTable('FTE')">FTE ↕</th>
-                            <th style="text-align: center;">Actions</th>
-                        </tr>
-                        <tr class="filter-row">
-                            <th><input type="text" id="filter-emp-name" placeholder="Search..." oninput="updateDashboard()"></th>
-                            <th><select id="filter-emp-role" onchange="updateDashboard()"><option value="">All</option></select></th>
-                            <th><select id="filter-emp-loc" onchange="updateDashboard()"><option value="">All</option></select></th>
-                            <th><select id="filter-emp-proj" onchange="updateDashboard()"><option value="">All</option></select></th>
-                            <th><input type="text" id="filter-emp-fte" placeholder="FTE..." oninput="updateDashboard()" style="text-align: center;"></th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody id="employee-table-body"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tab 2: Jira -->
-        <div id="tab-content-jira" class="card hidden">
-            <div class="card-header">
-                <span id="jira-status-text">Jira records loaded from file.</span>
-            </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th onclick="sortJiraTable('assignee')">Assignee (User) ↕</th>
-                            <th onclick="sortJiraTable('project')">Project ↕</th>
-                            <th onclick="sortJiraTable('fromStatus')">From Status ↕</th>
-                            <th onclick="sortJiraTable('toStatus')">To Status ↕</th>
-                            <th style="text-align: center;" onclick="sortJiraTable('count')">Count ↕</th>
-                            <th>Issues ↕</th>
-                        </tr>
-                        <tr class="filter-row">
-                            <th><select id="filter-jira-assignee" onchange="renderJiraTable()"><option value="">All Users</option></select></th>
-                            <th><select id="filter-jira-proj" onchange="renderJiraTable()"><option value="">All Projects</option></select></th>
-                            <th><input type="text" id="filter-jira-from" placeholder="From..." oninput="renderJiraTable()"></th>
-                            <th><input type="text" id="filter-jira-to" placeholder="To..." oninput="renderJiraTable()"></th>
-                            <th><input type="text" id="filter-jira-count" placeholder="Count..." oninput="renderJiraTable()" style="text-align: center;"></th>
-                            <th><input type="text" id="filter-jira-issues" placeholder="Search..." oninput="renderJiraTable()"></th>
-                        </tr>
-                    </thead>
-                    <tbody id="jira-table-body"></tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tab 3: Git Activity -->
-        <div id="tab-content-git" class="card hidden">
-            <div class="card-header">
-                <span>Git Commits & Branch Activity Tracking</span>
-            </div>
-            <div style="overflow-x: auto;">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Developer</th>
-                            <th>Repository</th>
-                            <th>Branch</th>
-                            <th style="text-align: center;">Commits</th>
-                            <th>Last Activity</th>
-                        </tr>
-                    </thead>
-                    <tbody id="git-table-body">
-                        <tr>
-                            <td>bogdangh</td>
-                            <td>core-backend</td>
-                            <td>feature/INT-94255</td>
-                            <td style="text-align: center; color: var(--emerald-400); font-weight: bold;">14</td>
-                            <td style="color: var(--text-slate-400);">Today, 10:30 AM</td>
-                        </tr>
-                        <tr>
-                            <td>nick.toker</td>
-                            <td>infrastructure</td>
-                            <td>fix/INT-94247</td>
-                            <td style="text-align: center; color: var(--emerald-400); font-weight: bold;">8</td>
-                            <td style="color: var(--text-slate-400);">Yesterday, 4:15 PM</td>
-                        </tr>
-                        <tr>
-                            <td>nofar hiki</td>
-                            <td>ny-service</td>
-                            <td>release/v2.4</td>
-                            <td style="text-align: center; color: var(--emerald-400); font-weight: bold;">22</td>
-                            <td style="color: var(--text-slate-400);">2 days ago</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Tab 4: Analytics & Charts -->
-        <div id="tab-content-charts" class="card hidden" style="background: transparent; border: none;">
-            <div class="charts-grid">
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Charts Row -->
+            <div class="charts-row">
                 <div class="chart-card">
-                    <h3>Allocations by Project</h3>
+                    <h3 style="font-size: 14px; color: white; display: flex; align-items: center; gap: 8px;">
+                        <span>📊</span> Project FTE Burden & Role Distribution (Click bar to filter)
+                    </h3>
                     <div class="chart-container">
                         <canvas id="chartProjectFTE"></canvas>
                     </div>
                 </div>
                 <div class="chart-card">
-                    <h3>Headcount by Location</h3>
+                    <h3 style="font-size: 14px; color: white; display: flex; align-items: center; gap: 8px;">
+                        <span>🍩</span> Organization Composition
+                    </h3>
                     <div class="chart-container">
-                        <canvas id="chartLocationCount"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3>Jira Transitions per Project</h3>
-                    <div class="chart-container">
-                        <canvas id="chartJiraProject"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <h3>Top Active Developers (Jira)</h3>
-                    <div class="chart-container">
-                        <canvas id="chartTopUsers"></canvas>
+                        <canvas id="chartOrgComposition"></canvas>
                     </div>
                 </div>
             </div>
-        </div>
-    </main>
 
-    <!-- Modal -->
-    <div id="employeeModal" class="modal-bg hidden">
-        <div class="modal">
-            <div class="modal-header">
-                <h3 id="modal-title">Add Employee Allocation</h3>
-                <button onclick="closeEmployeeModal()" style="background:none; border:none; color:white; font-size:16px;">✕</button>
+            <!-- Resource Table Section -->
+            <div class="table-card">
+                <div class="table-header">
+                    <h3>👥 Interactive Resource Table & Edit Suite</h3>
+                    <div class="actions-bar">
+                        <label class="btn-upload">
+                            📂 Import Excel / Jira
+                            <input type="file" accept=".csv, .xlsx, .xls" onchange="handleFileUpload(event)">
+                        </label>
+                        <button class="primary" onclick="openAddModal()">+ Add Employee</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th onclick="sortTable('Name')">Name ↕</th>
+                                <th onclick="sortTable('Role')">Role ↕</th>
+                                <th onclick="sortTable('Location')">Location ↕</th>
+                                <th onclick="sortTable('Project')">Project ↕</th>
+                                <th onclick="sortTable('FTE')" style="text-align: right;">FTE Allocation ↕</th>
+                                <th style="text-align: center;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resource-table-body">
+                            <!-- Loaded dynamically -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
-            <form id="employeeForm" onsubmit="saveEmployee(event)">
-                <input type="hidden" id="edit-index" value="-1">
-                <div class="form-group">
-                    <label>Employee Name</label>
-                    <input type="text" id="emp-name" required placeholder="Full Name">
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Role</label>
-                        <select id="emp-role" required><option value="">Select...</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label>Location</label>
-                        <select id="emp-location" required><option value="">Select...</option></select>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Main Project</label>
-                        <select id="emp-project" required><option value="">Select...</option></select>
-                    </div>
-                    <div class="form-group">
-                        <label>FTE (Allocation)</label>
-                        <input type="number" step="0.01" min="0" max="1" id="emp-fte" required placeholder="0.5">
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
-                    <button type="button" onclick="closeEmployeeModal()">Cancel</button>
-                    <button type="submit" class="primary">Save Employee</button>
-                </div>
-            </form>
         </div>
     </div>
 
@@ -330,40 +180,36 @@
         let employeeData = [
             { Name: "Adriana Iovanut", Role: "Ro TL", Location: "Romania", Project: "Management", FTE: 1.0 },
             { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 }
+            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 },
+            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Netivot", FTE: 0.33 },
+            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "DNP", FTE: 0.34 }
         ];
 
-        // נתוני ברירת מחדל מתוך הקובץ שלך כדי לוודא שהטאב עובד מיד
-        let jiraData = [
-            { assignee: "bogdangh", project: "DNP", fromStatus: "open", toStatus: "development", count: 9, issues: "INT-94255;INT-94212;INT-94211;INT-94132;INT-92476;INT-92469;INT-92166;INT-92159;INT-92149" },
-            { assignee: "bogdangh", project: "HR", fromStatus: "open", toStatus: "development", count: 3, issues: "INT-91268;INT-91214;INT-91188" },
-            { assignee: "nick.toker", project: "Infra", fromStatus: "open", toStatus: "development", count: 2, issues: "INT-94247;INT-94246" },
-            { assignee: "nofar hiki", project: "NY", fromStatus: "open", toStatus: "development", count: 20, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94201;INT-94200;INT-94198;INT-94177;INT-94176;INT-94174;INT-92481;INT-92474;INT-92472;INT-92135;INT-92134;INT-92131;INT-92129;INT-92118;INT-92109" },
-            { assignee: "nofar hiki", project: "NY", fromStatus: "resolved", toStatus: "published", count: 11, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94200;INT-94198;INT-94172;INT-92472;INT-92131;INT-92109" },
-            { assignee: "nofar hiki", project: "SecureUS", fromStatus: "open", toStatus: "development", count: 10, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94201;INT-94200;INT-94177;INT-94176;INT-94174" },
-            { assignee: "nofar hiki", project: "SecureUS", fromStatus: "resolved", toStatus: "published", count: 6, issues: "INT-94242;INT-94232;INT-94228;INT-94227;INT-94206;INT-94200" },
-            { assignee: "nofar hiki", project: "Netivot", fromStatus: "open", toStatus: "development", count: 1, issues: "INT-91201" },
-            { assignee: "Yaaray", project: "Netivot", fromStatus: "open", toStatus: "development", count: 5, issues: "INT-94224;INT-92459;INT-92120;INT-92099;INT-90009" },
-            { assignee: "Yaaray", project: "Netivot", fromStatus: "resolved", toStatus: "published", count: 8, issues: "INT-94224;INT-92120;INT-92099;INT-92096;INT-92089;INT-92051;INT-91267;INT-91247" }
-        ];
-
-        let currentSortColumn = '';
-        let currentSortAsc = true;
-        let jiraSortColumn = '';
-        let jiraSortAsc = true;
+        let jiraData = [];
+        let currentSortCol = 'FTE';
+        let currentSortAsc = false; // מתחיל מהגדול לקטן
         let charts = {};
 
-        function switchTab(tabId) {
-            ['allocations', 'jira', 'git', 'charts'].forEach(id => {
-                document.getElementById(`tab-content-${id}`).classList.add('hidden');
-                document.getElementById(`tab-btn-${id}`).classList.remove('active');
-            });
-            document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
-            document.getElementById(`tab-btn-${tabId}`).classList.add('active');
+        function initDashboard() {
+            populateDropdowns();
+            updateDashboard();
+        }
 
-            if (tabId === 'charts') {
-                renderCharts();
-            }
+        function populateDropdowns() {
+            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
+            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
+            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
+
+            fillSelect('filter-project', projects, 'All Projects');
+            fillSelect('filter-role', roles, 'All Roles');
+            fillSelect('filter-location', locations, 'All Locations');
+        }
+
+        function fillSelect(id, items, defaultText) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const current = el.value;
+            el.innerHTML = `<option value="">${defaultText}</option>` + items.map(i => `<option value="${i}" ${i === current ? 'selected' : ''}>${i}</option>`).join('');
         }
 
         function handleFileUpload(event) {
@@ -378,12 +224,9 @@
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     
                     const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                    if (rawJson.length === 0) {
-                        alert("הקובץ ריק.");
-                        return;
-                    }
+                    if (rawJson.length === 0) { alert("הקובץ ריק."); return; }
 
-                    // ניקוי מפתחות האובייקטים מרווחים נסתרים (כמו To Status\xa0)
+                    // ניקוי מפתחות מרחקים נסתרים (כמו To Status\xa0)
                     const json = rawJson.map(row => {
                         const cleanRow = {};
                         Object.keys(row).forEach(key => {
@@ -397,11 +240,45 @@
                     const isJira = sampleKeys.some(k => k.includes('user') || k.includes('from status') || k.includes('to status') || k.includes('issues') || k.includes('assignee'));
 
                     if (isJira) {
-                        processJiraJson(json);
-                        switchTab('jira');
+                        jiraData = json.map(row => {
+                            const getVal = (keys) => {
+                                for (let k of keys) {
+                                    const found = Object.keys(row).find(x => x.toLowerCase().replace(/\s+/g, ' ') === k.toLowerCase());
+                                    if (found !== undefined) return row[found];
+                                }
+                                return '';
+                            };
+                            return {
+                                assignee: getVal(['user', 'assignee', 'developer', 'name']) || '-',
+                                project: getVal(['project']) || '-',
+                                fromStatus: getVal(['from status', 'from']) || '-',
+                                toStatus: getVal(['to status', 'to']) || '-',
+                                count: parseInt(getVal(['count'])) || 1,
+                                issues: getVal(['issues', 'issue keys', 'keys']) || '-'
+                            };
+                        });
+                        alert(`נטענו בהצלחה ${jiraData.length} רשומות מ-Jira!`);
                     } else {
-                        processAllocationJson(json);
-                        switchTab('allocations');
+                        employeeData = json.map(row => {
+                            const getVal = (keys) => {
+                                for (let k of keys) {
+                                    const found = Object.keys(row).find(x => x.toLowerCase() === k.toLowerCase());
+                                    if (found !== undefined) return row[found];
+                                }
+                                return '';
+                            };
+                            return {
+                                Name: getVal(['name', 'employee name', 'שם']),
+                                Role: getVal(['role', 'תפקיד']),
+                                Location: getVal(['location', 'מיקום']),
+                                Project: getVal(['project', 'main project', 'פרויקט']),
+                                FTE: parseFloat(getVal(['fte', '% main project', 'אחוז משרה'])) || 0
+                            };
+                        }).filter(e => e.Name);
+
+                        populateDropdowns();
+                        updateDashboard();
+                        alert(`נטענו בהצלחה ${employeeData.length} עובדים לקובץ ההקצאות!`);
                     }
                 } catch (err) {
                     console.error(err);
@@ -412,240 +289,125 @@
             event.target.value = '';
         }
 
-        function processAllocationJson(json) {
-            employeeData = json.map(row => {
-                const getVal = (keys) => {
-                    for (let k of keys) {
-                        const found = Object.keys(row).find(x => x.toLowerCase() === k.toLowerCase());
-                        if (found !== undefined) return row[found];
-                    }
-                    return '';
-                };
-                return {
-                    Name: getVal(['name', 'employee name', 'שם']),
-                    Role: getVal(['role', 'תפקיד']),
-                    Location: getVal(['location', 'מיקום']),
-                    Project: getVal(['project', 'main project', 'פרויקט']),
-                    FTE: parseFloat(getVal(['fte', '% main project', 'אחוז משרה'])) || 0
-                };
-            }).filter(e => e.Name);
+        function getFilteredData() {
+            const proj = document.getElementById('filter-project').value;
+            const role = document.getElementById('filter-role').value;
+            const loc = document.getElementById('filter-location').value;
 
-            saveToLocalStorage();
-            updateDashboard();
-        }
-
-        function processJiraJson(json) {
-            jiraData = json.map(row => {
-                const getVal = (keys) => {
-                    for (let k of keys) {
-                        const found = Object.keys(row).find(x => x.toLowerCase().replace(/\s+/g, ' ') === k.toLowerCase());
-                        if (found !== undefined) return row[found];
-                    }
-                    return '';
-                };
-
-                return {
-                    assignee: getVal(['user', 'assignee', 'developer', 'משתמש', 'name']) || '-',
-                    project: getVal(['project', 'פרויקט']) || '-',
-                    fromStatus: getVal(['from status', 'from']) || '-',
-                    toStatus: getVal(['to status', 'to']) || '-',
-                    count: parseInt(getVal(['count', 'כמות'])) || 1,
-                    issues: getVal(['issues', 'issue keys', 'keys']) || '-'
-                };
-            }).filter(j => j.assignee !== '-' || j.project !== '-');
-
-            document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
-            document.getElementById('kpi-jira-count').textContent = jiraData.length;
-            
-            populateJiraFilters();
-            renderJiraTable();
-        }
-
-        function populateJiraFilters() {
-            const assignees = [...new Set(jiraData.map(i => i.assignee))].filter(x => x !== '-').sort();
-            const projects = [...new Set(jiraData.map(i => i.project))].filter(x => x !== '-').sort();
-
-            document.getElementById('filter-jira-assignee').innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
-            document.getElementById('filter-jira-proj').innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-        }
-
-        function renderJiraTable() {
-            const assigneeFilter = document.getElementById('filter-jira-assignee').value;
-            const projFilter = document.getElementById('filter-jira-proj').value;
-            const fromFilter = document.getElementById('filter-jira-from').value.toLowerCase();
-            const toFilter = document.getElementById('filter-jira-to').value.toLowerCase();
-            const countFilter = parseInt(document.getElementById('filter-jira-count').value) || 0;
-            const issuesFilter = document.getElementById('filter-jira-issues').value.toLowerCase();
-
-            let filtered = jiraData.filter(item => {
-                if (assigneeFilter && item.assignee !== assigneeFilter) return false;
-                if (projFilter && item.project !== projFilter) return false;
-                if (fromFilter && !item.fromStatus.toLowerCase().includes(fromFilter)) return false;
-                if (toFilter && !item.toStatus.toLowerCase().includes(toFilter)) return false;
-                if (countFilter && item.count < countFilter) return false;
-                if (issuesFilter && !item.issues.toLowerCase().includes(issuesFilter)) return false;
+            return employeeData.filter(emp => {
+                if (proj && emp.Project !== proj) return false;
+                if (role && emp.Role !== role) return false;
+                if (loc && emp.Location !== loc) return false;
                 return true;
             });
-
-            if (jiraSortColumn) {
-                filtered.sort((a, b) => {
-                    let valA = a[jiraSortColumn], valB = b[jiraSortColumn];
-                    if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                    return valA < valB ? (jiraSortAsc ? -1 : 1) : (valA > valB ? (jiraSortAsc ? 1 : -1) : 0);
-                });
-            }
-
-            const tbody = document.getElementById('jira-table-body');
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No matching Jira records found.</td></tr>`;
-            } else {
-                tbody.innerHTML = filtered.map(item => `
-                    <tr>
-                        <td style="font-weight: 500; color: white;">${item.assignee}</td>
-                        <td style="color: var(--text-slate-400);">${item.project}</td>
-                        <td style="color: var(--text-slate-400);">${item.fromStatus}</td>
-                        <td style="color: var(--cyan-400); font-weight: 500;">${item.toStatus}</td>
-                        <td style="text-align: center; font-weight: bold; color: var(--blue-400);">${item.count}</td>
-                        <td style="font-family: monospace; font-size: 11px; color: var(--text-slate-400);">${item.issues}</td>
-                    </tr>
-                `).join('');
-            }
         }
 
         function updateDashboard() {
-            updateDropdownFilters();
-            renderEmployeeTable();
-            updateKPIs();
-        }
-
-        function updateDropdownFilters() {
-            const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
-            const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
-            const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
-
-            fillSelect('filter-emp-role', roles, 'All');
-            fillSelect('filter-emp-loc', locations, 'All');
-            fillSelect('filter-emp-proj', projects, 'All');
-            fillSelect('emp-role', roles, 'Select...');
-            fillSelect('emp-location', locations, 'Select...');
-            fillSelect('emp-project', projects, 'Select...');
-        }
-
-        function fillSelect(id, items, defaultText) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const current = el.value;
-            el.innerHTML = `<option value="">${defaultText}</option>` + items.map(i => `<option value="${i}" ${i === current ? 'selected' : ''}>${i}</option>`).join('');
-        }
-
-        function getFilteredEmployees() {
-            const nameQ = document.getElementById('filter-emp-name').value.toLowerCase();
-            const roleQ = document.getElementById('filter-emp-role').value;
-            const locQ = document.getElementById('filter-emp-loc').value;
-            const projQ = document.getElementById('filter-emp-proj').value;
-            const fteQ = document.getElementById('filter-emp-fte').value;
-
-            return employeeData.filter(emp => {
-                if (nameQ && !emp.Name.toLowerCase().includes(nameQ)) return false;
-                if (roleQ && emp.Role !== roleQ) return false;
-                if (locQ && emp.Location !== locQ) return false;
-                if (projQ && emp.Project !== projQ) return false;
-                if (fteQ && !emp.FTE.toString().includes(fteQ)) return false;
-                return true;
+            const filtered = getFilteredData();
+            
+            // מיון נתונים (ברירת מחדל מהגדול לקטן לפי FTE)
+            filtered.sort((a, b) => {
+                let valA = a[currentSortCol], valB = b[currentSortCol];
+                if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
+                return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
             });
+
+            renderTable(filtered);
+            renderSidebarProjectFTE();
+            renderCharts(filtered);
         }
 
-        function renderEmployeeTable() {
-            const filtered = getFilteredEmployees();
-            if (currentSortColumn) {
-                filtered.sort((a, b) => {
-                    let valA = a[currentSortColumn], valB = b[currentSortColumn];
-                    if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                    return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
-                });
-            }
-
-            const tbody = document.getElementById('employee-table-body');
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No matching employee records found.</td></tr>`;
+        function renderTable(data) {
+            const tbody = document.getElementById('resource-table-body');
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No matching records found.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = filtered.map((emp) => {
-                const globalIndex = employeeData.indexOf(emp);
+            tbody.innerHTML = data.map(emp => {
+                const globalIdx = employeeData.indexOf(emp);
+                const ftePercent = Math.min(Math.max(emp.FTE * 100, 0), 100);
                 return `
                     <tr>
                         <td style="font-weight: 500; color: white;">${emp.Name}</td>
                         <td><span class="badge">${emp.Role}</span></td>
                         <td style="color: var(--text-slate-400);">${emp.Location}</td>
                         <td style="color: var(--cyan-400); font-weight: 500;">${emp.Project}</td>
-                        <td style="text-align: center; font-weight: bold; color: var(--emerald-400);">${emp.FTE}</td>
+                        <td style="text-align: right;">
+                            <div class="fte-bar-container" style="justify-content: flex-end;">
+                                <span style="font-weight: bold; color: var(--emerald-400);">${emp.FTE}</span>
+                                <div style="width: 60px; background: rgba(51, 65, 85, 0.5); border-radius: 3px; overflow: hidden;">
+                                    <div class="fte-bar" style="width: ${ftePercent}%;"></div>
+                                </div>
+                            </div>
+                        </td>
                         <td style="text-align: center;">
-                            <button onclick="openEditEmployeeModal(${globalIndex})" style="padding: 4px 8px; font-size: 11px;">✏️</button>
-                            <button onclick="deleteEmployee(${globalIndex})" style="padding: 4px 8px; font-size: 11px; color: var(--rose-400);">🗑️</button>
+                            <button onclick="deleteEmployee(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
                         </td>
                     </tr>
                 `;
             }).join('');
         }
 
-        function sortAllocationTable(col) {
-            if (currentSortColumn === col) currentSortAsc = !currentSortAsc;
-            else { currentSortColumn = col; currentSortAsc = true; }
-            renderEmployeeTable();
+        function renderSidebarProjectFTE() {
+            const map = {};
+            employeeData.forEach(e => { if(e.Project) map[e.Project] = (map[e.Project] || 0) + (e.FTE || 0); });
+            const sorted = Object.entries(map).sort((a,b) => b[1] - a[1]);
+
+            const container = document.getElementById('project-fte-list');
+            container.innerHTML = sorted.map(([proj, fte]) => `
+                <div class="project-fte-item" style="cursor: pointer;" onclick="filterByProject('${proj}')">
+                    <span style="color: white; font-weight: 500;">${proj}</span>
+                    <span class="project-fte-badge">${Math.round(fte * 100) / 100} FTE</span>
+                </div>
+            `).join('');
         }
 
-        function sortJiraTable(col) {
-            if (jiraSortColumn === col) jiraSortAsc = !jiraSortAsc;
-            else { jiraSortColumn = col; jiraSortAsc = true; }
-            renderJiraTable();
-        }
-
-        function resetAllocationFilters() {
-            document.getElementById('filter-emp-name').value = '';
-            document.getElementById('filter-emp-role').value = '';
-            document.getElementById('filter-emp-loc').value = '';
-            document.getElementById('filter-emp-proj').value = '';
-            document.getElementById('filter-emp-fte').value = '';
-            currentSortColumn = '';
+        function filterByProject(projName) {
+            document.getElementById('filter-project').value = projName;
             updateDashboard();
         }
 
-        function updateKPIs() {
-            const filtered = getFilteredEmployees();
-            document.getElementById('kpi-headcount').textContent = filtered.length;
-            document.getElementById('kpi-projects').textContent = [...new Set(filtered.map(e => e.Project))].filter(Boolean).length;
-            const totalFte = filtered.reduce((acc, curr) => acc + (parseFloat(curr.FTE) || 0), 0);
-            document.getElementById('kpi-fte').textContent = Math.round(totalFte * 100) / 100;
-            document.getElementById('kpi-jira-count').textContent = jiraData.length;
+        function sortTable(col) {
+            if (currentSortCol === col) {
+                currentSortAsc = !currentSortAsc;
+            } else {
+                currentSortCol = col;
+                currentSortAsc = false; // ברירת מחדל מהגדול לקטן
+            }
+            updateDashboard();
         }
 
-        function renderCharts() {
-            const filteredEmps = getFilteredEmployees();
+        function resetFilters() {
+            document.getElementById('filter-project').value = '';
+            document.getElementById('filter-role').value = '';
+            document.getElementById('filter-location').value = '';
+            updateDashboard();
+        }
 
-            // 1. Project FTE Chart
+        function renderCharts(filteredEmps) {
+            // 1. Project FTE Stacked Bar (ממוין מגדול לקטן)
             const projMap = {};
             filteredEmps.forEach(e => { if(e.Project) projMap[e.Project] = (projMap[e.Project] || 0) + (e.FTE || 0); });
-            renderChart('chartProjectFTE', 'bar', Object.keys(projMap), Object.values(projMap), 'Total FTE', '#22d3ee');
+            const sortedProj = Object.entries(projMap).sort((a,b) => b[1] - a[1]);
 
-            // 2. Location Count Chart
-            const locMap = {};
-            filteredEmps.forEach(e => { if(e.Location) locMap[e.Location] = (locMap[e.Location] || 0) + 1; });
-            renderChart('chartLocationCount', 'doughnut', Object.keys(locMap), Object.values(locMap), 'Headcount', ['#60a5fa', '#34d399', '#c084fc', '#fb7185', '#fb923c']);
+            renderChart('chartProjectFTE', 'bar', sortedProj.map(x=>x[0]), sortedProj.map(x=>x[1]), 'FTE Burden', '#22d3ee', (evt, item) => {
+                if (item.length > 0) {
+                    const idx = item[0].index;
+                    const projName = sortedProj[idx][0];
+                    filterByProject(projName);
+                }
+            });
 
-            // 3. Jira Project Chart
-            const jiraProjMap = {};
-            jiraData.forEach(j => { if(j.project) jiraProjMap[j.project] = (jiraProjMap[j.project] || 0) + (j.count || 1); });
-            renderChart('chartJiraProject', 'bar', Object.keys(jiraProjMap), Object.values(jiraProjMap), 'Jira Issues', '#60a5fa');
+            // 2. Org Composition Donut
+            const roleMap = {};
+            filteredEmps.forEach(e => { if(e.Role) roleMap[e.Role] = (roleMap[e.Role] || 0) + 1; });
+            const sortedRoles = Object.entries(roleMap).sort((a,b) => b[1] - a[1]);
 
-            // 4. Top Users Chart
-            const userMap = {};
-            jiraData.forEach(j => { if(j.assignee) userMap[j.assignee] = (userMap[j.assignee] || 0) + (j.count || 1); });
-            const sortedUsers = Object.entries(userMap).sort((a,b) => b[1] - a[1]).slice(0, 5);
-            renderChart('chartTopUsers', 'bar', sortedUsers.map(x=>x[0]), sortedUsers.map(x=>x[1]), 'Activity Count', '#34d399');
+            renderChart('chartOrgComposition', 'doughnut', sortedRoles.map(x=>x[0]), sortedRoles.map(x=>x[1]), 'Count', ['#60a5fa', '#34d399', '#c084fc', '#fb7185', '#fb923c', '#22d3ee']);
         }
 
-        function renderChart(canvasId, type, labels, data, labelName, colors) {
+        function renderChart(canvasId, type, labels, data, labelName, colors, onClickCallback) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             if (charts[canvasId]) charts[canvasId].destroy();
 
@@ -657,14 +419,14 @@
                         label: labelName,
                         data: data,
                         backgroundColor: colors,
-                        borderColor: type === 'line' ? colors : 'transparent',
-                        borderWidth: 1,
+                        borderWidth: 0,
                         borderRadius: 6
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
+                    onClick: onClickCallback || null,
                     plugins: {
                         legend: { display: type === 'doughnut', position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
                     },
@@ -676,82 +438,28 @@
             });
         }
 
-        function openAddEmployeeModal() {
-            document.getElementById('modal-title').textContent = 'Add Employee Allocation';
-            document.getElementById('edit-index').value = '-1';
-            document.getElementById('employeeForm').reset();
-            document.getElementById('employeeModal').classList.remove('hidden');
-        }
-
-        function openEditEmployeeModal(index) {
-            const emp = employeeData[index];
-            document.getElementById('modal-title').textContent = 'Edit Employee Allocation';
-            document.getElementById('edit-index').value = index;
-            document.getElementById('emp-name').value = emp.Name;
-            document.getElementById('emp-role').value = emp.Role;
-            document.getElementById('emp-location').value = emp.Location;
-            document.getElementById('emp-project').value = emp.Project;
-            document.getElementById('emp-fte').value = emp.FTE;
-            document.getElementById('employeeModal').classList.remove('hidden');
-        }
-
-        function closeEmployeeModal() {
-            document.getElementById('employeeModal').classList.add('hidden');
-        }
-
-        function saveEmployee(event) {
-            event.preventDefault();
-            const index = parseInt(document.getElementById('edit-index').value);
-            const emp = {
-                Name: document.getElementById('emp-name').value.trim(),
-                Role: document.getElementById('emp-role').value.trim(),
-                Location: document.getElementById('emp-location').value.trim(),
-                Project: document.getElementById('emp-project').value.trim(),
-                FTE: parseFloat(document.getElementById('emp-fte').value) || 0
-            };
-
-            if (index === -1) employeeData.push(emp);
-            else employeeData[index] = emp;
-
-            saveToLocalStorage();
-            closeEmployeeModal();
-            updateDashboard();
-        }
-
         function deleteEmployee(index) {
             if (confirm("האם למחוק רשומה זו?")) {
                 employeeData.splice(index, 1);
-                saveToLocalStorage();
+                populateDropdowns();
                 updateDashboard();
             }
         }
 
-        function resetAllData() {
-            if (confirm("לאפס את כל הנתונים?")) {
-                employeeData = [];
-                jiraData = [];
-                localStorage.removeItem('employeeData');
-                updateDashboard();
-                populateJiraFilters();
-                renderJiraTable();
-            }
+        function openAddModal() {
+            const name = prompt("הכנס שם עובד:");
+            if (!name) return;
+            const role = prompt("הכנס תפקיד (לדוגמה: BE, QA):") || "BE";
+            const location = prompt("הכנס מיקום:") || "Romania";
+            const project = prompt("הכנס פרויקט:") || "Vasco";
+            const fte = parseFloat(prompt("הכנס אחוז משרה (FTE בין 0 ל-1):")) || 1.0;
+
+            employeeData.push({ Name: name, Role: role, Location: location, Project: project, FTE: fte });
+            populateDropdowns();
+            updateDashboard();
         }
 
-        function saveToLocalStorage() {
-            localStorage.setItem('employeeData', JSON.stringify(employeeData));
-        }
-
-        function loadFromLocalStorage() {
-            const saved = localStorage.getItem('employeeData');
-            if (saved) {
-                try { employeeData = JSON.parse(saved); } catch (e) {}
-            }
-        }
-
-        loadFromLocalStorage();
-        populateJiraFilters();
-        renderJiraTable();
-        updateDashboard();
+        initDashboard();
     </script>
 </body>
 </html>
