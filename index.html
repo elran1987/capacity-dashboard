@@ -11,7 +11,7 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS (XLSX) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans min-h-screen">
 
@@ -33,8 +33,8 @@
                     <i class="fa-solid fa-user-plus text-xs"></i> Add Employee
                 </button>
                 <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 px-4 py-2 rounded-xl text-sm font-medium border border-slate-700 transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Import XLSX
-                    <input type="file" id="upload-excel" class="hidden" accept=".xlsx, .xls" onchange="handleExcelUpload(event)">
+                    <i class="fa-solid fa-file-excel text-emerald-400"></i> Import XLSX/CSV
+                    <input type="file" id="upload-excel" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleExcelUpload(event)">
                 </label>
                 <button onclick="resetAllData()" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 p-2.5 rounded-xl border border-rose-500/20 transition cursor-pointer" title="Reset All Data">
                     <i class="fa-solid fa-rotate-right text-sm"></i>
@@ -80,11 +80,11 @@
 
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
                 <div>
-                    <p class="text-xs font-medium text-slate-400">GitLab Activity</p>
-                    <h3 id="kpi-gitlab" class="text-3xl font-extrabold text-white mt-1">0 Tickets</h3>
+                    <p class="text-xs font-medium text-slate-400">Jira Records</p>
+                    <h3 id="kpi-jira-count" class="text-3xl font-extrabold text-white mt-1">0</h3>
                 </div>
                 <div class="bg-orange-500/10 p-3 rounded-xl border border-orange-500/20 text-orange-400">
-                    <i class="fa-brands fa-gitlab text-xl"></i>
+                    <i class="fa-solid fa-list-check text-xl"></i>
                 </div>
             </div>
         </div>
@@ -98,7 +98,6 @@
                     </h3>
                     <span id="chart-filter-badge" class="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2.5 py-1 rounded-lg hidden">Filtered by Project</span>
                 </div>
-                <p class="text-xs text-slate-400 mb-3">Tip: Click any bar to filter the employee table below for that project.</p>
                 <div class="h-72 relative">
                     <canvas id="projectChart"></canvas>
                 </div>
@@ -119,9 +118,6 @@
             <button onclick="switchTab('allocations')" id="tab-btn-allocations" class="pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer">
                 Allocations Table
             </button>
-            <button onclick="switchTab('gitlab')" id="tab-btn-gitlab" class="pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer">
-                GitLab Activity
-            </button>
             <button onclick="switchTab('jira')" id="tab-btn-jira" class="pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer">
                 Jira Tracking
             </button>
@@ -130,17 +126,10 @@
         <!-- Tab 1: Allocations Table -->
         <div id="tab-content-allocations" class="space-y-4">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold text-white">Filter & Manage Allocations:</span>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button onclick="resetAllocationFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">
-                            Reset Filters
-                        </button>
-                    </div>
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-sm font-semibold text-white">Filter & Manage Allocations:</span>
+                    <button onclick="resetAllocationFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">Reset Filters</button>
                 </div>
-
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm" style="direction: ltr;">
                         <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
@@ -161,112 +150,49 @@
                                 <th class="px-4 py-2"></th>
                             </tr>
                         </thead>
-                        <tbody id="employee-table-body" class="divide-y divide-slate-800/60">
-                            <!-- Populated via JavaScript -->
-                        </tbody>
+                        <tbody id="employee-table-body" class="divide-y divide-slate-800/60"></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- Tab 2: GitLab Activity -->
-        <div id="tab-content-gitlab" class="space-y-4 hidden">
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-                <span id="gitlab-status-text" class="text-sm text-slate-400">No GitLab data loaded.</span>
-                <label class="cursor-pointer bg-orange-600/20 hover:bg-orange-600/30 text-orange-400 border border-orange-500/30 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                    <i class="fa-brands fa-gitlab"></i> Import GitLab (JSON)
-                    <input type="file" class="hidden" accept=".json" onchange="handleGitLabUpload(event)">
-                </label>
-            </div>
-
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold text-white">Filter GitLab Activity:</span>
-                    </div>
-                    <div>
-                        <button onclick="resetGitLabFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">
-                            Reset Filters
-                        </button>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm" style="direction: ltr;">
-                        <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
-                            <tr>
-                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortGitLabTable('author')">Developer (Author) <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-6 py-3.5 cursor-pointer hover:text-white" onclick="sortGitLabTable('week_start')">Period / Week Range <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-6 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortGitLabTable('unique_tickets_count')">Unique Tickets <i class="fa-solid fa-sort text-[10px]"></i></th>
-                            </tr>
-                            <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
-                                <th class="px-4 py-2">
-                                    <select id="filter-gitlab-author" onchange="renderGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-orange-500">
-                                        <option value="">All Developers</option>
-                                    </select>
-                                </th>
-                                <th class="px-4 py-2">
-                                    <select id="filter-gitlab-week" onchange="renderGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white focus:outline-none focus:border-orange-500">
-                                        <option value="">All Weeks (Periods)</option>
-                                    </select>
-                                </th>
-                                <th class="px-4 py-2">
-                                    <input type="text" id="filter-gitlab-tickets" placeholder="Min tickets..." oninput="renderGitLabTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-orange-500">
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody id="gitlab-table-body" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- Tab 3: Jira Activity -->
+        <!-- Tab 2: Jira Tracking -->
         <div id="tab-content-jira" class="space-y-4 hidden">
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
                 <span id="jira-status-text" class="text-sm text-slate-400">No Jira data loaded.</span>
-                <label class="cursor-pointer bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
-                    <i class="fa-solid fa-file-excel"></i> Import Jira (Excel/CSV)
+                <label class="cursor-pointer bg-blue-600/25 hover:bg-blue-600/40 text-blue-300 border border-blue-500/40 px-4 py-2 rounded-xl text-xs font-medium transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> Import Jira (XLSX/CSV)
                     <input type="file" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleJiraUpload(event)">
                 </label>
             </div>
             
             <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
-                    <div class="flex items-center gap-3">
-                        <span class="text-sm font-semibold text-white">Filter Jira Transitions:</span>
-                    </div>
-                    <div>
-                        <button onclick="resetJiraFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">
-                            Reset Filters
-                        </button>
-                    </div>
+                <div class="p-4 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-sm font-semibold text-white">Filter Jira Transitions:</span>
+                    <button onclick="resetJiraFilters()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer">Reset Filters</button>
                 </div>
-
                 <div class="overflow-x-auto">
                     <table class="w-full text-left text-sm" style="direction: ltr;">
                         <thead class="bg-slate-900/90 text-slate-400 uppercase text-xs border-b border-slate-800">
                             <tr>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('issueKey')">Issue Key <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('assignee')">Assignee (User) <i class="fa-solid fa-sort text-[10px]"></i></th>
                                 <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('project')">Project <i class="fa-solid fa-sort text-[10px]"></i></th>
-                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('assignee')">Assignee <i class="fa-solid fa-sort text-[10px]"></i></th>
                                 <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('fromStatus')">From Status <i class="fa-solid fa-sort text-[10px]"></i></th>
                                 <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('toStatus')">To Status <i class="fa-solid fa-sort text-[10px]"></i></th>
                                 <th class="px-4 py-3.5 text-center cursor-pointer hover:text-white" onclick="sortJiraTable('count')">Count <i class="fa-solid fa-sort text-[10px]"></i></th>
+                                <th class="px-4 py-3.5 cursor-pointer hover:text-white" onclick="sortJiraTable('issues')">Issues <i class="fa-solid fa-sort text-[10px]"></i></th>
                             </tr>
                             <tr class="bg-slate-950/50 border-t border-slate-800 text-xs">
-                                <th class="px-3 py-2"><input type="text" id="filter-jira-key" placeholder="Search key..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
-                                <th class="px-3 py-2"><select id="filter-jira-proj" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Projects</option></select></th>
                                 <th class="px-3 py-2"><select id="filter-jira-assignee" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Users</option></select></th>
+                                <th class="px-3 py-2"><select id="filter-jira-proj" onchange="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white focus:outline-none focus:border-blue-500"><option value="">All Projects</option></select></th>
                                 <th class="px-3 py-2"><input type="text" id="filter-jira-from" placeholder="From..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
                                 <th class="px-3 py-2"><input type="text" id="filter-jira-to" placeholder="To..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
                                 <th class="px-3 py-2"><input type="text" id="filter-jira-count" placeholder="Count..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 text-center focus:outline-none focus:border-blue-500"></th>
+                                <th class="px-3 py-2"><input type="text" id="filter-jira-issues" placeholder="Search issues..." oninput="renderJiraTable()" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"></th>
                             </tr>
                         </thead>
                         <tbody id="jira-table-body" class="divide-y divide-slate-800/60">
-                            <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>
+                            <tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file or import data to view records.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -280,11 +206,8 @@
         <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg p-6 space-y-6 shadow-2xl" style="direction: ltr;">
             <div class="flex items-center justify-between border-b border-slate-800 pb-4">
                 <h3 id="modal-title" class="text-lg font-bold text-white">Add New Employee Allocation</h3>
-                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-white transition cursor-pointer">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+                <button onclick="closeEmployeeModal()" class="text-slate-400 hover:text-white transition cursor-pointer"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            
             <form id="employeeForm" onsubmit="saveEmployee(event)" class="space-y-4">
                 <input type="hidden" id="edit-index" value="-1">
                 <div>
@@ -294,30 +217,23 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Role</label>
-                        <select id="emp-role" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
-                            <option value="">Select or type role...</option>
-                        </select>
+                        <select id="emp-role" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm"><option value="">Select...</option></select>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Location</label>
-                        <select id="emp-location" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
-                            <option value="">Select location...</option>
-                        </select>
+                        <select id="emp-location" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm"><option value="">Select...</option></select>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">Main Project</label>
-                        <select id="emp-project" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
-                            <option value="">Select project...</option>
-                        </select>
+                        <select id="emp-project" required class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm"><option value="">Select...</option></select>
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-300 mb-1">FTE (Allocation)</label>
                         <input type="number" step="0.01" min="0" max="1" id="emp-fte" required placeholder="0.5" class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2.5 text-white focus:outline-none focus:border-cyan-500 text-sm">
                     </div>
                 </div>
-
                 <div class="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
                     <button type="button" onclick="closeEmployeeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer">Cancel</button>
                     <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 px-5 py-2 rounded-xl text-sm font-bold transition cursor-pointer">Save Employee</button>
@@ -329,47 +245,30 @@
     <!-- Core Scripts -->
     <script>
         let employeeData = [];
-        let gitlabData = [];
         let jiraData = [];
         let currentSortColumn = '';
         let currentSortAsc = true;
         
-        let gitlabSortColumn = '';
-        let gitlabSortAsc = true;
-
         let jiraSortColumn = '';
         let jiraSortAsc = true;
 
         let projectChartInstance = null;
         let roleChartInstance = null;
-
         let activeProjectFilter = '';
 
         const defaultEmployeeData = [
             { Name: "Adriana Iovanut", Role: "Ro TL", Location: "Romania", Project: "Management", FTE: 1.0 },
             { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Netivot", FTE: 0.33 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "DNP", FTE: 0.34 }
+            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 }
         ];
 
         function switchTab(tabId) {
-            ['allocations', 'gitlab', 'jira'].forEach(id => {
+            ['allocations', 'jira'].forEach(id => {
                 document.getElementById(`tab-content-${id}`).classList.add('hidden');
                 document.getElementById(`tab-btn-${id}`).className = "pb-3 text-sm font-medium text-slate-400 hover:text-white transition cursor-pointer";
             });
             document.getElementById(`tab-content-${tabId}`).classList.remove('hidden');
             document.getElementById(`tab-btn-${tabId}`).className = "pb-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 transition cursor-pointer";
-        }
-
-        function getField(row, keys) {
-            for (let key of keys) {
-                const foundKey = Object.keys(row).find(k => k.trim().toLowerCase() === key.toLowerCase());
-                if (foundKey !== undefined && row[foundKey] !== '') {
-                    return row[foundKey];
-                }
-            }
-            return '';
         }
 
         function handleExcelUpload(event) {
@@ -384,202 +283,125 @@
                     const sheet = workbook.Sheets[sheetName];
                     const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
                     
-                    if (!json || json.length === 0) {
-                        alert("הקובץ ריק או שלא זוהו נתונים בגיליון.");
-                        return;
+                    if (!json || json.length === 0) return;
+
+                    // בדיקה האם זה קובץ ג'ירה לפי העמודות User / Transition
+                    const firstRow = json[0];
+                    const keys = Object.keys(firstRow).map(k => k.trim().toLowerCase());
+                    
+                    if (keys.includes('user') || keys.includes('transition') || keys.includes('issues')) {
+                        processJiraJson(json);
+                        switchTab('jira');
+                    } else {
+                        processAllocationJson(json);
+                        switchTab('allocations');
                     }
-
-                    employeeData = json.map(row => {
-                        const name = getField(row, ['Name', 'Employee Name', 'שם', 'שם עובד']);
-                        const role = getField(row, ['Role', 'תפקיד', 'תפקיד/דרגה']);
-                        const location = getField(row, ['Location', 'Location ', 'מיקום', 'אתר']);
-                        const project = getField(row, ['main project', 'Main Project', 'Project', 'פרויקט', 'פרויקט ראשי']);
-                        const fteVal = getField(row, ['% main project', 'FTE', 'Allocation', 'היקף', 'אחוז משרה']);
-
-                        return {
-                            Name: name,
-                            Role: role,
-                            Location: location,
-                            Project: project,
-                            FTE: parseFloat(fteVal) || 0
-                        };
-                    }).filter(e => e.Name);
-
-                    if (employeeData.length === 0) {
-                        alert("לא הצלחנו לזהות שורות תקינות. ודא שלעמודות יש כותרות ברורות כמו Name, Role, Project, FTE.");
-                        return;
-                    }
-
-                    saveToLocalStorage();
-                    updateDashboard();
-                    switchTab('allocations');
                 } catch (err) {
-                    alert("שגיאה בקריאת קובץ האקסל: " + err.message);
+                    alert("שגיאה בקריאת הקובץ: " + err.message);
                 }
             };
             reader.readAsArrayBuffer(file);
-        }
-
-        function handleGitLabUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    gitlabData = JSON.parse(e.target.result);
-                    if (!Array.isArray(gitlabData) && typeof gitlabData === 'object') {
-                        gitlabData = gitlabData.data || gitlabData.items || Object.values(gitlabData).find(Array.isArray) || [];
-                    }
-                    
-                    document.getElementById('gitlab-status-text').textContent = `Loaded ${gitlabData.length} GitLab entries.`;
-                    populateGitLabFilters();
-                    renderGitLabTable();
-                    
-                    const totalTickets = gitlabData.reduce((sum, item) => sum + (parseInt(item.unique_tickets_count) || 0), 0);
-                    document.getElementById('kpi-gitlab').textContent = `${totalTickets} Tickets`;
-                } catch (err) {
-                    alert("Error reading GitLab JSON: " + err.message);
-                }
-            };
-            reader.readAsText(file);
         }
 
         function handleJiraUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
-                    const sheet = workbook.Sheets[sheetName];
-                    const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
-                    
-                    jiraData = json.map(row => {
-                        const issueKey = getField(row, ['Issue Key', 'Key', 'Issue', 'מפתח', 'מפתח גיגה', 'ID']);
-                        const project = getField(row, ['Project', 'Project Name', 'פרויקט', 'שם פרויקט']);
-                        const assignee = getField(row, ['Assignee', 'User', 'Developer', 'משתמש', 'אחראי', 'שם משתמש']);
-                        
-                        // בדיקת מעבר / Transition והפרדה חכמה ל-From ו-To
-                        let fromStatus = getField(row, ['From', 'From Status', 'Status From', 'מסטטוס']);
-                        let toStatus = getField(row, ['To', 'To Status', 'Status To', 'לסטטוס']);
-                        
-                        if (!fromStatus && !toStatus) {
-                            const rawTrans = getField(row, ['Transition', 'Status Change', 'מעבר', 'סטטוסים']);
-                            if (rawTrans) {
-                                // חיפוש מפרידים אפשריים כמו ->, -->, ←, מ- ל-
-                                const separators = ['->', '-->', '→', '=>', ' ל- '];
-                                let found = false;
-                                for (let sep of separators) {
-                                    if (rawTrans.includes(sep)) {
-                                        const parts = rawTrans.split(sep);
-                                        fromStatus = parts[0].trim();
-                                        toStatus = parts[1].trim();
-                                        found = true;
-                                        break;
-                                    }
-                                }
-                                if (!found) {
-                                    toStatus = rawTrans.trim();
-                                }
-                            }
-                        }
-
-                        const count = parseInt(getField(row, ['Count', 'Transitions Count', 'כמות', 'ספירה'])) || 1;
-
-                        return {
-                            issueKey: issueKey || '-',
-                            project: project || '-',
-                            assignee: assignee || '-',
-                            fromStatus: fromStatus || '-',
-                            toStatus: toStatus || '-',
-                            count: count
-                        };
-                    }).filter(j => j.issueKey !== '-' || j.assignee !== '-' || j.toStatus !== '-');
-
-                    document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
-                    populateJiraFilters();
-                    renderJiraTable();
-                } catch (err) {
-                    alert("Error reading Jira file: " + err.message);
-                }
-            };
-            reader.readAsArrayBuffer(file);
+            handleExcelUpload(event);
         }
 
-        function populateGitLabFilters() {
-            const authors = [...new Set(gitlabData.map(item => item.author))].filter(Boolean).sort();
-            const weeks = [...new Set(gitlabData.map(item => item.week_start))].filter(Boolean).sort();
+        function processAllocationJson(json) {
+            employeeData = json.map(row => {
+                const getVal = (possibleKeys) => {
+                    for (let k of possibleKeys) {
+                        const found = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                        if (found !== undefined) return row[found];
+                    }
+                    return '';
+                };
+                return {
+                    Name: getVal(['Name', 'Employee Name', 'שם']),
+                    Role: getVal(['Role', 'תפקיד']),
+                    Location: getVal(['Location', 'מיקום']),
+                    Project: getVal(['Project', 'Main Project', 'פרויקט']),
+                    FTE: parseFloat(getVal(['FTE', '% main project', 'אחוז משרה'])) || 0
+                };
+            }).filter(e => e.Name);
 
-            const authorSelect = document.getElementById('filter-gitlab-author');
-            const weekSelect = document.getElementById('filter-gitlab-week');
-
-            const currentAuthor = authorSelect.value;
-            const currentWeek = weekSelect.value;
-
-            authorSelect.innerHTML = '<option value="">All Developers</option>' + authors.map(a => `<option value="${a}">${a}</option>`).join('');
-            weekSelect.innerHTML = '<option value="">All Weeks (Periods)</option>' + weeks.map(w => {
-                const sample = gitlabData.find(i => i.week_start === w);
-                const label = sample ? (sample.display_range || w) : w;
-                return `<option value="${w}">${label}</option>`;
-            }).join('');
-
-            authorSelect.value = currentAuthor;
-            weekSelect.value = currentWeek;
-        }
-
-        function populateJiraFilters() {
-            const projects = [...new Set(jiraData.map(item => item.project))].filter(p => p !== '-').sort();
-            const assignees = [...new Set(jiraData.map(item => item.assignee))].filter(a => a !== '-').sort();
-
-            const projSelect = document.getElementById('filter-jira-proj');
-            const assigneeSelect = document.getElementById('filter-jira-assignee');
-
-            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-            assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
-        }
-
-        function resetGitLabFilters() {
-            document.getElementById('filter-gitlab-author').value = '';
-            document.getElementById('filter-gitlab-week').value = '';
-            document.getElementById('filter-gitlab-tickets').value = '';
-            gitlabSortColumn = '';
-            gitlabSortAsc = true;
-            renderGitLabTable();
-        }
-
-        function resetJiraFilters() {
-            document.getElementById('filter-jira-key').value = '';
-            document.getElementById('filter-jira-proj').value = '';
-            document.getElementById('filter-jira-assignee').value = '';
-            document.getElementById('filter-jira-from').value = '';
-            document.getElementById('filter-jira-to').value = '';
-            document.getElementById('filter-jira-count').value = '';
-            jiraSortColumn = '';
-            jiraSortAsc = true;
-            renderJiraTable();
-        }
-
-        function resetAllocationFilters() {
-            document.getElementById('filter-emp-name').value = '';
-            document.getElementById('filter-emp-role').value = '';
-            document.getElementById('filter-emp-loc').value = '';
-            document.getElementById('filter-emp-proj').value = '';
-            document.getElementById('filter-emp-fte').value = '';
-            activeProjectFilter = '';
-            document.getElementById('chart-filter-badge').classList.add('hidden');
+            saveToLocalStorage();
             updateDashboard();
         }
 
-        function sortGitLabTable(column) {
-            if (gitlabSortColumn === column) {
-                gitlabSortAsc = !gitlabSortAsc;
-            } else {
-                gitlabSortColumn = column;
-                gitlabSortAsc = true;
-            }
-            renderGitLabTable();
+        function processJiraJson(json) {
+            jiraData = json.map(row => {
+                const getVal = (possibleKeys) => {
+                    for (let k of possibleKeys) {
+                        const found = Object.keys(row).find(x => x.trim().toLowerCase() === k.toLowerCase());
+                        if (found !== undefined) return row[found];
+                    }
+                    return '';
+                };
+
+                const assignee = getVal(['User', 'Assignee', 'Developer', 'משתמש']);
+                const project = getVal(['Project', 'פרויקט']);
+                const transitionStr = getVal(['Transition', 'Status Change', 'מעבר']);
+                const count = parseInt(getVal(['Count', 'כמות'])) || 1;
+                const issues = getVal(['Issues', 'Issue Keys', 'מפתחות']);
+
+                let fromStatus = '-';
+                let toStatus = '-';
+
+                if (transitionStr) {
+                    const separators = ['->', '-->', '→', '=>'];
+                    let splitFound = false;
+                    for (let sep of separators) {
+                        if (transitionStr.includes(sep)) {
+                            const parts = transitionStr.split(sep);
+                            fromStatus = parts[0].trim();
+                            toStatus = parts[1].trim();
+                            splitFound = true;
+                            break;
+                        }
+                    }
+                    if (!splitFound) {
+                        toStatus = transitionStr.trim();
+                    }
+                }
+
+                return {
+                    assignee: assignee || '-',
+                    project: project || '-',
+                    fromStatus: fromStatus,
+                    toStatus: toStatus,
+                    count: count,
+                    issues: issues || '-'
+                };
+            }).filter(j => j.assignee !== '-' || j.project !== '-');
+
+            document.getElementById('jira-status-text').textContent = `Loaded ${jiraData.length} Jira records.`;
+            document.getElementById('kpi-jira-count').textContent = jiraData.length;
+            populateJiraFilters();
+            renderJiraTable();
+        }
+
+        function populateJiraFilters() {
+            const assignees = [...new Set(jiraData.map(i => i.assignee))].filter(x => x !== '-').sort();
+            const projects = [...new Set(jiraData.map(i => i.project))].filter(x => x !== '-').sort();
+
+            const assigneeSelect = document.getElementById('filter-jira-assignee');
+            const projSelect = document.getElementById('filter-jira-proj');
+
+            assigneeSelect.innerHTML = '<option value="">All Users</option>' + assignees.map(a => `<option value="${a}">${a}</option>`).join('');
+            projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+        }
+
+        function resetJiraFilters() {
+            document.getElementById('filter-jira-assignee').value = '';
+            document.getElementById('filter-jira-proj').value = '';
+            document.getElementById('filter-jira-from').value = '';
+            document.getElementById('filter-jira-to').value = '';
+            document.getElementById('filter-jira-count').value = '';
+            document.getElementById('filter-jira-issues').value = '';
+            jiraSortColumn = '';
+            jiraSortAsc = true;
+            renderJiraTable();
         }
 
         function sortJiraTable(column) {
@@ -592,69 +414,21 @@
             renderJiraTable();
         }
 
-        function sortAllocationTable(column) {
-            if (currentSortColumn === column) {
-                currentSortAsc = !currentSortAsc;
-            } else {
-                currentSortColumn = column;
-                currentSortAsc = true;
-            }
-            renderEmployeeTable();
-        }
-
-        function renderGitLabTable() {
-            const authorFilter = document.getElementById('filter-gitlab-author').value;
-            const weekFilter = document.getElementById('filter-gitlab-week').value;
-            const ticketsFilter = parseInt(document.getElementById('filter-gitlab-tickets').value) || 0;
-
-            let filtered = gitlabData.filter(item => {
-                if (authorFilter && item.author !== authorFilter) return false;
-                if (weekFilter && item.week_start !== weekFilter) return false;
-                if (ticketsFilter && (parseInt(item.unique_tickets_count) || 0) < ticketsFilter) return false;
-                return true;
-            });
-
-            if (gitlabSortColumn) {
-                filtered.sort((a, b) => {
-                    let valA = a[gitlabSortColumn];
-                    let valB = b[gitlabSortColumn];
-                    if (typeof valA === 'string') valA = valA.toLowerCase();
-                    if (typeof valB === 'string') valB = valB.toLowerCase();
-                    if (valA < valB) return gitlabSortAsc ? -1 : 1;
-                    if (valA > valB) return gitlabSortAsc ? 1 : -1;
-                    return 0;
-                });
-            }
-
-            const tbody = document.getElementById('gitlab-table-body');
-            if (filtered.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">No matching GitLab records found.</td></tr>`;
-            } else {
-                tbody.innerHTML = filtered.map(item => `
-                    <tr class="hover:bg-slate-900/40 transition">
-                        <td class="px-6 py-4 font-medium text-white">${item.author || '-'}</td>
-                        <td class="px-6 py-4 text-slate-300">${item.display_range || item.week_start || '-'}</td>
-                        <td class="px-6 py-4 text-center text-cyan-400 font-bold">${item.unique_tickets_count || 0}</td>
-                    </tr>
-                `).join('');
-            }
-        }
-
         function renderJiraTable() {
-            const keyFilter = document.getElementById('filter-jira-key').value.toLowerCase();
-            const projFilter = document.getElementById('filter-jira-proj').value;
             const assigneeFilter = document.getElementById('filter-jira-assignee').value;
+            const projFilter = document.getElementById('filter-jira-proj').value;
             const fromFilter = document.getElementById('filter-jira-from').value.toLowerCase();
             const toFilter = document.getElementById('filter-jira-to').value.toLowerCase();
             const countFilter = parseInt(document.getElementById('filter-jira-count').value) || 0;
+            const issuesFilter = document.getElementById('filter-jira-issues').value.toLowerCase();
 
             let filtered = jiraData.filter(item => {
-                if (keyFilter && !item.issueKey.toLowerCase().includes(keyFilter)) return false;
-                if (projFilter && item.project !== projFilter) return false;
                 if (assigneeFilter && item.assignee !== assigneeFilter) return false;
+                if (projFilter && item.project !== projFilter) return false;
                 if (fromFilter && !item.fromStatus.toLowerCase().includes(fromFilter)) return false;
                 if (toFilter && !item.toStatus.toLowerCase().includes(toFilter)) return false;
                 if (countFilter && item.count < countFilter) return false;
+                if (issuesFilter && !item.issues.toLowerCase().includes(issuesFilter)) return false;
                 return true;
             });
 
@@ -662,8 +436,7 @@
                 filtered.sort((a, b) => {
                     let valA = a[jiraSortColumn];
                     let valB = b[jiraSortColumn];
-                    if (typeof valA === 'string') valA = valA.toLowerCase();
-                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
                     if (valA < valB) return jiraSortAsc ? -1 : 1;
                     if (valA > valB) return jiraSortAsc ? 1 : -1;
                     return 0;
@@ -676,21 +449,19 @@
             } else {
                 tbody.innerHTML = filtered.map(item => `
                     <tr class="hover:bg-slate-900/40 transition">
-                        <td class="px-4 py-4 font-medium text-cyan-400">${item.issueKey}</td>
+                        <td class="px-4 py-4 font-medium text-white">${item.assignee}</td>
                         <td class="px-4 py-4 text-slate-300">${item.project}</td>
-                        <td class="px-4 py-4 text-white">${item.assignee}</td>
                         <td class="px-4 py-4 text-slate-400">${item.fromStatus}</td>
                         <td class="px-4 py-4 text-cyan-300 font-medium">${item.toStatus}</td>
                         <td class="px-4 py-4 text-center font-bold text-blue-400">${item.count}</td>
+                        <td class="px-4 py-4 text-xs text-slate-400 font-mono truncate max-w-xs" title="${item.issues}">${item.issues}</td>
                     </tr>
                 `).join('');
             }
         }
 
         function updateDashboard() {
-            if (employeeData.length === 0) {
-                employeeData = [...defaultEmployeeData];
-            }
+            if (employeeData.length === 0) employeeData = [...defaultEmployeeData];
             updateDropdownFilters();
             renderEmployeeTable();
             updateKPIs();
@@ -705,7 +476,6 @@
             updateSelectOptions('filter-emp-role', roles);
             updateSelectOptions('filter-emp-loc', locations);
             updateSelectOptions('filter-emp-proj', projects, activeProjectFilter);
-
             updateSelectOptions('emp-role', roles);
             updateSelectOptions('emp-location', locations);
             updateSelectOptions('emp-project', projects);
@@ -716,7 +486,6 @@
             if (!el) return;
             const current = selectedVal || el.value;
             const isFilter = elementId.startsWith('filter-');
-            
             let html = isFilter ? '<option value="">All</option>' : '<option value="">Select...</option>';
             html += items.map(i => `<option value="${i}" ${i === current ? 'selected' : ''}>${i}</option>`).join('');
             el.innerHTML = html;
@@ -742,13 +511,11 @@
 
         function renderEmployeeTable() {
             let filtered = getFilteredEmployees();
-
             if (currentSortColumn) {
                 filtered.sort((a, b) => {
                     let valA = a[currentSortColumn];
                     let valB = b[currentSortColumn];
-                    if (typeof valA === 'string') valA = valA.toLowerCase();
-                    if (typeof valB === 'string') valB = valB.toLowerCase();
+                    if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
                     if (valA < valB) return currentSortAsc ? -1 : 1;
                     if (valA > valB) return currentSortAsc ? 1 : -1;
                     return 0;
@@ -781,18 +548,13 @@
 
         function updateKPIs() {
             const filtered = getFilteredEmployees();
-            const uniqueHeadcount = new Set(filtered.map(e => e.Name)).size;
-            const uniqueProjects = new Set(filtered.map(e => e.Project)).size;
-            const totalFTE = filtered.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0);
-
-            document.getElementById('kpi-headcount').textContent = uniqueHeadcount;
-            document.getElementById('kpi-projects').textContent = uniqueProjects;
-            document.getElementById('kpi-fte').textContent = totalFTE.toFixed(2);
+            document.getElementById('kpi-headcount').textContent = new Set(filtered.map(e => e.Name)).size;
+            document.getElementById('kpi-projects').textContent = new Set(filtered.map(e => e.Project)).size;
+            document.getElementById('kpi-fte').textContent = filtered.reduce((sum, e) => sum + (parseFloat(e.FTE) || 0), 0).toFixed(2);
         }
 
         function renderCharts() {
             const filtered = getFilteredEmployees();
-
             const projectFTE = {};
             filtered.forEach(e => {
                 if (!e.Project) return;
@@ -809,16 +571,10 @@
                 type: 'bar',
                 data: {
                     labels: projLabels,
-                    datasets: [{
-                        label: 'Total FTE',
-                        data: projValues,
-                        backgroundColor: '#06b6d4',
-                        borderRadius: 6
-                    }]
+                    datasets: [{ label: 'Total FTE', data: projValues, backgroundColor: '#06b6d4', borderRadius: 6 }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false,
                     plugins: { legend: { display: false } },
                     scales: {
                         x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
@@ -826,16 +582,14 @@
                     },
                     onClick: (event, elements) => {
                         if (elements.length > 0) {
-                            const index = elements[0].index;
-                            const clickedProj = projLabels[index];
-                            if (activeProjectFilter === clickedProj) {
-                                activeProjectFilter = '';
-                                document.getElementById('chart-filter-badge').classList.add('hidden');
-                            } else {
-                                activeProjectFilter = clickedProj;
-                                const badge = document.getElementById('chart-filter-badge');
+                            const clickedProj = projLabels[elements[0].index];
+                            activeProjectFilter = activeProjectFilter === clickedProj ? '' : clickedProj;
+                            const badge = document.getElementById('chart-filter-badge');
+                            if (activeProjectFilter) {
                                 badge.textContent = `Filtered by: ${clickedProj}`;
                                 badge.classList.remove('hidden');
+                            } else {
+                                badge.classList.add('hidden');
                             }
                             updateDashboard();
                         }
@@ -849,28 +603,18 @@
                 roleCount[e.Role] = (roleCount[e.Role] || 0) + 1;
             });
 
-            const roleLabels = Object.keys(roleCount);
-            const roleValues = Object.values(roleCount);
-
             const ctxRole = document.getElementById('roleChart').getContext('2d');
             if (roleChartInstance) roleChartInstance.destroy();
 
             roleChartInstance = new Chart(ctxRole, {
                 type: 'doughnut',
                 data: {
-                    labels: roleLabels,
-                    datasets: [{
-                        data: roleValues,
-                        backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#ec4899', '#f59e0b', '#10b981'],
-                        borderWidth: 0
-                    }]
+                    labels: Object.keys(roleCount),
+                    datasets: [{ data: Object.values(roleCount), backgroundColor: ['#06b6d4', '#3b82f6', '#6366f1', '#ec4899', '#f59e0b', '#10b981'], borderWidth: 0 }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } }
-                    }
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8', boxWidth: 12 } } }
                 }
             });
         }
@@ -894,9 +638,7 @@
             document.getElementById('employeeModal').classList.remove('hidden');
         }
 
-        function closeEmployeeModal() {
-            document.getElementById('employeeModal').classList.add('hidden');
-        }
+        function closeEmployeeModal() { document.getElementById('employeeModal').classList.add('hidden'); }
 
         function saveEmployee(event) {
             event.preventDefault();
@@ -908,13 +650,8 @@
                 Project: document.getElementById('emp-project').value,
                 FTE: parseFloat(document.getElementById('emp-fte').value) || 0
             };
-
-            if (index === -1) {
-                employeeData.push(empObj);
-            } else {
-                employeeData[index] = empObj;
-            }
-
+            if (index === -1) employeeData.push(empObj);
+            else employeeData[index] = empObj;
             saveToLocalStorage();
             closeEmployeeModal();
             updateDashboard();
@@ -929,35 +666,21 @@
         }
 
         function resetAllData() {
-            if (confirm("Reset all dashboard data to defaults?")) {
+            if (confirm("Reset all dashboard data?")) {
                 employeeData = [...defaultEmployeeData];
-                gitlabData = [];
                 jiraData = [];
                 localStorage.removeItem('employeeData');
-                document.getElementById('gitlab-status-text').textContent = "No GitLab data loaded.";
                 document.getElementById('jira-status-text').textContent = "No Jira data loaded.";
-                document.getElementById('kpi-gitlab').textContent = "0 Tickets";
-                document.getElementById('gitlab-table-body').innerHTML = `<tr><td colspan="3" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file to view data.</td></tr>`;
-                resetAllocationFilters();
+                document.getElementById('kpi-jira-count').textContent = "0";
+                document.getElementById('jira-table-body').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-slate-500">Upload a file or import data to view records.</td></tr>`;
+                updateDashboard();
             }
         }
 
-        function saveToLocalStorage() {
-            localStorage.setItem('employeeData', JSON.stringify(employeeData));
-        }
-
+        function saveToLocalStorage() { localStorage.setItem('employeeData', JSON.stringify(employeeData)); }
         function loadFromLocalStorage() {
             const saved = localStorage.getItem('employeeData');
-            if (saved) {
-                try {
-                    employeeData = JSON.parse(saved);
-                } catch (e) {
-                    employeeData = [...defaultEmployeeData];
-                }
-            } else {
-                employeeData = [...defaultEmployeeData];
-            }
+            employeeData = saved ? JSON.parse(saved) : [...defaultEmployeeData];
         }
 
         window.onload = function() {
