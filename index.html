@@ -81,7 +81,8 @@
         input[type="file"] { display: none; }
 
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 12px 16px; border-bottom: 1px solid var(--border-slate-800); cursor: pointer; }
+        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 12px 16px; border-bottom: 1px solid var(--border-slate-800); cursor: pointer; user-select: none; }
+        th:hover { color: var(--cyan-400); }
         td { padding: 14px 16px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
         tr:hover td { background: rgba(30, 41, 59, 0.3); }
 
@@ -92,8 +93,8 @@
         /* Modal styling */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(2, 6, 23, 0.8); display: flex; justify-content: center; align-items: center; z-index: 1000; opacity: 0; pointer-events: none; transition: 0.2s; }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        .modal { background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 24px; width: 400px; display: flex; flex-direction: column; gap: 16px; }
-        .modal h3 { font-size: 16px; color: white; margin-bottom: 4px; }
+        .modal { background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 16px; padding: 24px; width: 420px; display: flex; flex-direction: column; gap: 14px; }
+        .modal h3 { font-size: 16px; color: white; margin-bottom: 2px; }
         .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
         .btn-secondary { background: var(--bg-slate-800); color: var(--text-slate-100); border: 1px solid var(--border-slate-800); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; }
         .btn-secondary:hover { background: var(--border-slate-800); }
@@ -199,15 +200,21 @@
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Role</label>
-                <input type="text" id="modal-role" placeholder="e.g. BE, QA, Ro TL">
+                <select id="modal-role">
+                    <!-- Populated dynamically -->
+                </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Location</label>
-                <input type="text" id="modal-location" placeholder="e.g. Romania">
+                <select id="modal-location">
+                    <!-- Populated dynamically -->
+                </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>Project</label>
-                <input type="text" id="modal-project" placeholder="e.g. Vasco">
+                <select id="modal-project">
+                    <!-- Populated dynamically -->
+                </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label>FTE Allocation (0 to 1)</label>
@@ -267,6 +274,7 @@
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Employee';
                 currentSortCol = 'FTE';
+                currentSortAsc = false;
             } else if (tab === 'jira') {
                 chartsSection.style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
@@ -286,6 +294,10 @@
             fillSelect('filter-project', projects, 'All Projects');
             fillSelect('filter-role', roles, 'All Roles');
             fillSelect('filter-location', locations, 'All Locations');
+
+            fillSelect('modal-role', roles, 'Select Role');
+            fillSelect('modal-location', locations, 'Select Location');
+            fillSelect('modal-project', projects, 'Select Project');
         }
 
         function fillSelect(id, items, defaultText) {
@@ -374,12 +386,17 @@
         }
 
         function renderResourceTable(data) {
+            const getSortIndicator = (col) => {
+                if (currentSortCol !== col) return ' ↕';
+                return currentSortAsc ? ' ▲' : ' ▼';
+            };
+
             document.getElementById('table-header-row').innerHTML = `
-                <th onclick="sortTable('Name')">Name ↕</th>
-                <th onclick="sortTable('Role')">Role ↕</th>
-                <th onclick="sortTable('Location')">Location ↕</th>
-                <th onclick="sortTable('Project')">Project ↕</th>
-                <th onclick="sortTable('FTE')" style="text-align: right;">FTE Allocation ↕</th>
+                <th onclick="sortTable('Name')">Name${getSortIndicator('Name')}</th>
+                <th onclick="sortTable('Role')">Role${getSortIndicator('Role')}</th>
+                <th onclick="sortTable('Location')">Location${getSortIndicator('Location')}</th>
+                <th onclick="sortTable('Project')">Project${getSortIndicator('Project')}</th>
+                <th onclick="sortTable('FTE')" style="text-align: right;">FTE Allocation${getSortIndicator('FTE')}</th>
                 <th style="text-align: center;">Actions</th>
             `;
 
@@ -470,7 +487,7 @@
                 currentSortAsc = !currentSortAsc;
             } else {
                 currentSortCol = col;
-                currentSortAsc = false;
+                currentSortAsc = (col === 'FTE') ? false : true; // Default DESC for numbers, ASC for text
             }
             updateDashboard();
         }
@@ -524,17 +541,16 @@
         }
 
         function openModal() {
+            populateDropdowns();
             document.getElementById('modal-title').innerText = "Add New Employee";
             document.getElementById('edit-index').value = "-1";
             document.getElementById('modal-name').value = "";
-            document.getElementById('modal-role').value = "";
-            document.getElementById('modal-location').value = "";
-            document.getElementById('modal-project').value = "";
             document.getElementById('modal-fte').value = "1.0";
             document.getElementById('employeeModal').classList.add('active');
         }
 
         function editEmployee(index) {
+            populateDropdowns();
             const emp = employeeData[index];
             document.getElementById('modal-title').innerText = "Edit Employee";
             document.getElementById('edit-index').value = index;
@@ -553,12 +569,13 @@
         function saveEmployee() {
             const index = parseInt(document.getElementById('edit-index').value);
             const name = document.getElementById('modal-name').value.trim();
-            const role = document.getElementById('modal-role').value.trim();
-            const location = document.getElementById('modal-location').value.trim();
-            const project = document.getElementById('modal-project').value.trim();
+            const role = document.getElementById('modal-role').value;
+            const location = document.getElementById('modal-location').value;
+            const project = document.getElementById('modal-project').value;
             const fte = parseFloat(document.getElementById('modal-fte').value);
 
             if (!name) { alert("Please enter employee name."); return; }
+            if (!role || !location || !project) { alert("Please select Role, Location, and Project."); return; }
 
             const empObj = { Name: name, Role: role, Location: location, Project: project, FTE: isNaN(fte) ? 1.0 : fte };
 
