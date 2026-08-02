@@ -317,8 +317,6 @@
                 try {
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
-                    // Check all sheets or first sheet for resources
                     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
                     if (rawJson.length === 0) { alert("File is empty."); return; }
@@ -331,39 +329,47 @@
                         return cleanRow;
                     });
 
-                    employeeData = json.map(row => ({
-                        Name: row.Name || row['Employee Name'] || '',
-                        Role: row.Role || '',
-                        Location: row.Location || '',
-                        Project: row.Project || '',
-                        FTE: parseFloat(row.FTE || row['FTE Allocation'] || 0)
-                    })).filter(e => e.Name);
+                    // Determine target based on active tab or columns
+                    const firstRowKeys = Object.keys(json[0] || {}).map(k => k.toLowerCase());
+                    const isJiraFile = currentTab === 'jira' || firstRowKeys.some(k => k.includes('issue') || k.includes('fromstatus') || k.includes('tostatus'));
+                    const isGitFile = currentTab === 'git' || firstRowKeys.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr'));
 
-                    // Also auto-generate sample Jira / Git mappings from imported resources so all tabs update smoothly
-                    const uniqueProjects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean);
-                    const uniqueNames = [...new Set(employeeData.map(e => e.Name))].filter(Boolean);
+                    if (isJiraFile) {
+                        jiraData = json.map(row => ({
+                            Assignee: row.Assignee || row['User'] || row['Name'] || '',
+                            Project: row.Project || '',
+                            FromStatus: row.FromStatus || row['From'] || '',
+                            ToStatus: row.ToStatus || row['To'] || '',
+                            Issues: row.Issues || row['Issue'] || row['Key'] || ''
+                        })).filter(j => j.Assignee || j.Issues);
+                        
+                        switchTab('jira');
+                        alert(`Successfully imported ${jiraData.length} Jira records!`);
+                    } else if (isGitFile) {
+                        gitData = json.map(row => ({
+                            Developer: row.Developer || row['Name'] || row['Author'] || '',
+                            Repository: row.Repository || row['Repo'] || '',
+                            Commits: parseInt(row.Commits || row['Commit Count'] || 0),
+                            PRs: parseInt(row.PRs || row['Pull Requests'] || 0)
+                        })).filter(g => g.Developer || g.Repository);
 
-                    if (uniqueNames.length > 0) {
-                        jiraData = uniqueNames.slice(0, 5).map((name, idx) => ({
-                            Assignee: name,
-                            Project: uniqueProjects[idx % uniqueProjects.length] || 'General',
-                            FromStatus: 'In Progress',
-                            ToStatus: 'Done',
-                            Issues: `TICKET-${100 + idx}`
-                        }));
+                        switchTab('git');
+                        alert(`Successfully imported ${gitData.length} Git records!`);
+                    } else {
+                        employeeData = json.map(row => ({
+                            Name: row.Name || row['Employee Name'] || '',
+                            Role: row.Role || '',
+                            Location: row.Location || '',
+                            Project: row.Project || '',
+                            FTE: parseFloat(row.FTE || row['FTE Allocation'] || 0)
+                        })).filter(e => e.Name);
 
-                        gitData = uniqueNames.slice(0, 5).map((name, idx) => ({
-                            Developer: name,
-                            Repository: `${uniqueProjects[idx % uniqueProjects.length] || 'Core'}-Repo`,
-                            Commits: Math.floor(Math.random() * 20) + 1,
-                            PRs: Math.floor(Math.random() * 5) + 1
-                        }));
+                        switchTab('resources');
+                        populateDropdowns();
+                        alert(`Successfully imported ${employeeData.length} resources!`);
                     }
 
-                    switchTab('resources');
-                    populateDropdowns();
                     updateDashboard();
-                    alert(`Successfully imported ${employeeData.length} records and synchronized all dashboard panels!`);
                 } catch (err) {
                     console.error(err);
                     alert("Error reading file.");
