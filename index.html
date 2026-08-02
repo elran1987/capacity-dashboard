@@ -178,8 +178,8 @@
                     <h3 id="table-title">👥 Interactive Resource Table & Edit Suite</h3>
                     <div class="actions-bar">
                         <label class="btn-upload">
-                            📂 Import Excel / CSV
-                            <input type="file" accept=".csv, .xlsx, .xls" onchange="handleFileUpload(event)">
+                            📂 Import Excel / CSV / JSON
+                            <input type="file" accept=".csv, .xlsx, .xls, .json" onchange="handleFileUpload(event)">
                         </label>
                         <button class="primary" id="btn-add-action" onclick="openModal()">+ Add Employee</button>
                     </div>
@@ -313,70 +313,90 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = new Uint8Array(e.target.result);
-                    const workbook = XLSX.read(data, { type: 'array' });
-                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                    const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                    if (rawJson.length === 0) { alert("File is empty."); return; }
+            const fileName = file.name.toLowerCase();
 
-                    const json = rawJson.map(row => {
-                        const cleanRow = {};
-                        Object.keys(row).forEach(key => {
-                            cleanRow[key.trim().replace(/\s+/g, ' ')] = row[key];
-                        });
-                        return cleanRow;
-                    });
-
-                    // Determine target based on active tab or columns
-                    const firstRowKeys = Object.keys(json[0] || {}).map(k => k.toLowerCase());
-                    const isJiraFile = currentTab === 'jira' || firstRowKeys.some(k => k.includes('issue') || k.includes('fromstatus') || k.includes('tostatus'));
-                    const isGitFile = currentTab === 'git' || firstRowKeys.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr'));
-
-                    if (isJiraFile) {
-                        jiraData = json.map(row => ({
-                            Assignee: row.Assignee || row['User'] || row['Name'] || '',
-                            Project: row.Project || '',
-                            FromStatus: row.FromStatus || row['From'] || '',
-                            ToStatus: row.ToStatus || row['To'] || '',
-                            Issues: row.Issues || row['Issue'] || row['Key'] || ''
-                        })).filter(j => j.Assignee || j.Issues);
-                        
-                        switchTab('jira');
-                        alert(`Successfully imported ${jiraData.length} Jira records!`);
-                    } else if (isGitFile) {
-                        gitData = json.map(row => ({
-                            Developer: row.Developer || row['Name'] || row['Author'] || '',
-                            Repository: row.Repository || row['Repo'] || '',
-                            Commits: parseInt(row.Commits || row['Commit Count'] || 0),
-                            PRs: parseInt(row.PRs || row['Pull Requests'] || 0)
-                        })).filter(g => g.Developer || g.Repository);
-
-                        switchTab('git');
-                        alert(`Successfully imported ${gitData.length} Git records!`);
-                    } else {
-                        employeeData = json.map(row => ({
-                            Name: row.Name || row['Employee Name'] || '',
-                            Role: row.Role || '',
-                            Location: row.Location || '',
-                            Project: row.Project || '',
-                            FTE: parseFloat(row.FTE || row['FTE Allocation'] || 0)
-                        })).filter(e => e.Name);
-
-                        switchTab('resources');
-                        populateDropdowns();
-                        alert(`Successfully imported ${employeeData.length} resources!`);
+            if (fileName.endsWith('.json')) {
+                reader.onload = function(e) {
+                    try {
+                        const parsed = JSON.parse(e.target.result);
+                        const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || [parsed]);
+                        processParsedData(json, true);
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error parsing JSON file.");
                     }
+                };
+                reader.readAsText(file);
+            } else {
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                        if (rawJson.length === 0) { alert("File is empty."); return; }
 
-                    updateDashboard();
-                } catch (err) {
-                    console.error(err);
-                    alert("Error reading file.");
-                }
-            };
-            reader.readAsArrayBuffer(file);
+                        const json = rawJson.map(row => {
+                            const cleanRow = {};
+                            Object.keys(row).forEach(key => {
+                                // Clean key names from non-breaking spaces and trim
+                                const cleanKey = key.replace(/\u00A0/g, ' ').trim().replace(/\s+/g, ' ');
+                                cleanRow[cleanKey] = row[key];
+                            });
+                            return cleanRow;
+                        });
+                        processParsedData(json, false);
+                    } catch (err) {
+                        console.error(err);
+                        alert("Error reading file.");
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
             event.target.value = '';
+        }
+
+        function processParsedData(json, isJsonFile) {
+            const firstRowKeys = Object.keys(json[0] || {}).map(k => k.toLowerCase());
+            
+            const isJiraFile = currentTab === 'jira' || isJsonFile && firstRowKeys.some(k => k.includes('issue') || k.includes('fromstatus') || k.includes('tostatus') || k.includes('from') || k.includes('to'));
+            const isGitFile = currentTab === 'git' || isJsonFile && firstRowKeys.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr') || k.includes('developer') || k.includes('author'));
+
+            if (isJiraFile) {
+                jiraData = json.map(row => ({
+                    Assignee: row.Assignee || row['User'] || row['Name'] || row['assignee'] || '',
+                    Project: row.Project || row['project'] || '',
+                    FromStatus: row['From Status'] || row.FromStatus || row['From'] || row['from_status'] || '',
+                    ToStatus: row['To Status'] || row.ToStatus || row['To'] || row['to_status'] || '',
+                    Issues: row.Issues || row['Issue'] || row['Key'] || row['issues'] || ''
+                })).filter(j => j.Assignee || j.Issues);
+                
+                switchTab('jira');
+                alert(`Successfully imported ${jiraData.length} Jira records!`);
+            } else if (isGitFile) {
+                gitData = json.map(row => ({
+                    Developer: row.Developer || row['Name'] || row['Author'] || row['developer'] || row['author'] || '',
+                    Repository: row.Repository || row['Repo'] || row['repository'] || row['repo'] || '',
+                    Commits: parseInt(row.Commits || row['Commit Count'] || row['commits'] || 0),
+                    PRs: parseInt(row.PRs || row['Pull Requests'] || row['prs'] || 0)
+                })).filter(g => g.Developer || g.Repository);
+
+                switchTab('git');
+                alert(`Successfully imported ${gitData.length} Git records!`);
+            } else {
+                employeeData = json.map(row => ({
+                    Name: row.Name || row['Employee Name'] || row['name'] || '',
+                    Role: row.Role || row['role'] || '',
+                    Location: row.Location || row['location'] || '',
+                    Project: row.Project || row['project'] || '',
+                    FTE: parseFloat(row.FTE || row['FTE Allocation'] || row['fte'] || 0)
+                })).filter(e => e.Name);
+
+                switchTab('resources');
+                populateDropdowns();
+                alert(`Successfully imported ${employeeData.length} resources!`);
+            }
+            updateDashboard();
         }
 
         function getFilteredResources() {
@@ -467,6 +487,10 @@
                 <th>Assignee</th><th>Project</th><th>From Status</th><th>To Status</th><th>Issues</th>
             `;
             const tbody = document.getElementById('resource-table-body');
+            if (jiraData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Jira data available.</td></tr>`;
+                return;
+            }
             tbody.innerHTML = jiraData.map(j => `
                 <tr>
                     <td style="font-weight: 500; color: white;">${j.Assignee}</td>
@@ -483,6 +507,10 @@
                 <th>Developer</th><th>Repository</th><th style="text-align: right;">Commits</th><th style="text-align: right;">PRs</th>
             `;
             const tbody = document.getElementById('resource-table-body');
+            if (gitData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Git data available.</td></tr>`;
+                return;
+            }
             tbody.innerHTML = gitData.map(g => `
                 <tr>
                     <td style="font-weight: 500; color: white;">${g.Developer}</td>
