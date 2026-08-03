@@ -333,7 +333,7 @@
         function processParsedData(json) {
             if (!json || json.length === 0) return;
 
-            // טעינת הקובץ תתבצע אך ורק בהתאם לטאב הפעיל כרגע, מבלי לדרוס או להעביר טאב בכוח!
+            // נעילה מוחלטת לפי הטאב הפעיל כרגע - קבצים יעובדו אך ורק לפי הטאב שבו אתה נמצא!
             if (currentTab === 'jira') {
                 jiraData = json.map(row => {
                     const r = {};
@@ -346,7 +346,8 @@
                         Issues: r.issues || r['issue'] || r['key'] || ''
                     };
                 }).filter(j => j.Assignee || j.Issues);
-                alert(`Successfully imported ${jiraData.length} Jira records to current tab!`);
+                alert(`Successfully imported ${jiraData.length} Jira records!`);
+
             } else if (currentTab === 'git') {
                 gitData = json.map(row => {
                     const r = {};
@@ -358,9 +359,10 @@
                         PRs: parseInt(r.prs || r['pull requests'] || 0)
                     };
                 }).filter(g => g.Developer || g.Repository);
-                alert(`Successfully imported ${gitData.length} Git records to current tab!`);
+                alert(`Successfully imported ${gitData.length} Git records!`);
+
             } else {
-                // ברירת מחדל: טאב משאבים (Resources)
+                // טאב Resources בלבד - מעבד אך ורק כמבנה משאבים
                 employeeData = json.map(row => {
                     let name = '', role = '', location = '', project = '';
                     let fte = 1.0;
