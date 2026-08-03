@@ -300,7 +300,7 @@
                     try {
                         const parsed = JSON.parse(e.target.result);
                         const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || [parsed]);
-                        processParsedData(json, true);
+                        processParsedData(json);
                     } catch (err) {
                         console.error(err);
                         alert("Error parsing JSON file.");
@@ -315,7 +315,7 @@
                         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                         const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
                         if (rawJson.length === 0) { alert("File is empty."); return; }
-                        processParsedData(rawJson, false);
+                        processParsedData(rawJson);
                     } catch (err) {
                         console.error(err);
                         alert("Error reading file.");
@@ -326,12 +326,12 @@
             event.target.value = '';
         }
 
-        function processParsedData(json, isJsonFile) {
+        function processParsedData(json) {
             if (!json || json.length === 0) return;
             const firstRow = json[0];
             const keys = Object.keys(firstRow);
-            
             const firstRowKeysLower = keys.map(k => k.toLowerCase().trim());
+            
             const isJiraFile = currentTab === 'jira' || firstRowKeysLower.some(k => k.includes('issue') || k.includes('fromstatus') || k.includes('tostatus'));
             const isGitFile = currentTab === 'git' || firstRowKeysLower.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr'));
 
@@ -365,35 +365,30 @@
                 switchTab('git');
                 alert(`Successfully imported ${gitData.length} Git records!`);
             } else {
-                // Flexible mapping for resource allocation
+                // Robust mapping for Excel / Resource Allocation
                 employeeData = json.map(row => {
-                    const cleanRow = {};
-                    Object.keys(row).forEach(k => {
-                        cleanRow[k.toLowerCase().replace(/[\s\%\_]/g, '')] = row[k];
-                        cleanRow[k.toLowerCase().trim()] = row[k];
-                    });
-
-                    // Find fields by checking keys
-                    let name = '';
-                    let role = '';
-                    let location = '';
-                    let project = '';
+                    let name = '', role = '', location = '', project = '';
                     let fte = 1.0;
 
                     for (let k of Object.keys(row)) {
                         const val = row[k];
                         const lk = k.toLowerCase().trim();
-                        if (lk.includes('name') && !lk.includes('project') && !name) name = val;
-                        else if (lk.includes('role') && !role) role = val;
-                        else if (lk.includes('location') && !location) location = val;
-                        else if ((lk.includes('project') || lk.includes('main')) && !project) project = val;
-                        else if (lk.includes('fte') || lk.includes('%') || lk.includes('allocation')) {
+                        
+                        if ((lk.includes('name') || lk === 'שם') && !lk.includes('project')) {
+                            name = val;
+                        } else if (lk.includes('role') || lk.includes('תפקיד')) {
+                            role = val;
+                        } else if (lk.includes('location') || lk.includes('מיקום') || lk.includes('country')) {
+                            location = val;
+                        } else if (lk.includes('project') || lk.includes('פרויקט')) {
+                            project = val;
+                        } else if (lk.includes('fte') || lk.includes('%') || lk.includes('allocation') || lk.includes('הקצאה')) {
                             const parsed = parseFloat(val);
                             if (!isNaN(parsed)) fte = parsed;
                         }
                     }
 
-                    // Fallback to array indices if needed based on typical column order [Name, Role, Location, Project, FTE/%]
+                    // Fallback using column indices if keys didn't match directly
                     const vals = Object.values(row);
                     if (!name && vals.length > 0) name = vals[0];
                     if (!role && vals.length > 1) role = vals[1];
@@ -766,7 +761,7 @@
             } else if (currentTab === 'git') {
                 const developer = document.getElementById('modal-developer').value.trim();
                 const repo = document.getElementById('modal-repo').value.trim();
-                const commits = parseInt(document.getElementById('modal-commits').value) || 0;
+                    const commits = parseInt(document.getElementById('modal-commits').value) || 0;
                 const prs = parseInt(document.getElementById('modal-prs').value) || 0;
 
                 if (!developer) { alert("Please enter developer name."); return; }
