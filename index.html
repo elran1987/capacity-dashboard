@@ -100,7 +100,7 @@
         .btn-secondary:hover { background: var(--border-slate-800); }
     </style>
 </head>
-<body>
+<body onload="initDashboard()">
 
     <div class="dashboard-layout">
         <!-- Sidebar: Filters & Quick Project Totals -->
@@ -263,10 +263,14 @@
                 chartsSection.style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Jira Issue';
+                currentSortCol = 'Assignee';
+                currentSortAsc = true;
             } else if (tab === 'git') {
                 chartsSection.style.display = 'grid';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Git Record';
+                currentSortCol = 'Developer';
+                currentSortAsc = true;
             }
             updateDashboard();
         }
@@ -365,7 +369,6 @@
                 switchTab('git');
                 alert(`Successfully imported ${gitData.length} Git records!`);
             } else {
-                // Robust mapping for Excel / Resource Allocation
                 employeeData = json.map(row => {
                     let name = '', role = '', location = '', project = '';
                     let fte = 1.0;
@@ -388,7 +391,6 @@
                         }
                     }
 
-                    // Fallback using column indices if keys didn't match directly
                     const vals = Object.values(row);
                     if (!name && vals.length > 0) name = vals[0];
                     if (!role && vals.length > 1) role = vals[1];
@@ -444,10 +446,27 @@
                 renderResourceCharts(filtered);
             } else if (currentTab === 'jira') {
                 document.getElementById('table-title').innerHTML = "🎫 Jira Issues Tracking";
-                renderJiraTable();
+                const proj = document.getElementById('filter-project').value;
+                let filteredJira = jiraData.filter(j => !proj || j.Project === proj);
+
+                filteredJira.sort((a, b) => {
+                    let valA = a[currentSortCol], valB = b[currentSortCol];
+                    if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
+                    return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
+                });
+
+                renderJiraTable(filteredJira);
             } else if (currentTab === 'git') {
                 document.getElementById('table-title').innerHTML = "💻 Git Commit & PR Activity";
-                renderGitTable();
+                let filteredGit = [...gitData];
+
+                filteredGit.sort((a, b) => {
+                    let valA = a[currentSortCol], valB = b[currentSortCol];
+                    if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
+                    return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
+                });
+
+                renderGitTable(filteredGit);
                 renderGitCharts();
             }
         }
@@ -499,51 +518,80 @@
             }).join('');
         }
 
-        function renderJiraTable() {
+        function renderJiraTable(data) {
+            const getSortIndicator = (col) => {
+                if (currentSortCol !== col) return ' ↕';
+                return currentSortAsc ? ' ▲' : ' ▼';
+            };
+
             document.getElementById('table-header-row').innerHTML = `
-                <th>Assignee</th><th>Project</th><th>From Status</th><th>To Status</th><th>Issues</th><th style="text-align: center;">Actions</th>
+                <th onclick="sortTable('Assignee')">Assignee${getSortIndicator('Assignee')}</th>
+                <th onclick="sortTable('Project')">Project${getSortIndicator('Project')}</th>
+                <th onclick="sortTable('FromStatus')">From Status${getSortIndicator('FromStatus')}</th>
+                <th onclick="sortTable('ToStatus')">To Status${getSortIndicator('ToStatus')}</th>
+                <th onclick="sortTable('Issues')">Issues${getSortIndicator('Issues')}</th>
+                <th style="text-align: center;">Actions</th>
             `;
+
             const tbody = document.getElementById('resource-table-body');
-            if (jiraData.length === 0) {
+            if (data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Jira data available.</td></tr>`;
                 return;
             }
-            tbody.innerHTML = jiraData.map((j, idx) => `
-                <tr>
-                    <td style="font-weight: 500; color: white;">${j.Assignee}</td>
-                    <td style="color: var(--cyan-400);">${j.Project}</td>
-                    <td><span class="badge">${j.FromStatus}</span></td>
-                    <td><span class="badge" style="color: var(--emerald-400);">${j.ToStatus}</span></td>
-                    <td style="font-weight: bold; color: var(--blue-400);">${j.Issues}</td>
-                    <td style="text-align: center;">
-                        <button onclick="editJira(${idx})" style="background: none; border: none; cursor: pointer; color: var(--blue-400); font-size: 14px; margin-right: 8px;" title="Edit">✏️</button>
-                        <button onclick="deleteJira(${idx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
+
+            tbody.innerHTML = data.map((j) => {
+                const globalIdx = jiraData.indexOf(j);
+                return `
+                    <tr>
+                        <td style="font-weight: 500; color: white;">${j.Assignee}</td>
+                        <td style="color: var(--cyan-400);">${j.Project}</td>
+                        <td><span class="badge">${j.FromStatus}</span></td>
+                        <td><span class="badge" style="color: var(--emerald-400);">${j.ToStatus}</span></td>
+                        <td style="font-weight: bold; color: var(--blue-400);">${j.Issues}</td>
+                        <td style="text-align: center;">
+                            <button onclick="editJira(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--blue-400); font-size: 14px; margin-right: 8px;" title="Edit">✏️</button>
+                            <button onclick="deleteJira(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
-        function renderGitTable() {
+        function renderGitTable(data) {
+            const getSortIndicator = (col) => {
+                if (currentSortCol !== col) return ' ↕';
+                return currentSortAsc ? ' ▲' : ' ▼';
+            };
+
             document.getElementById('table-header-row').innerHTML = `
-                <th>Developer</th><th>Repository</th><th style="text-align: right;">Commits</th><th style="text-align: right;">PRs</th><th style="text-align: center;">Actions</th>
+                <th onclick="sortTable('Developer')">Developer${getSortIndicator('Developer')}</th>
+                <th onclick="sortTable('Repository')">Repository${getSortIndicator('Repository')}</th>
+                <th onclick="sortTable('Commits')" style="text-align: right;">Commits${getSortIndicator('Commits')}</th>
+                <th onclick="sortTable('PRs')" style="text-align: right;">PRs${getSortIndicator('PRs')}</th>
+                <th style="text-align: center;">Actions</th>
             `;
+
             const tbody = document.getElementById('resource-table-body');
-            if (gitData.length === 0) {
+            if (data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Git data available.</td></tr>`;
                 return;
             }
-            tbody.innerHTML = gitData.map((g, idx) => `
-                <tr>
-                    <td style="font-weight: 500; color: white;">${g.Developer}</td>
-                    <td style="color: var(--purple-400);">${g.Repository}</td>
-                    <td style="text-align: right; font-weight: bold; color: var(--emerald-400);">${g.Commits}</td>
-                    <td style="text-align: right; font-weight: bold; color: var(--cyan-400);">${g.PRs}</td>
-                    <td style="text-align: center;">
-                        <button onclick="editGit(${idx})" style="background: none; border: none; cursor: pointer; color: var(--blue-400); font-size: 14px; margin-right: 8px;" title="Edit">✏️</button>
-                        <button onclick="deleteGit(${idx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
-                    </td>
-                </tr>
-            `).join('');
+
+            tbody.innerHTML = data.map((g) => {
+                const globalIdx = gitData.indexOf(g);
+                return `
+                    <tr>
+                        <td style="font-weight: 500; color: white;">${g.Developer}</td>
+                        <td style="color: var(--purple-400);">${g.Repository}</td>
+                        <td style="text-align: right; font-weight: bold; color: var(--emerald-400);">${g.Commits}</td>
+                        <td style="text-align: right; font-weight: bold; color: var(--cyan-400);">${g.PRs}</td>
+                        <td style="text-align: center;">
+                            <button onclick="editGit(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--blue-400); font-size: 14px; margin-right: 8px;" title="Edit">✏️</button>
+                            <button onclick="deleteGit(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         function renderSidebarProjectFTE() {
@@ -581,7 +629,7 @@
                 currentSortAsc = !currentSortAsc;
             } else {
                 currentSortCol = col;
-                currentSortAsc = (col === 'FTE') ? false : true;
+                currentSortAsc = (col === 'FTE' || col === 'Commits' || col === 'PRs') ? false : true;
             }
             updateDashboard();
         }
@@ -594,208 +642,257 @@
         }
 
         function renderResourceCharts(filteredEmps) {
-            document.getElementById('chart-title-left').innerHTML = `<span>📊</span> Project FTE Burden & Role Distribution (Click bar to filter)`;
-            document.getElementById('chart-title-right').innerHTML = `<span>🍩</span> Organization Composition`;
-
+            // Chart 1: Project FTE Burden
             const projMap = {};
             filteredEmps.forEach(e => { if(e.Project) projMap[e.Project] = (projMap[e.Project] || 0) + (e.FTE || 0); });
-            const sortedProj = Object.entries(projMap).sort((a,b) => b[1] - a[1]);
+            const projLabels = Object.keys(projMap);
+            const projValues = Object.values(projMap);
 
-            renderChart('chartProjectFTE', 'bar', sortedProj.map(x=>x[0]), sortedProj.map(x=>x[1]), 'FTE Burden', vibrantColors.slice(0, sortedProj.length), (evt, item) => {
-                if (item.length > 0) filterByProject(sortedProj[item[0].index][0]);
-            });
-
-            const roleMap = {};
-            filteredEmps.forEach(e => { if(e.Role) roleMap[e.Role] = (roleMap[e.Role] || 0) + 1; });
-            const sortedRoles = Object.entries(roleMap).sort((a,b) => b[1] - a[1]);
-
-            renderChart('chartOrgComposition', 'doughnut', sortedRoles.map(x=>x[0]), sortedRoles.map(x=>x[1]), 'Count', vibrantColors);
-        }
-
-        function renderGitCharts() {
-            document.getElementById('chart-title-left').innerHTML = `<span>💻</span> Commits by Developer`;
-            document.getElementById('chart-title-right').innerHTML = `<span>📂</span> PRs by Repository`;
-
-            const devCommits = {};
-            gitData.forEach(g => { if(g.Developer) devCommits[g.Developer] = (devCommits[g.Developer] || 0) + (g.Commits || 0); });
-            const sortedDevs = Object.entries(devCommits).sort((a,b) => b[1] - a[1]);
-
-            renderChart('chartProjectFTE', 'bar', sortedDevs.map(x=>x[0]), sortedDevs.map(x=>x[1]), 'Commits', vibrantColors);
-
-            const repoPRs = {};
-            gitData.forEach(g => { if(g.Repository) repoPRs[g.Repository] = (repoPRs[g.Repository] || 0) + (g.PRs || 0); });
-            const sortedRepos = Object.entries(repoPRs).sort((a,b) => b[1] - a[1]);
-
-            renderChart('chartOrgComposition', 'doughnut', sortedRepos.map(x=>x[0]), sortedRepos.map(x=>x[1]), 'PRs', vibrantColors);
-        }
-
-        function renderChart(canvasId, type, labels, data, labelName, colors, onClickCallback) {
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            if (charts[canvasId]) charts[canvasId].destroy();
-
-            charts[canvasId] = new Chart(ctx, {
-                type: type,
+            if (charts.projectFTE) charts.projectFTE.destroy();
+            const ctx1 = document.getElementById('chartProjectFTE').getContext('2d');
+            charts.projectFTE = new Chart(ctx1, {
+                type: 'bar',
                 data: {
-                    labels: labels,
-                    datasets: [{ label: labelName, data: data, backgroundColor: colors, borderWidth: 0, borderRadius: 6 }]
+                    labels: projLabels,
+                    datasets: [{
+                        label: 'Total FTE',
+                        data: projValues,
+                        backgroundColor: '#22d3ee',
+                        borderRadius: 6
+                    }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    onClick: onClickCallback || null,
-                    plugins: {
-                        legend: { display: type === 'doughnut', position: 'bottom', labels: { color: '#94a3b8', font: { size: 11 } } }
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
                     },
-                    scales: type !== 'doughnut' ? {
-                        x: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51, 65, 85, 0.2)' } },
-                        y: { ticks: { color: '#94a3b8', font: { size: 10 } }, grid: { color: 'rgba(51, 65, 85, 0.2)' } }
-                    } : {}
+                    onClick: (e, els) => {
+                        if (els.length > 0) {
+                            const idx = els[0].index;
+                            filterByProject(projLabels[idx]);
+                        }
+                    }
+                }
+            });
+
+            // Chart 2: Organization Composition (Role distribution)
+            const roleMap = {};
+            filteredEmps.forEach(e => { if(e.Role) roleMap[e.Role] = (roleMap[e.Role] || 0) + 1; });
+            const roleLabels = Object.keys(roleMap);
+            const roleValues = Object.values(roleMap);
+
+            if (charts.orgComp) charts.orgComp.destroy();
+            const ctx2 = document.getElementById('chartOrgComposition').getContext('2d');
+            charts.orgComp = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: roleLabels,
+                    datasets: [{
+                        data: roleValues,
+                        backgroundColor: vibrantColors.slice(0, roleLabels.length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#f1f5f9', boxWidth: 12 } } }
+                }
+            });
+        }
+
+        function renderGitCharts() {
+            const repoMap = {};
+            gitData.forEach(g => { if(g.Repository) repoMap[g.Repository] = (repoMap[g.Repository] || 0) + (g.Commits || 0); });
+            const labels = Object.keys(repoMap);
+            const values = Object.values(repoMap);
+
+            if (charts.projectFTE) charts.projectFTE.destroy();
+            const ctx1 = document.getElementById('chartProjectFTE').getContext('2d');
+            charts.projectFTE = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Commits per Repo',
+                        data: values,
+                        backgroundColor: '#c084fc',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                    }
+                }
+            });
+
+            const prMap = {};
+            gitData.forEach(g => { if(g.Developer) prMap[g.Developer] = (prMap[g.Developer] || 0) + (g.PRs || 0); });
+            if (charts.orgComp) charts.orgComp.destroy();
+            const ctx2 = document.getElementById('chartOrgComposition').getContext('2d');
+            charts.orgComp = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(prMap),
+                    datasets: [{
+                        data: Object.values(prMap),
+                        backgroundColor: vibrantColors.slice(0, Object.keys(prMap).length)
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { color: '#f1f5f9', boxWidth: 12 } } }
                 }
             });
         }
 
         function openModal() {
-            const modalBody = document.getElementById('modal-form-body');
-            document.getElementById('edit-index').value = "-1";
-
+            document.getElementById('edit-index').value = -1;
+            const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Record';
+            document.getElementById('modal-title').innerText = title;
+            
+            const formBody = document.getElementById('modal-form-body');
             if (currentTab === 'resources') {
-                document.getElementById('modal-title').innerText = "Add New Employee";
-                const roles = [...new Set(employeeData.map(e => e.Role))].filter(Boolean).sort();
-                const locations = [...new Set(employeeData.map(e => e.Location))].filter(Boolean).sort();
-                const projects = [...new Set(employeeData.map(e => e.Project))].filter(Boolean).sort();
-
-                modalBody.innerHTML = `
-                    <div class="form-group" style="margin-bottom: 0;"><label>Name</label><input type="text" id="modal-name" placeholder="e.g. John Doe"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Role</label><select id="modal-role">${roles.map(r=>`<option value="${r}">${r}</option>`).join('')}</select></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Location</label><select id="modal-location">${locations.map(l=>`<option value="${l}">${l}</option>`).join('')}</select></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Project</label><select id="modal-project">${projects.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>FTE Allocation (0 to 1)</label><input type="number" id="modal-fte" step="0.01" min="0" max="1" value="1.0"></div>
+                formBody.innerHTML = `
+                    <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name"></div>
+                    <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role"></div>
+                    <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location"></div>
+                    <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project"></div>
+                    <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0"></div>
                 `;
             } else if (currentTab === 'jira') {
-                document.getElementById('modal-title').innerText = "Add Jira Issue";
-                modalBody.innerHTML = `
-                    <div class="form-group" style="margin-bottom: 0;"><label>Assignee</label><input type="text" id="modal-assignee" placeholder="Assignee Name"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Project</label><input type="text" id="modal-jproject" placeholder="Project Name"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>From Status</label><input type="text" id="modal-from" placeholder="In Progress"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>To Status</label><input type="text" id="modal-to" placeholder="Done"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Issue Key</label><input type="text" id="modal-issues" placeholder="VAS-102"></div>
+                formBody.innerHTML = `
+                    <div class="form-group" style="margin:0;"><label>Assignee</label><input type="text" id="m-assignee"></div>
+                    <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-proj"></div>
+                    <div class="form-group" style="margin:0;"><label>From Status</label><input type="text" id="m-from"></div>
+                    <div class="form-group" style="margin:0;"><label>To Status</label><input type="text" id="m-to"></div>
+                    <div class="form-group" style="margin:0;"><label>Issues</label><input type="text" id="m-issues"></div>
                 `;
             } else if (currentTab === 'git') {
-                document.getElementById('modal-title').innerText = "Add Git Record";
-                modalBody.innerHTML = `
-                    <div class="form-group" style="margin-bottom: 0;"><label>Developer</label><input type="text" id="modal-developer" placeholder="Developer Name"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Repository</label><input type="text" id="modal-repo" placeholder="Repo Name"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>Commits</label><input type="number" id="modal-commits" value="0"></div>
-                    <div class="form-group" style="margin-bottom: 0;"><label>PRs</label><input type="number" id="modal-prs" value="0"></div>
+                formBody.innerHTML = `
+                    <div class="form-group" style="margin:0;"><label>Developer</label><input type="text" id="m-dev"></div>
+                    <div class="form-group" style="margin:0;"><label>Repository</label><input type="text" id="m-repo"></div>
+                    <div class="form-group" style="margin:0;"><label>Commits</label><input type="number" id="m-commits" value="0"></div>
+                    <div class="form-group" style="margin:0;"><label>PRs</label><input type="number" id="m-prs" value="0"></div>
                 `;
             }
             document.getElementById('employeeModal').classList.add('active');
-        }
-
-        function editEmployee(index) {
-            currentTab = 'resources';
-            openModal();
-            document.getElementById('modal-title').innerText = "Edit Employee";
-            document.getElementById('edit-index').value = index;
-            const emp = employeeData[index];
-            document.getElementById('modal-name').value = emp.Name;
-            document.getElementById('modal-role').value = emp.Role;
-            document.getElementById('modal-location').value = emp.Location;
-            document.getElementById('modal-project').value = emp.Project;
-            document.getElementById('modal-fte').value = emp.FTE;
-        }
-
-        function editJira(index) {
-            currentTab = 'jira';
-            openModal();
-            document.getElementById('modal-title').innerText = "Edit Jira Issue";
-            document.getElementById('edit-index').value = index;
-            const j = jiraData[index];
-            document.getElementById('modal-assignee').value = j.Assignee;
-            document.getElementById('modal-jproject').value = j.Project;
-            document.getElementById('modal-from').value = j.FromStatus;
-            document.getElementById('modal-to').value = j.ToStatus;
-            document.getElementById('modal-issues').value = j.Issues;
-        }
-
-        function editGit(index) {
-            currentTab = 'git';
-            openModal();
-            document.getElementById('modal-title').innerText = "Edit Git Record";
-            document.getElementById('edit-index').value = index;
-            const g = gitData[index];
-            document.getElementById('modal-developer').value = g.Developer;
-            document.getElementById('modal-repo').value = g.Repository;
-            document.getElementById('modal-commits').value = g.Commits;
-            document.getElementById('modal-prs').value = g.PRs;
         }
 
         function closeModal() {
             document.getElementById('employeeModal').classList.remove('active');
         }
 
+        function editEmployee(idx) {
+            const emp = employeeData[idx];
+            document.getElementById('edit-index').value = idx;
+            document.getElementById('modal-title').innerText = 'Edit Employee';
+            document.getElementById('modal-form-body').innerHTML = `
+                <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" value="${emp.Name}"></div>
+                <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role" value="${emp.Role}"></div>
+                <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location" value="${emp.Location}"></div>
+                <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project" value="${emp.Project}"></div>
+                <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="${emp.FTE}"></div>
+            `;
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function editJira(idx) {
+            const j = jiraData[idx];
+            document.getElementById('edit-index').value = idx;
+            document.getElementById('modal-title').innerText = 'Edit Jira Issue';
+            document.getElementById('modal-form-body').innerHTML = `
+                <div class="form-group" style="margin:0;"><label>Assignee</label><input type="text" id="m-assignee" value="${j.Assignee}"></div>
+                <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-proj" value="${j.Project}"></div>
+                <div class="form-group" style="margin:0;"><label>From Status</label><input type="text" id="m-from" value="${j.FromStatus}"></div>
+                <div class="form-group" style="margin:0;"><label>To Status</label><input type="text" id="m-to" value="${j.ToStatus}"></div>
+                <div class="form-group" style="margin:0;"><label>Issues</label><input type="text" id="m-issues" value="${j.Issues}"></div>
+            `;
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function editGit(idx) {
+            const g = gitData[idx];
+            document.getElementById('edit-index').value = idx;
+            document.getElementById('modal-title').innerText = 'Edit Git Record';
+            document.getElementById('modal-form-body').innerHTML = `
+                <div class="form-group" style="margin:0;"><label>Developer</label><input type="text" id="m-dev" value="${g.Developer}"></div>
+                <div class="form-group" style="margin:0;"><label>Repository</label><input type="text" id="m-repo" value="${g.Repository}"></div>
+                <div class="form-group" style="margin:0;"><label>Commits</label><input type="number" id="m-commits" value="${g.Commits}"></div>
+                <div class="form-group" style="margin:0;"><label>PRs</label><input type="number" id="m-prs" value="${g.PRs}"></div>
+            `;
+            document.getElementById('employeeModal').classList.add('active');
+        }
+
+        function deleteEmployee(idx) {
+            if (confirm("Are you sure you want to delete this resource?")) {
+                employeeData.splice(idx, 1);
+                populateDropdowns();
+                updateDashboard();
+            }
+        }
+
+        function deleteJira(idx) {
+            if (confirm("Are you sure you want to delete this Jira issue?")) {
+                jiraData.splice(idx, 1);
+                updateDashboard();
+            }
+        }
+
+        function deleteGit(idx) {
+            if (confirm("Are you sure you want to delete this Git record?")) {
+                gitData.splice(idx, 1);
+                updateDashboard();
+            }
+        }
+
         function saveRecord() {
-            const index = parseInt(document.getElementById('edit-index').value);
-
+            const idx = parseInt(document.getElementById('edit-index').value);
             if (currentTab === 'resources') {
-                const name = document.getElementById('modal-name').value.trim();
-                const role = document.getElementById('modal-role').value;
-                const location = document.getElementById('modal-location').value;
-                const project = document.getElementById('modal-project').value;
-                const fte = parseFloat(document.getElementById('modal-fte').value);
-
-                if (!name) { alert("Please enter name."); return; }
-                const obj = { Name: name, Role: role, Location: location, Project: project, FTE: isNaN(fte) ? 1.0 : fte };
-                if (index === -1) employeeData.push(obj); else employeeData[index] = obj;
+                const rec = {
+                    Name: document.getElementById('m-name').value.trim(),
+                    Role: document.getElementById('m-role').value.trim(),
+                    Location: document.getElementById('m-location').value.trim(),
+                    Project: document.getElementById('m-project').value.trim(),
+                    FTE: parseFloat(document.getElementById('m-fte').value) || 1.0
+                };
+                if (!rec.Name) { alert("Name is required."); return; }
+                if (idx === -1) employeeData.push(rec);
+                else employeeData[idx] = rec;
                 populateDropdowns();
             } else if (currentTab === 'jira') {
-                const assignee = document.getElementById('modal-assignee').value.trim();
-                const project = document.getElementById('modal-jproject').value.trim();
-                const from = document.getElementById('modal-from').value.trim();
-                const to = document.getElementById('modal-to').value.trim();
-                const issues = document.getElementById('modal-issues').value.trim();
-
-                if (!assignee) { alert("Please enter assignee."); return; }
-                const obj = { Assignee: assignee, Project: project, FromStatus: from, ToStatus: to, Issues: issues };
-                if (index === -1) jiraData.push(obj); else jiraData[index] = obj;
+                const rec = {
+                    Assignee: document.getElementById('m-assignee').value.trim(),
+                    Project: document.getElementById('m-proj').value.trim(),
+                    FromStatus: document.getElementById('m-from').value.trim(),
+                    ToStatus: document.getElementById('m-to').value.trim(),
+                    Issues: document.getElementById('m-issues').value.trim()
+                };
+                if (!rec.Assignee && !rec.Issues) { alert("Assignee or Issue is required."); return; }
+                if (idx === -1) jiraData.push(rec);
+                else jiraData[idx] = rec;
             } else if (currentTab === 'git') {
-                const developer = document.getElementById('modal-developer').value.trim();
-                const repo = document.getElementById('modal-repo').value.trim();
-                    const commits = parseInt(document.getElementById('modal-commits').value) || 0;
-                const prs = parseInt(document.getElementById('modal-prs').value) || 0;
-
-                if (!developer) { alert("Please enter developer name."); return; }
-                const obj = { Developer: developer, Repository: repo, Commits: commits, PRs: prs };
-                if (index === -1) gitData.push(obj); else gitData[index] = obj;
+                const rec = {
+                    Developer: document.getElementById('m-dev').value.trim(),
+                    Repository: document.getElementById('m-repo').value.trim(),
+                    Commits: parseInt(document.getElementById('m-commits').value) || 0,
+                    PRs: parseInt(document.getElementById('m-prs').value) || 0
+                };
+                if (!rec.Developer && !rec.Repository) { alert("Developer or Repository is required."); return; }
+                if (idx === -1) gitData.push(rec);
+                else gitData[idx] = rec;
             }
-
             closeModal();
             updateDashboard();
         }
-
-        function deleteEmployee(index) {
-            if (confirm("Are you sure you want to delete this employee?")) {
-                employeeData.splice(index, 1);
-                populateDropdowns();
-                updateDashboard();
-            }
-        }
-
-        function deleteJira(index) {
-            if (confirm("Are you sure you want to delete this Jira record?")) {
-                jiraData.splice(index, 1);
-                updateDashboard();
-            }
-        }
-
-        function deleteGit(index) {
-            if (confirm("Are you sure you want to delete this Git record?")) {
-                gitData.splice(index, 1);
-                updateDashboard();
-            }
-        }
-
-        initDashboard();
     </script>
 </body>
 </html>
