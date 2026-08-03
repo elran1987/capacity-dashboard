@@ -333,8 +333,13 @@
         function processParsedData(json) {
             if (!json || json.length === 0) return;
 
-            // נעילה מוחלטת לפי הטאב הפעיל כרגע - קבצים יעובדו אך ורק לפי הטאב שבו אתה נמצא!
-            if (currentTab === 'jira') {
+            // בדיקה ישירה מה-DOM של הטאב הפעיל כרגע כדי לוודא 100% התאמה לממשק
+            let activeTab = currentTab;
+            if (document.getElementById('tab-btn-jira').classList.contains('active')) activeTab = 'jira';
+            else if (document.getElementById('tab-btn-git').classList.contains('active')) activeTab = 'git';
+            else if (document.getElementById('tab-btn-resources').classList.contains('active')) activeTab = 'resources';
+
+            if (activeTab === 'jira') {
                 jiraData = json.map(row => {
                     const r = {};
                     Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
@@ -348,7 +353,7 @@
                 }).filter(j => j.Assignee || j.Issues);
                 alert(`Successfully imported ${jiraData.length} Jira records!`);
 
-            } else if (currentTab === 'git') {
+            } else if (activeTab === 'git') {
                 gitData = json.map(row => {
                     const r = {};
                     Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
