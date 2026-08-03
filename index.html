@@ -264,7 +264,7 @@
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Jira Issue';
             } else if (tab === 'git') {
-                chartsSection.style.display = 'grid'; // Enable charts for Git tab too!
+                chartsSection.style.display = 'grid';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Git Record';
             }
@@ -315,16 +315,7 @@
                         const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                         const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
                         if (rawJson.length === 0) { alert("File is empty."); return; }
-
-                        const json = rawJson.map(row => {
-                            const cleanRow = {};
-                            Object.keys(row).forEach(key => {
-                                const cleanKey = key.replace(/\u00A0/g, ' ').trim().replace(/\s+/g, ' ');
-                                cleanRow[cleanKey] = row[key];
-                            });
-                            return cleanRow;
-                        });
-                        processParsedData(json, false);
+                        processParsedData(rawJson, false);
                     } catch (err) {
                         console.error(err);
                         alert("Error reading file.");
@@ -336,40 +327,91 @@
         }
 
         function processParsedData(json, isJsonFile) {
-            const firstRowKeys = Object.keys(json[0] || {}).map(k => k.toLowerCase());
+            if (!json || json.length === 0) return;
+            const firstRow = json[0];
+            const keys = Object.keys(firstRow);
             
-            const isJiraFile = currentTab === 'jira' || isJsonFile && firstRowKeys.some(k => k.includes('issue') || k.includes('fromstatus') || k.includes('tostatus') || k.includes('from') || k.includes('to'));
-            const isGitFile = currentTab === 'git' || isJsonFile && firstRowKeys.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr') || k.includes('developer') || k.includes('author'));
+            const firstRowKeysLower = keys.map(k => k.toLowerCase().trim());
+            const isJiraFile = currentTab === 'jira' || firstRowKeysLower.some(k => k.includes('issue') || k.includes('fromstatus') || k.includes('tostatus'));
+            const isGitFile = currentTab === 'git' || firstRowKeysLower.some(k => k.includes('commit') || k.includes('repo') || k.includes('pr'));
 
             if (isJiraFile) {
-                jiraData = json.map(row => ({
-                    Assignee: row.Assignee || row['User'] || row['Name'] || row['assignee'] || '',
-                    Project: row.Project || row['project'] || '',
-                    FromStatus: row['From Status'] || row.FromStatus || row['From'] || row['from_status'] || '',
-                    ToStatus: row['To Status'] || row.ToStatus || row['To'] || row['to_status'] || '',
-                    Issues: row.Issues || row['Issue'] || row['Key'] || row['issues'] || ''
-                })).filter(j => j.Assignee || j.Issues);
+                jiraData = json.map(row => {
+                    const r = {};
+                    Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                    return {
+                        Assignee: r.assignee || r['user'] || r['name'] || '',
+                        Project: r.project || '',
+                        FromStatus: r['from status'] || r.fromstatus || r['from'] || '',
+                        ToStatus: r['to status'] || r.tostatus || r['to'] || '',
+                        Issues: r.issues || r['issue'] || r['key'] || ''
+                    };
+                }).filter(j => j.Assignee || j.Issues);
                 
                 switchTab('jira');
                 alert(`Successfully imported ${jiraData.length} Jira records!`);
             } else if (isGitFile) {
-                gitData = json.map(row => ({
-                    Developer: row.Developer || row['Name'] || row['Author'] || row['developer'] || row['author'] || '',
-                    Repository: row.Repository || row['Repo'] || row['repository'] || row['repo'] || '',
-                    Commits: parseInt(row.Commits || row['Commit Count'] || row['commits'] || 0),
-                    PRs: parseInt(row.PRs || row['Pull Requests'] || row['prs'] || 0)
-                })).filter(g => g.Developer || g.Repository);
+                gitData = json.map(row => {
+                    const r = {};
+                    Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                    return {
+                        Developer: r.developer || r['name'] || r['author'] || '',
+                        Repository: r.repository || r['repo'] || '',
+                        Commits: parseInt(r.commits || r['commit count'] || 0),
+                        PRs: parseInt(r.prs || r['pull requests'] || 0)
+                    };
+                }).filter(g => g.Developer || g.Repository);
 
                 switchTab('git');
                 alert(`Successfully imported ${gitData.length} Git records!`);
             } else {
-                employeeData = json.map(row => ({
-                    Name: row.Name || row['Employee Name'] || row['name'] || '',
-                    Role: row.Role || row['role'] || '',
-                    Location: row.Location || row['location'] || '',
-                    Project: row.Project || row['project'] || '',
-                    FTE: parseFloat(row.FTE || row['FTE Allocation'] || row['fte'] || 0)
-                })).filter(e => e.Name);
+                // Flexible mapping for resource allocation
+                employeeData = json.map(row => {
+                    const cleanRow = {};
+                    Object.keys(row).forEach(k => {
+                        cleanRow[k.toLowerCase().replace(/[\s\%\_]/g, '')] = row[k];
+                        cleanRow[k.toLowerCase().trim()] = row[k];
+                    });
+
+                    // Find fields by checking keys
+                    let name = '';
+                    let role = '';
+                    let location = '';
+                    let project = '';
+                    let fte = 1.0;
+
+                    for (let k of Object.keys(row)) {
+                        const val = row[k];
+                        const lk = k.toLowerCase().trim();
+                        if (lk.includes('name') && !lk.includes('project') && !name) name = val;
+                        else if (lk.includes('role') && !role) role = val;
+                        else if (lk.includes('location') && !location) location = val;
+                        else if ((lk.includes('project') || lk.includes('main')) && !project) project = val;
+                        else if (lk.includes('fte') || lk.includes('%') || lk.includes('allocation')) {
+                            const parsed = parseFloat(val);
+                            if (!isNaN(parsed)) fte = parsed;
+                        }
+                    }
+
+                    // Fallback to array indices if needed based on typical column order [Name, Role, Location, Project, FTE/%]
+                    const vals = Object.values(row);
+                    if (!name && vals.length > 0) name = vals[0];
+                    if (!role && vals.length > 1) role = vals[1];
+                    if (!location && vals.length > 2) location = vals[2];
+                    if (!project && vals.length > 3) project = vals[3];
+                    if (fte === 1.0 && vals.length > 4) {
+                        const p = parseFloat(vals[4]);
+                        if (!isNaN(p)) fte = p;
+                    }
+
+                    return {
+                        Name: String(name || '').trim(),
+                        Role: String(role || '').trim(),
+                        Location: String(location || '').trim(),
+                        Project: String(project || '').trim(),
+                        FTE: isNaN(fte) ? 1.0 : fte
+                    };
+                }).filter(e => e.Name);
 
                 switchTab('resources');
                 populateDropdowns();
@@ -426,7 +468,7 @@
                 <th onclick="sortTable('Role')">Role${getSortIndicator('Role')}</th>
                 <th onclick="sortTable('Location')">Location${getSortIndicator('Location')}</th>
                 <th onclick="sortTable('Project')">Project${getSortIndicator('Project')}</th>
-                <th onclick="sortTable('FTE')" style="text-align: right;">FTE Allocation${getSortIndicator('FTE')}</th>
+                <th onclick="sortTable('FTE')" style="text-align: right;">FTE / % Project${getSortIndicator('FTE')}</th>
                 <th style="text-align: center;">Actions</th>
             `;
 
