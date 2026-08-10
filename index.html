@@ -244,6 +244,7 @@
         let currentSortCol = 'FTE';
         let currentSortAsc = false;
         let jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
+        let gitFilters = { author: '', year: '', week_number: '', unique_tickets_count: '' };
         let charts = {};
 
         const vibrantColors = [
@@ -486,8 +487,15 @@
                 renderJiraTable(filteredJira);
             } else if (currentTab === 'git') {
                 document.getElementById('table-title').innerHTML = "💻 Git Weekly Matrix Activity";
-                document.getElementById('table-filter-row').style.display = 'none';
-                let filteredGit = [...gitData];
+                document.getElementById('table-filter-row').style.display = 'table-row';
+                
+                let filteredGit = gitData.filter(g => {
+                    if (gitFilters.author && g.author !== gitFilters.author) return false;
+                    if (gitFilters.year && String(g.year) !== String(gitFilters.year)) return false;
+                    if (gitFilters.week_number && String(g.week_number) !== String(gitFilters.week_number)) return false;
+                    if (gitFilters.unique_tickets_count && String(g.unique_tickets_count) !== String(gitFilters.unique_tickets_count)) return false;
+                    return true;
+                });
 
                 filteredGit.sort((a, b) => {
                     let valA = a[currentSortCol], valB = b[currentSortCol];
@@ -618,6 +626,27 @@
                 <th style="text-align: center;">Actions</th>
             `;
 
+            const authors = [...new Set(gitData.map(g => g.author))].filter(Boolean).sort();
+            const years = [...new Set(gitData.map(g => g.year))].filter(Boolean).sort();
+            const weeks = [...new Set(gitData.map(g => g.week_number))].filter(v => v !== undefined && v !== null).sort((a,b)=>a-b);
+
+            const createSelectFilter = (field, currentVal, options, defaultText) => `
+                <select class="table-filter-input" onchange="window.updateGitFilter('${field}', this.value)">
+                    <option value="">${defaultText}</option>
+                    ${options.map(opt => `<option value="${opt}" ${String(opt) === String(currentVal) ? 'selected' : ''}>${opt}</option>`).join('')}
+                </select>
+            `;
+
+            document.getElementById('table-filter-row').innerHTML = `
+                <th>${createSelectFilter('author', gitFilters.author, authors, 'All Authors')}</th>
+                <th>${createSelectFilter('year', gitFilters.year, years, 'All Years')}</th>
+                <th>${createSelectFilter('week_number', gitFilters.week_number, weeks, 'All Weeks')}</th>
+                <th></th>
+                <th></th>
+                <th><input type="text" class="table-filter-input" placeholder="Filter Count..." value="${gitFilters.unique_tickets_count}" oninput="window.updateGitFilter('unique_tickets_count', this.value)"></th>
+                <th></th>
+            `;
+
             const tbody = document.getElementById('resource-table-body');
             if (data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Git Matrix data available.</td></tr>`;
@@ -645,6 +674,11 @@
                     </tr>
                 `;
             }).join('');
+        }
+
+        window.updateGitFilter = function(field, val) {
+            gitFilters[field] = val;
+            updateDashboard();
         }
 
         function renderSidebarProjectFTE(filteredEmps) {
@@ -699,6 +733,7 @@
             document.getElementById('filter-role').value = '';
             document.getElementById('filter-location').value = '';
             jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
+            gitFilters = { author: '', year: '', week_number: '', unique_tickets_count: '' };
             updateDashboard();
         }
 
@@ -762,6 +797,22 @@
             });
         }
 
+        // Helper to generate dynamic select dropdowns for modals to prevent free text typos
+        function getDropdownOptionsHtml(key, currentVal) {
+            const uniqueValues = [...new Set(employeeData.map(e => e[key]))].filter(Boolean).sort();
+            // If current value is not in unique list, add it
+            if (currentVal && !uniqueValues.includes(currentVal)) {
+                uniqueValues.push(currentVal);
+                uniqueValues.sort();
+            }
+            return `
+                <select id="m-${key.toLowerCase()}" class="form-group" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;">
+                    <option value="">Select ${key}...</option>
+                    ${uniqueValues.map(val => `<option value="${val}" ${val === currentVal ? 'selected' : ''}>${val}</option>`).join('')}
+                </select>
+            `;
+        }
+
         window.openModal = function() {
             document.getElementById('edit-index').value = -1;
             const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
@@ -770,10 +821,10 @@
             const formBody = document.getElementById('modal-form-body');
             if (currentTab === 'resources') {
                 formBody.innerHTML = `
-                    <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name"></div>
-                    <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role"></div>
-                    <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location"></div>
-                    <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project"></div>
+                    <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name"></div>
+                    <div class="form-group" style="margin:0;"><label>Role</label>${getDropdownOptionsHtml('Role', '')}</div>
+                    <div class="form-group" style="margin:0;"><label>Location</label>${getDropdownOptionsHtml('Location', '')}</div>
+                    <div class="form-group" style="margin:0;"><label>Project</label>${getDropdownOptionsHtml('Project', '')}</div>
                     <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0"></div>
                 `;
             } else if (currentTab === 'jira') {
@@ -807,9 +858,9 @@
             document.getElementById('modal-title').innerText = 'Edit Employee';
             document.getElementById('modal-form-body').innerHTML = `
                 <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" value="${emp.Name}"></div>
-                <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role" value="${emp.Role}"></div>
-                <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location" value="${emp.Location}"></div>
-                <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project" value="${emp.Project}"></div>
+                <div class="form-group" style="margin:0;"><label>Role</label>${getDropdownOptionsHtml('Role', emp.Role)}</div>
+                <div class="form-group" style="margin:0;"><label>Location</label>${getDropdownOptionsHtml('Location', emp.Location)}</div>
+                <div class="form-group" style="margin:0;"><label>Project</label>${getDropdownOptionsHtml('Project', emp.Project)}</div>
                 <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="${emp.FTE}"></div>
             `;
             document.getElementById('employeeModal').classList.add('active');
@@ -871,12 +922,13 @@
             if (currentTab === 'resources') {
                 const rec = {
                     Name: document.getElementById('m-name').value.trim(),
-                    Role: document.getElementById('m-role').value.trim(),
-                    Location: document.getElementById('m-location').value.trim(),
-                    Project: document.getElementById('m-project').value.trim(),
+                    Role: document.getElementById('m-role').value,
+                    Location: document.getElementById('m-location').value,
+                    Project: document.getElementById('m-project').value,
                     FTE: parseFloat(document.getElementById('m-fte').value) || 1.0
                 };
                 if (!rec.Name) { alert("Name is required."); return; }
+                if (!rec.Role || !rec.Location || !rec.Project) { alert("Please select Role, Location, and Project from the dropdowns."); return; }
                 if (idx === -1) employeeData.push(rec);
                 else employeeData[idx] = rec;
                 populateDropdowns();
