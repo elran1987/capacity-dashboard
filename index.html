@@ -457,10 +457,10 @@
                 const proj = document.getElementById('filter-project').value;
                 let filteredJira = jiraData.filter(j => {
                     if (proj && j.Project !== proj) return false;
-                    if (jiraFilters.Assignee && !j.Assignee.toLowerCase().includes(jiraFilters.Assignee.toLowerCase())) return false;
-                    if (jiraFilters.Project && !j.Project.toLowerCase().includes(jiraFilters.Project.toLowerCase())) return false;
-                    if (jiraFilters.FromStatus && !j.FromStatus.toLowerCase().includes(jiraFilters.FromStatus.toLowerCase())) return false;
-                    if (jiraFilters.ToStatus && !j.ToStatus.toLowerCase().includes(jiraFilters.ToStatus.toLowerCase())) return false;
+                    if (jiraFilters.Assignee && j.Assignee !== jiraFilters.Assignee) return false;
+                    if (jiraFilters.Project && j.Project !== jiraFilters.Project) return false;
+                    if (jiraFilters.FromStatus && j.FromStatus !== jiraFilters.FromStatus) return false;
+                    if (jiraFilters.ToStatus && j.ToStatus !== jiraFilters.ToStatus) return false;
                     if (jiraFilters.Issues && !j.Issues.toLowerCase().includes(jiraFilters.Issues.toLowerCase())) return false;
                     return true;
                 });
@@ -544,11 +544,24 @@
                 <th style="text-align: center;">Actions</th>
             `;
 
+            // Extract unique options for Jira dropdowns
+            const assignees = [...new Set(jiraData.map(j => j.Assignee))].filter(Boolean).sort();
+            const projects = [...new Set(jiraData.map(j => j.Project))].filter(Boolean).sort();
+            const fromStatuses = [...new Set(jiraData.map(j => j.FromStatus))].filter(Boolean).sort();
+            const toStatuses = [...new Set(jiraData.map(j => j.ToStatus))].filter(Boolean).sort();
+
+            const createSelectFilter = (field, currentVal, options, defaultText) => `
+                <select class="table-filter-input" onchange="updateJiraFilter('${field}', this.value)">
+                    <option value="">${defaultText}</option>
+                    ${options.map(opt => `<option value="${opt}" ${opt === currentVal ? 'selected' : ''}>${opt}</option>`).join('')}
+                </select>
+            `;
+
             document.getElementById('table-filter-row').innerHTML = `
-                <th><input type="text" class="table-filter-input" placeholder="Filter Assignee..." value="${jiraFilters.Assignee}" oninput="updateJiraFilter('Assignee', this.value)"></th>
-                <th><input type="text" class="table-filter-input" placeholder="Filter Project..." value="${jiraFilters.Project}" oninput="updateJiraFilter('Project', this.value)"></th>
-                <th><input type="text" class="table-filter-input" placeholder="Filter From..." value="${jiraFilters.FromStatus}" oninput="updateJiraFilter('FromStatus', this.value)"></th>
-                <th><input type="text" class="table-filter-input" placeholder="Filter To..." value="${jiraFilters.ToStatus}" oninput="updateJiraFilter('ToStatus', this.value)"></th>
+                <th>${createSelectFilter('Assignee', jiraFilters.Assignee, assignees, 'All Assignees')}</th>
+                <th>${createSelectFilter('Project', jiraFilters.Project, projects, 'All Projects')}</th>
+                <th>${createSelectFilter('FromStatus', jiraFilters.FromStatus, fromStatuses, 'All From')}</th>
+                <th>${createSelectFilter('ToStatus', jiraFilters.ToStatus, toStatuses, 'All To')}</th>
                 <th><input type="text" class="table-filter-input" placeholder="Filter Issue..." value="${jiraFilters.Issues}" oninput="updateJiraFilter('Issues', this.value)"></th>
                 <th></th>
             `;
