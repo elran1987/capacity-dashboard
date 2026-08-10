@@ -110,8 +110,8 @@
 
     <div class="dashboard-layout">
         <!-- Sidebar: Filters & Quick Project Totals -->
-        <div class="sidebar">
-            <div class="panel">
+        <div class="sidebar" id="sidebar-container">
+            <div class="panel" id="sidebar-filters-panel">
                 <h3>🔍 Filters & Controls</h3>
                 <div class="form-group">
                     <label>Project</label>
@@ -226,10 +226,7 @@
 
         let employeeData = [
             { Name: "Adriana Iovanut", Role: "Ro TL", Location: "Romania", Project: "Management", FTE: 1.0 },
-            { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Fenix", FTE: 0.33 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "Netivot", FTE: 0.33 },
-            { Name: "alexandru.roman", Role: "QA Automation", Location: "Romania", Project: "DNP", FTE: 0.34 }
+            { Name: "Alexandru Mihai", Role: "BE", Location: "Romania", Project: "Vasco", FTE: 1.0 }
         ];
 
         let jiraData = [
@@ -237,7 +234,8 @@
         ];
 
         let gitData = [
-            { author: "alexandru.roman", year: 2026, week_number: 28, week_start: "2026-07-05", week_end: "2026-07-11", unique_tickets_count: 14 }
+            { author: "Adriana Iovanut", year: 2026, week_number: 0, week_start: "", week_end: "", unique_tickets_count: 0 },
+            { author: "Alexandru Mihai", year: 2026, week_number: 0, week_start: "", week_end: "", unique_tickets_count: 0 }
         ];
 
         let currentSortCol = 'FTE';
@@ -262,25 +260,30 @@
 
             const chartsSection = document.getElementById('charts-section');
             const btnAdd = document.getElementById('btn-add-action');
-            const sidebarFte = document.getElementById('sidebar-fte-panel');
+            const sidebarContainer = document.getElementById('sidebar-container');
 
             if (tab === 'resources') {
                 chartsSection.style.display = 'grid';
-                sidebarFte.style.display = 'block';
+                sidebarContainer.style.display = 'flex';
+                document.getElementById('sidebar-filters-panel').style.display = 'block';
+                document.getElementById('sidebar-fte-panel').style.display = 'block';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Employee';
                 currentSortCol = 'FTE';
                 currentSortAsc = false;
             } else if (tab === 'jira') {
                 chartsSection.style.display = 'none';
-                sidebarFte.style.display = 'none';
+                sidebarContainer.style.display = 'flex';
+                document.getElementById('sidebar-filters-panel').style.display = 'block';
+                document.getElementById('sidebar-fte-panel').style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Jira Issue';
                 currentSortCol = 'Assignee';
                 currentSortAsc = true;
             } else if (tab === 'git') {
-                chartsSection.style.display = 'grid';
-                sidebarFte.style.display = 'none';
+                // הסתרת כל חלקי הפאנל הצדדי והגרפים העליונים בטאב Git לפי הבקשה בתמונה
+                chartsSection.style.display = 'none';
+                sidebarContainer.style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Git Record';
                 currentSortCol = 'author';
@@ -379,8 +382,8 @@
                         week_end: r.week_end || r.enddate || '',
                         unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
                     };
-                }).filter(g => g.author || g.week_number);
-                alert(`Successfully imported ${gitData.length} Git / Weekly Matrix records!`);
+                }).filter(g => g.author || g.week_number !== undefined);
+                alert(`Successfully imported ${gitData.length} Git records!`);
 
             } else {
                 employeeData = json.map(row => {
@@ -487,7 +490,6 @@
                 });
 
                 renderGitTable(filteredGit);
-                renderGitCharts();
             }
         }
 
@@ -600,6 +602,7 @@
         function renderGitTable(data) {
             const getSortIndicator = (col) => (currentSortCol !== col) ? ' ↕' : (currentSortAsc ? ' ▲' : ' ▼');
 
+            // כותרות מותאמות בדיוק לבקשה ולתמונה בטאב ה-Git
             document.getElementById('table-header-row').innerHTML = `
                 <th onclick="sortTable('author')">Author${getSortIndicator('author')}</th>
                 <th onclick="sortTable('year')">Year${getSortIndicator('year')}</th>
@@ -623,8 +626,8 @@
                         <td style="font-weight: 500; color: white;">${g.author}</td>
                         <td style="color: var(--text-slate-400);">${g.year}</td>
                         <td><span class="badge">Week ${g.week_number}</span></td>
-                        <td style="color: var(--text-slate-400);">${g.week_start}</td>
-                        <td style="color: var(--text-slate-400);">${g.week_end}</td>
+                        <td style="color: var(--text-slate-400);">${g.week_start || '—'}</td>
+                        <td style="color: var(--text-slate-400);">${g.week_end || '—'}</td>
                         <td style="text-align: right;">
                             <span style="padding: 4px 10px; background: rgba(6, 182, 212, 0.1); color: var(--cyan-400); border-radius: 6px; font-weight: bold; border: 1px solid rgba(6, 182, 212, 0.2);">
                                 ${g.unique_tickets_count}
@@ -754,63 +757,6 @@
             });
         }
 
-        function renderGitCharts() {
-            const authorMap = {};
-            gitData.forEach(g => { if(g.author) authorMap[g.author] = (authorMap[g.author] || 0) + (g.unique_tickets_count || 0); });
-            const labels = Object.keys(authorMap);
-            const values = Object.values(authorMap);
-
-            if (charts.projectFTE) charts.projectFTE.destroy();
-            const ctx1 = document.getElementById('chartProjectFTE').getContext('2d');
-            charts.projectFTE = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Total Unique Tickets per Author',
-                        data: values,
-                        backgroundColor: '#c084fc',
-                        borderRadius: 6
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { ticks: { color: '#94a3b8' }, grid: { display: false } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
-                    }
-                }
-            });
-
-            const weekMap = {};
-            gitData.forEach(g => { 
-                if(g.week_number) {
-                    const wKey = `Week ${g.week_number}`;
-                    weekMap[wKey] = (weekMap[wKey] || 0) + (g.unique_tickets_count || 0);
-                }
-            });
-
-            if (charts.orgComp) charts.orgComp.destroy();
-            const ctx2 = document.getElementById('chartOrgComposition').getContext('2d');
-            charts.orgComp = new Chart(ctx2, {
-                type: 'doughnut',
-                data: {
-                    labels: Object.keys(weekMap),
-                    datasets: [{
-                        data: Object.values(weekMap),
-                        backgroundColor: vibrantColors.slice(0, Object.keys(weekMap).length)
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { position: 'bottom', labels: { color: '#f1f5f9', boxWidth: 12 } } }
-                }
-            });
-        }
-
         function openModal() {
             document.getElementById('edit-index').value = -1;
             const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
@@ -837,7 +783,7 @@
                 formBody.innerHTML = `
                     <div class="form-group" style="margin:0;"><label>Author</label><input type="text" id="m-author"></div>
                     <div class="form-group" style="margin:0;"><label>Year</label><input type="number" id="m-year" value="2026"></div>
-                    <div class="form-group" style="margin:0;"><label>Week Number</label><input type="number" id="m-week" value="1"></div>
+                    <div class="form-group" style="margin:0;"><label>Week Number</label><input type="number" id="m-week" value="0"></div>
                     <div class="form-group" style="margin:0;"><label>Week Start</label><input type="date" id="m-start"></div>
                     <div class="form-group" style="margin:0;"><label>Week End</label><input type="date" id="m-end"></div>
                     <div class="form-group" style="margin:0;"><label>Unique Tickets Count</label><input type="number" id="m-count" value="0"></div>
@@ -881,7 +827,7 @@
         function editGit(idx) {
             const g = gitData[idx];
             document.getElementById('edit-index').value = idx;
-            document.getElementById('modal-title').innerText = 'Edit Git Matrix Record';
+            document.getElementById('modal-title').innerText = 'Edit Git Record';
             document.getElementById('modal-form-body').innerHTML = `
                 <div class="form-group" style="margin:0;"><label>Author</label><input type="text" id="m-author" value="${g.author}"></div>
                 <div class="form-group" style="margin:0;"><label>Year</label><input type="number" id="m-year" value="${g.year}"></div>
@@ -944,7 +890,7 @@
                 const rec = {
                     author: document.getElementById('m-author').value.trim(),
                     year: parseInt(document.getElementById('m-year').value) || new Date().getFullYear(),
-                    week_number: parseInt(document.getElementById('m-week').value) || 1,
+                    week_number: parseInt(document.getElementById('m-week').value) || 0,
                     week_start: document.getElementById('m-start').value,
                     week_end: document.getElementById('m-end').value,
                     unique_tickets_count: parseInt(document.getElementById('m-count').value) || 0
