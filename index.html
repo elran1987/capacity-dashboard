@@ -27,11 +27,16 @@
         body { background-color: var(--bg-slate-950); color: var(--text-slate-100); min-height: 100vh; padding: 24px; }
 
         .dashboard-layout {
-            max-width: 1600px;
+            max-width: 100%;
             margin: 0 auto;
             display: grid;
             grid-template-columns: 300px 1fr;
             gap: 24px;
+            transition: 0.3s;
+        }
+
+        .dashboard-layout.full-width {
+            grid-template-columns: 1fr;
         }
 
         @media (max-width: 1024px) {
@@ -59,7 +64,7 @@
         .sidebar-total { border-top: 1px solid var(--border-slate-800); padding-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: bold; }
 
         /* Main Content */
-        .main-content { display: flex; flex-direction: column; gap: 24px; }
+        .main-content { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
         
         /* Tabs Bar */
         .tabs-header { display: flex; gap: 12px; border-bottom: 1px solid var(--border-slate-800); padding-bottom: 12px; }
@@ -73,8 +78,8 @@
         .chart-container { position: relative; height: 320px; width: 100%; }
 
         /* Table Section */
-        .table-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; overflow: hidden; }
-        .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border-slate-800); display: flex; justify-content: space-between; align-items: center; }
+        .table-card { background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-slate-800); border-radius: 16px; overflow: hidden; width: 100%; }
+        .table-header { padding: 16px 20px; border-bottom: 1px solid var(--border-slate-800); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
         .table-header h3 { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
 
         .actions-bar { display: flex; gap: 10px; align-items: center; }
@@ -82,10 +87,10 @@
         button.primary:hover, label.btn-upload:hover { background: var(--cyan-400); }
         input[type="file"] { display: none; }
 
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
-        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 12px 16px; border-bottom: 1px solid var(--border-slate-800); cursor: pointer; user-select: none; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; white-space: nowrap; }
+        th { background: rgba(15, 23, 42, 0.9); color: var(--text-slate-400); text-transform: uppercase; font-size: 11px; padding: 14px 18px; border-bottom: 1px solid var(--border-slate-800); cursor: pointer; user-select: none; }
         th:hover { color: var(--cyan-400); }
-        td { padding: 14px 16px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
+        td { padding: 14px 18px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); }
         tr:hover td { background: rgba(30, 41, 59, 0.3); }
 
         .table-filter-row th { background: rgba(15, 23, 42, 0.95); padding: 8px 12px; border-bottom: 1px solid var(--border-slate-800); }
@@ -108,7 +113,7 @@
 </head>
 <body onload="initDashboard()">
 
-    <div class="dashboard-layout">
+    <div class="dashboard-layout" id="dashboard-layout">
         <!-- Sidebar: Filters & Quick Project Totals -->
         <div class="sidebar" id="sidebar-container">
             <div class="panel" id="sidebar-filters-panel">
@@ -143,9 +148,7 @@
                         <option value="name-asc">Name: A-Z</option>
                     </select>
                 </h3>
-                <div id="project-fte-list" class="top-projects-list">
-                    <!-- Loaded dynamically -->
-                </div>
+                <div id="project-fte-list" class="top-projects-list"></div>
                 <div class="sidebar-total">
                     <span style="color: var(--text-slate-400);">Total FTE:</span>
                     <span id="sidebar-total-fte" style="color: var(--cyan-400);">0.00</span>
@@ -194,7 +197,7 @@
                         <button class="primary" id="btn-add-action" onclick="openModal()">+ Add Employee</button>
                     </div>
                 </div>
-                <div style="overflow-x: auto;">
+                <div style="overflow-x: auto; width: 100%;">
                     <table id="main-table">
                         <thead>
                             <tr id="table-header-row"></tr>
@@ -234,8 +237,8 @@
         ];
 
         let gitData = [
-            { author: "Adriana Iovanut", year: 2026, week_number: 0, week_start: "", week_end: "", unique_tickets_count: 0 },
-            { author: "Alexandru Mihai", year: 2026, week_number: 0, week_start: "", week_end: "", unique_tickets_count: 0 }
+            { author: "Administrator", year: 2026, week_number: 30, week_start: "2026-07-20", week_end: "", unique_tickets_count: 0 },
+            { author: "Administrator", year: 2026, week_number: 29, week_start: "2026-07-13", week_end: "", unique_tickets_count: 0 }
         ];
 
         let currentSortCol = 'FTE';
@@ -261,10 +264,12 @@
             const chartsSection = document.getElementById('charts-section');
             const btnAdd = document.getElementById('btn-add-action');
             const sidebarContainer = document.getElementById('sidebar-container');
+            const dashboardLayout = document.getElementById('dashboard-layout');
 
             if (tab === 'resources') {
                 chartsSection.style.display = 'grid';
                 sidebarContainer.style.display = 'flex';
+                dashboardLayout.classList.remove('full-width');
                 document.getElementById('sidebar-filters-panel').style.display = 'block';
                 document.getElementById('sidebar-fte-panel').style.display = 'block';
                 btnAdd.style.display = 'inline-flex';
@@ -274,6 +279,7 @@
             } else if (tab === 'jira') {
                 chartsSection.style.display = 'none';
                 sidebarContainer.style.display = 'flex';
+                dashboardLayout.classList.remove('full-width');
                 document.getElementById('sidebar-filters-panel').style.display = 'block';
                 document.getElementById('sidebar-fte-panel').style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
@@ -281,9 +287,10 @@
                 currentSortCol = 'Assignee';
                 currentSortAsc = true;
             } else if (tab === 'git') {
-                // הסתרת כל חלקי הפאנל הצדדי והגרפים העליונים בטאב Git לפי הבקשה בתמונה
+                // מעבר למצב רוחב מלא (Full Width) עבור טאב ה-Git
                 chartsSection.style.display = 'none';
                 sidebarContainer.style.display = 'none';
+                dashboardLayout.classList.add('full-width');
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Git Record';
                 currentSortCol = 'author';
@@ -602,7 +609,6 @@
         function renderGitTable(data) {
             const getSortIndicator = (col) => (currentSortCol !== col) ? ' ↕' : (currentSortAsc ? ' ▲' : ' ▼');
 
-            // כותרות מותאמות בדיוק לבקשה ולתמונה בטאב ה-Git
             document.getElementById('table-header-row').innerHTML = `
                 <th onclick="sortTable('author')">Author${getSortIndicator('author')}</th>
                 <th onclick="sortTable('year')">Year${getSortIndicator('year')}</th>
@@ -892,7 +898,7 @@
                     year: parseInt(document.getElementById('m-year').value) || new Date().getFullYear(),
                     week_number: parseInt(document.getElementById('m-week').value) || 0,
                     week_start: document.getElementById('m-start').value,
-                    week_end: document.getElementById('m-end').value,
+                    week_end: document.getElementById('m-end'].value,
                     unique_tickets_count: parseInt(document.getElementById('m-count').value) || 0
                 };
                 if (!rec.author) { alert("Author is required."); return; }
