@@ -237,7 +237,7 @@
         ];
 
         let gitData = [
-            { Developer: "alexandru.roman", Repository: "Fenix-Core", Commits: 14, PRs: 3 }
+            { author: "alexandru.roman", year: 2026, week_number: 28, week_start: "2026-07-05", week_end: "2026-07-11", unique_tickets_count: 14 }
         ];
 
         let currentSortCol = 'FTE';
@@ -283,7 +283,7 @@
                 sidebarFte.style.display = 'none';
                 btnAdd.style.display = 'inline-flex';
                 btnAdd.innerText = '+ Add Git Record';
-                currentSortCol = 'Developer';
+                currentSortCol = 'author';
                 currentSortAsc = true;
             }
             updateDashboard();
@@ -317,7 +317,7 @@
                 reader.onload = function(e) {
                     try {
                         const parsed = JSON.parse(e.target.result);
-                        const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || [parsed]);
+                        const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
                         processParsedData(json);
                     } catch (err) {
                         console.error(err);
@@ -367,17 +367,20 @@
                 alert(`Successfully imported ${jiraData.length} Jira records!`);
 
             } else if (activeTab === 'git') {
-                gitData = json.map(row => {
+                gitData = json.map((row, index) => {
                     const r = {};
                     Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
                     return {
-                        Developer: r.developer || r['name'] || r['author'] || '',
-                        Repository: r.repository || r['repo'] || '',
-                        Commits: parseInt(r.commits || r['commit count'] || 0),
-                        PRs: parseInt(r.prs || r['pull requests'] || 0)
+                        id: r.id || index,
+                        author: r.author || r.developer || r.name || '',
+                        year: parseInt(r.year || new Date().getFullYear()),
+                        week_number: parseInt(r.week_number || r.week || 0),
+                        week_start: r.week_start || r.startdate || '',
+                        week_end: r.week_end || r.enddate || '',
+                        unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
                     };
-                }).filter(g => g.Developer || g.Repository);
-                alert(`Successfully imported ${gitData.length} Git records!`);
+                }).filter(g => g.author || g.week_number);
+                alert(`Successfully imported ${gitData.length} Git / Weekly Matrix records!`);
 
             } else {
                 employeeData = json.map(row => {
@@ -473,7 +476,7 @@
 
                 renderJiraTable(filteredJira);
             } else if (currentTab === 'git') {
-                document.getElementById('table-title').innerHTML = "💻 Git Commit & PR Activity";
+                document.getElementById('table-title').innerHTML = "💻 Git Weekly Matrix Activity";
                 document.getElementById('table-filter-row').style.display = 'none';
                 let filteredGit = [...gitData];
 
@@ -544,7 +547,6 @@
                 <th style="text-align: center;">Actions</th>
             `;
 
-            // Extract unique options for Jira dropdowns
             const assignees = [...new Set(jiraData.map(j => j.Assignee))].filter(Boolean).sort();
             const projects = [...new Set(jiraData.map(j => j.Project))].filter(Boolean).sort();
             const fromStatuses = [...new Set(jiraData.map(j => j.FromStatus))].filter(Boolean).sort();
@@ -599,16 +601,18 @@
             const getSortIndicator = (col) => (currentSortCol !== col) ? ' ↕' : (currentSortAsc ? ' ▲' : ' ▼');
 
             document.getElementById('table-header-row').innerHTML = `
-                <th onclick="sortTable('Developer')">Developer${getSortIndicator('Developer')}</th>
-                <th onclick="sortTable('Repository')">Repository${getSortIndicator('Repository')}</th>
-                <th onclick="sortTable('Commits')" style="text-align: right;">Commits${getSortIndicator('Commits')}</th>
-                <th onclick="sortTable('PRs')" style="text-align: right;">PRs${getSortIndicator('PRs')}</th>
+                <th onclick="sortTable('author')">Author${getSortIndicator('author')}</th>
+                <th onclick="sortTable('year')">Year${getSortIndicator('year')}</th>
+                <th onclick="sortTable('week_number')">Week Number${getSortIndicator('week_number')}</th>
+                <th onclick="sortTable('week_start')">Week Start</th>
+                <th onclick="sortTable('week_end')">Week End</th>
+                <th onclick="sortTable('unique_tickets_count')" style="text-align: right;">Unique Tickets Count${getSortIndicator('unique_tickets_count')}</th>
                 <th style="text-align: center;">Actions</th>
             `;
 
             const tbody = document.getElementById('resource-table-body');
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Git data available.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-slate-400); padding: 32px;">No Git Matrix data available.</td></tr>`;
                 return;
             }
 
@@ -616,10 +620,16 @@
                 const globalIdx = gitData.indexOf(g);
                 return `
                     <tr>
-                        <td style="font-weight: 500; color: white;">${g.Developer}</td>
-                        <td style="color: var(--purple-400);">${g.Repository}</td>
-                        <td style="text-align: right; font-weight: bold; color: var(--emerald-400);">${g.Commits}</td>
-                        <td style="text-align: right; font-weight: bold; color: var(--cyan-400);">${g.PRs}</td>
+                        <td style="font-weight: 500; color: white;">${g.author}</td>
+                        <td style="color: var(--text-slate-400);">${g.year}</td>
+                        <td><span class="badge">Week ${g.week_number}</span></td>
+                        <td style="color: var(--text-slate-400);">${g.week_start}</td>
+                        <td style="color: var(--text-slate-400);">${g.week_end}</td>
+                        <td style="text-align: right;">
+                            <span style="padding: 4px 10px; background: rgba(6, 182, 212, 0.1); color: var(--cyan-400); border-radius: 6px; font-weight: bold; border: 1px solid rgba(6, 182, 212, 0.2);">
+                                ${g.unique_tickets_count}
+                            </span>
+                        </td>
                         <td style="text-align: center;">
                             <button onclick="editGit(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--blue-400); font-size: 14px; margin-right: 8px;" title="Edit">✏️</button>
                             <button onclick="deleteGit(${globalIdx})" style="background: none; border: none; cursor: pointer; color: var(--rose-400); font-size: 14px;" title="Delete">🗑️</button>
@@ -671,7 +681,7 @@
                 currentSortAsc = !currentSortAsc;
             } else {
                 currentSortCol = col;
-                currentSortAsc = (col === 'FTE' || col === 'Commits' || col === 'PRs') ? false : true;
+                currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number') ? false : true;
             }
             updateDashboard();
         }
@@ -745,10 +755,10 @@
         }
 
         function renderGitCharts() {
-            const repoMap = {};
-            gitData.forEach(g => { if(g.Repository) repoMap[g.Repository] = (repoMap[g.Repository] || 0) + (g.Commits || 0); });
-            const labels = Object.keys(repoMap);
-            const values = Object.values(repoMap);
+            const authorMap = {};
+            gitData.forEach(g => { if(g.author) authorMap[g.author] = (authorMap[g.author] || 0) + (g.unique_tickets_count || 0); });
+            const labels = Object.keys(authorMap);
+            const values = Object.values(authorMap);
 
             if (charts.projectFTE) charts.projectFTE.destroy();
             const ctx1 = document.getElementById('chartProjectFTE').getContext('2d');
@@ -757,7 +767,7 @@
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: 'Commits per Repo',
+                        label: 'Total Unique Tickets per Author',
                         data: values,
                         backgroundColor: '#c084fc',
                         borderRadius: 6
@@ -774,17 +784,23 @@
                 }
             });
 
-            const prMap = {};
-            gitData.forEach(g => { if(g.Developer) prMap[g.Developer] = (prMap[g.Developer] || 0) + (g.PRs || 0); });
+            const weekMap = {};
+            gitData.forEach(g => { 
+                if(g.week_number) {
+                    const wKey = `Week ${g.week_number}`;
+                    weekMap[wKey] = (weekMap[wKey] || 0) + (g.unique_tickets_count || 0);
+                }
+            });
+
             if (charts.orgComp) charts.orgComp.destroy();
             const ctx2 = document.getElementById('chartOrgComposition').getContext('2d');
             charts.orgComp = new Chart(ctx2, {
                 type: 'doughnut',
                 data: {
-                    labels: Object.keys(prMap),
+                    labels: Object.keys(weekMap),
                     datasets: [{
-                        data: Object.values(prMap),
-                        backgroundColor: vibrantColors.slice(0, Object.keys(prMap).length)
+                        data: Object.values(weekMap),
+                        backgroundColor: vibrantColors.slice(0, Object.keys(weekMap).length)
                     }]
                 },
                 options: {
@@ -797,7 +813,7 @@
 
         function openModal() {
             document.getElementById('edit-index').value = -1;
-            const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Record';
+            const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
             document.getElementById('modal-title').innerText = title;
             
             const formBody = document.getElementById('modal-form-body');
@@ -819,10 +835,12 @@
                 `;
             } else if (currentTab === 'git') {
                 formBody.innerHTML = `
-                    <div class="form-group" style="margin:0;"><label>Developer</label><input type="text" id="m-dev"></div>
-                    <div class="form-group" style="margin:0;"><label>Repository</label><input type="text" id="m-repo"></div>
-                    <div class="form-group" style="margin:0;"><label>Commits</label><input type="number" id="m-commits" value="0"></div>
-                    <div class="form-group" style="margin:0;"><label>PRs</label><input type="number" id="m-prs" value="0"></div>
+                    <div class="form-group" style="margin:0;"><label>Author</label><input type="text" id="m-author"></div>
+                    <div class="form-group" style="margin:0;"><label>Year</label><input type="number" id="m-year" value="2026"></div>
+                    <div class="form-group" style="margin:0;"><label>Week Number</label><input type="number" id="m-week" value="1"></div>
+                    <div class="form-group" style="margin:0;"><label>Week Start</label><input type="date" id="m-start"></div>
+                    <div class="form-group" style="margin:0;"><label>Week End</label><input type="date" id="m-end"></div>
+                    <div class="form-group" style="margin:0;"><label>Unique Tickets Count</label><input type="number" id="m-count" value="0"></div>
                 `;
             }
             document.getElementById('employeeModal').classList.add('active');
@@ -863,12 +881,14 @@
         function editGit(idx) {
             const g = gitData[idx];
             document.getElementById('edit-index').value = idx;
-            document.getElementById('modal-title').innerText = 'Edit Git Record';
+            document.getElementById('modal-title').innerText = 'Edit Git Matrix Record';
             document.getElementById('modal-form-body').innerHTML = `
-                <div class="form-group" style="margin:0;"><label>Developer</label><input type="text" id="m-dev" value="${g.Developer}"></div>
-                <div class="form-group" style="margin:0;"><label>Repository</label><input type="text" id="m-repo" value="${g.Repository}"></div>
-                <div class="form-group" style="margin:0;"><label>Commits</label><input type="number" id="m-commits" value="${g.Commits}"></div>
-                <div class="form-group" style="margin:0;"><label>PRs</label><input type="number" id="m-prs" value="${g.PRs}"></div>
+                <div class="form-group" style="margin:0;"><label>Author</label><input type="text" id="m-author" value="${g.author}"></div>
+                <div class="form-group" style="margin:0;"><label>Year</label><input type="number" id="m-year" value="${g.year}"></div>
+                <div class="form-group" style="margin:0;"><label>Week Number</label><input type="number" id="m-week" value="${g.week_number}"></div>
+                <div class="form-group" style="margin:0;"><label>Week Start</label><input type="date" id="m-start" value="${g.week_start}"></div>
+                <div class="form-group" style="margin:0;"><label>Week End</label><input type="date" id="m-end" value="${g.week_end}"></div>
+                <div class="form-group" style="margin:0;"><label>Unique Tickets Count</label><input type="number" id="m-count" value="${g.unique_tickets_count}"></div>
             `;
             document.getElementById('employeeModal').classList.add('active');
         }
@@ -922,12 +942,14 @@
                 else jiraData[idx] = rec;
             } else if (currentTab === 'git') {
                 const rec = {
-                    Developer: document.getElementById('m-dev').value.trim(),
-                    Repository: document.getElementById('m-repo').value.trim(),
-                    Commits: parseInt(document.getElementById('m-commits').value) || 0,
-                    PRs: parseInt(document.getElementById('m-prs').value) || 0
+                    author: document.getElementById('m-author').value.trim(),
+                    year: parseInt(document.getElementById('m-year').value) || new Date().getFullYear(),
+                    week_number: parseInt(document.getElementById('m-week').value) || 1,
+                    week_start: document.getElementById('m-start').value,
+                    week_end: document.getElementById('m-end').value,
+                    unique_tickets_count: parseInt(document.getElementById('m-count').value) || 0
                 };
-                if (!rec.Developer && !rec.Repository) { alert("Developer or Repository is required."); return; }
+                if (!rec.author) { alert("Author is required."); return; }
                 if (idx === -1) gitData.push(rec);
                 else gitData[idx] = rec;
             }
