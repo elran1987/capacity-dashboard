@@ -3,8 +3,6 @@ let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
 window.initDashboard = function() {
-    // טעינת נתונים שמורים מראש מ-LocalStorage בעליית העמוד
-    loadFromLocalStorage();
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
@@ -12,7 +10,9 @@ window.initDashboard = function() {
 window.switchTab = function(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`tab-btn-${tab}`).classList.add('active');
+    
+    const targetBtn = document.getElementById(`tab-btn-${tab}`);
+    if (targetBtn) targetBtn.classList.add('active');
 
     const chartsSection = document.getElementById('charts-section');
     const btnAdd = document.getElementById('btn-add-action');
@@ -20,31 +20,46 @@ window.switchTab = function(tab) {
     const dashboardLayout = document.getElementById('dashboard-layout');
 
     if (tab === 'resources') {
-        chartsSection.style.display = 'grid';
-        sidebarContainer.style.display = 'flex';
-        dashboardLayout.classList.remove('full-width');
-        document.getElementById('sidebar-filters-panel').style.display = 'block';
-        document.getElementById('sidebar-fte-panel').style.display = 'block';
-        btnAdd.style.display = 'inline-flex';
-        btnAdd.innerText = '+ Add Employee';
+        if (chartsSection) chartsSection.style.display = 'grid';
+        if (sidebarContainer) sidebarContainer.style.display = 'flex';
+        if (dashboardLayout) dashboardLayout.classList.remove('full-width');
+        
+        const p1 = document.getElementById('sidebar-filters-panel');
+        const p2 = document.getElementById('sidebar-fte-panel');
+        if (p1) p1.style.display = 'block';
+        if (p2) p2.style.display = 'block';
+        
+        if (btnAdd) {
+            btnAdd.style.display = 'inline-flex';
+            btnAdd.innerText = '+ Add Employee';
+        }
         currentSortCol = 'FTE';
         currentSortAsc = false;
     } else if (tab === 'jira') {
-        chartsSection.style.display = 'none';
-        sidebarContainer.style.display = 'flex';
-        dashboardLayout.classList.remove('full-width');
-        document.getElementById('sidebar-filters-panel').style.display = 'block';
-        document.getElementById('sidebar-fte-panel').style.display = 'none';
-        btnAdd.style.display = 'inline-flex';
-        btnAdd.innerText = '+ Add Jira Issue';
+        if (chartsSection) chartsSection.style.display = 'none';
+        if (sidebarContainer) sidebarContainer.style.display = 'flex';
+        if (dashboardLayout) dashboardLayout.classList.remove('full-width');
+        
+        const p1 = document.getElementById('sidebar-filters-panel');
+        const p2 = document.getElementById('sidebar-fte-panel');
+        if (p1) p1.style.display = 'block';
+        if (p2) p2.style.display = 'none';
+        
+        if (btnAdd) {
+            btnAdd.style.display = 'inline-flex';
+            btnAdd.innerText = '+ Add Jira Issue';
+        }
         currentSortCol = 'Assignee';
         currentSortAsc = true;
     } else if (tab === 'git') {
-        chartsSection.style.display = 'none';
-        sidebarContainer.style.display = 'none';
-        dashboardLayout.classList.add('full-width');
-        btnAdd.style.display = 'inline-flex';
-        btnAdd.innerText = '+ Add Git Record';
+        if (chartsSection) chartsSection.style.display = 'none';
+        if (sidebarContainer) sidebarContainer.style.display = 'none';
+        if (dashboardLayout) dashboardLayout.classList.add('full-width');
+        
+        if (btnAdd) {
+            btnAdd.style.display = 'inline-flex';
+            btnAdd.innerText = '+ Add Git Record';
+        }
         currentSortCol = 'author';
         currentSortAsc = true;
     }
@@ -111,9 +126,11 @@ window.renderSidebarProjectFTE = function(filtered) {
 }
 
 window.updateDashboard = function() {
+    const tableTitle = document.getElementById('table-title');
+    const filterRow = document.getElementById('table-filter-row');
+
     if (currentTab === 'resources') {
-        document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
-        const filterRow = document.getElementById('table-filter-row');
+        if (tableTitle) tableTitle.innerHTML = "👥 Interactive Resource Table & Edit Suite";
         if (filterRow) filterRow.style.display = 'none';
         
         const filtered = getFilteredResources();
@@ -130,19 +147,17 @@ window.updateDashboard = function() {
         if (typeof renderResourceCharts === 'function') renderResourceCharts(filtered);
 
     } else if (currentTab === 'jira') {
-        document.getElementById('table-title').innerHTML = "🎫 Jira Issues Tracking";
-        const filterRow = document.getElementById('table-filter-row');
+        if (tableTitle) tableTitle.innerHTML = "🎫 Jira Issues Tracking";
         if (filterRow) filterRow.style.display = 'table-row';
         
-        // קריאת הפילטרים מאובייקט jiraFilters שמנוהל ב-jira.js
         const assigneeFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Assignee : '';
         const projFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Project : '';
         const fromFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.FromStatus : '';
         const toFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.ToStatus : '';
-        const textFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Issues.toLowerCase() : '';
+        const textFilter = typeof jiraFilters !== 'undefined' ? (jiraFilters.Issues || '').toLowerCase() : '';
 
         let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
-            const jAssignee = j.Assignee || j.assignee || '';
+            const jAssignee = j.Assignee || j.user || j.assignee || '';
             const jProject = j.Project || j.project || '';
             const jFrom = j.FromStatus || j.fromstatus || j.from_status || '';
             const jTo = j.ToStatus || j.tostatus || j.to_status || '';
@@ -166,8 +181,7 @@ window.updateDashboard = function() {
         if (typeof renderJiraTable === 'function') renderJiraTable(filteredJira);
 
     } else if (currentTab === 'git') {
-        document.getElementById('table-title').innerHTML = "💻 Git Weekly Matrix Activity";
-        const filterRow = document.getElementById('table-filter-row');
+        if (tableTitle) tableTitle.innerHTML = "💻 Git Weekly Matrix Activity";
         if (filterRow) filterRow.style.display = 'table-row';
         
         let filteredGit = typeof gitData !== 'undefined' ? gitData : [];
@@ -238,7 +252,6 @@ function processParsedData(json) {
                 const r = {};
                 Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
                 
-                // פירוק חכם של שדה Transition לשדות FromStatus ו-ToStatus
                 let fromStatus = r['from status'] || r['fromstatus'] || r['from_status'] || r['from'] || '';
                 let toStatus = r['to status'] || r['tostatus'] || r['to_status'] || r['to'] || '';
                 
@@ -259,9 +272,7 @@ function processParsedData(json) {
                 };
             }).filter(j => j.Assignee || j.Issues);
             
-            // שמירה אוטומטית בזיכרון המקומי בדפדפן
-            localStorage.setItem('dashboard_jira_data', JSON.stringify(jiraData));
-            alert(`Successfully imported and saved ${jiraData.length} Jira records!`);
+            alert(`Successfully imported ${jiraData.length} Jira records!`);
         }
     } else if (activeTab === 'git') {
         if (typeof gitData !== 'undefined') {
@@ -279,4 +290,40 @@ function processParsedData(json) {
                 };
             }).filter(g => g.author || g.week_number !== undefined);
             
-            localStorage.setItem('dashboard_git_
+            alert(`Successfully imported ${gitData.length} Git records!`);
+        }
+    } else {
+        if (typeof employeeData !== 'undefined') {
+            const tempMap = new Map();
+
+            json.forEach(row => {
+                const cleanRow = {};
+                Object.keys(row).forEach(k => {
+                    cleanRow[k.toLowerCase().trim()] = row[k];
+                });
+
+                let name = String(cleanRow['name'] || '').trim();
+                if (!name) return;
+
+                let role = String(cleanRow['role'] || '').trim();
+                let location = String(cleanRow['location'] || '').trim();
+                let project = String(cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '').trim();
+                let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
+                
+                let fte = parseFloat(fteVal);
+                if (isNaN(fte)) fte = 1.0;
+
+                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}_${fte}`;
+
+                tempMap.set(uniqueKey, {
+                    Name: name,
+                    Role: role,
+                    Location: location,
+                    Project: project,
+                    FTE: fte
+                });
+            });
+
+            employeeData = Array.from(tempMap.values());
+            if (typeof populateDropdowns === 'function') populateDropdowns();
+            alert(`Successfully imported ${employeeData.length} resource records!
