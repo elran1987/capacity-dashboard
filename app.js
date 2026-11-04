@@ -195,19 +195,18 @@ window.updateDashboard = function() {
 }
 
 // -------------------------------------------------------------
-// Modal Management (Add / Edit בפורמט הנכון עם Dropdowns)
+// Modal Management (Add / Edit)
 // -------------------------------------------------------------
 
 window.openModal = function() {
     document.getElementById('edit-index').value = "-1";
     document.getElementById('modal-title').innerText = "Add New Employee";
     
-    // שימוש בפונקציה קיימת או יצירת שדות בחירה נפתחות בדומה לצילום המסך
     document.getElementById('modal-form-body').innerHTML = `
         <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;"></div>
-        <div class="form-group" style="margin:0;"><label>Role</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Role', '') : '<input type="text" id="m-role">'}</div>
-        <div class="form-group" style="margin:0;"><label>Location</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Location', '') : '<input type="text" id="m-location">'}</div>
-        <div class="form-group" style="margin:0;"><label>Project</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Project', '') : '<input type="text" id="m-project">'}</div>
+        <div class="form-group" style="margin:0;"><label>Role</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Role', '') : '<input type="text" id="m-role" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white;">'}</div>
+        <div class="form-group" style="margin:0;"><label>Location</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Location', '') : '<input type="text" id="m-location" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white;">'}</div>
+        <div class="form-group" style="margin:0;"><label>Project</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Project', '') : '<input type="text" id="m-project" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white;">'}</div>
         <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;"></div>
     `;
     document.getElementById('employeeModal').classList.add('active');
@@ -220,9 +219,9 @@ window.closeModal = function() {
 window.saveRecord = function() {
     const idx = parseInt(document.getElementById('edit-index').value);
     const nameEl = document.getElementById('m-name');
-    const roleEl = document.getElementById('m-role') || document.getElementById('m-role');
-    const locEl = document.getElementById('m-location') || document.getElementById('m-location');
-    const projEl = document.getElementById('m-project') || document.getElementById('m-project');
+    const roleEl = document.getElementById('m-role');
+    const locEl = document.getElementById('m-location');
+    const projEl = document.getElementById('m-project');
     const fteEl = document.getElementById('m-fte');
 
     if (!nameEl || !nameEl.value.trim()) {
@@ -294,121 +293,3 @@ window.handleFileUpload = function(event) {
                 processParsedData(rawJson);
             } catch (err) {
                 console.error(err);
-                alert("Error reading file.");
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-    event.target.value = '';
-}
-
-function processParsedData(json) {
-    if (!json || json.length === 0) return;
-
-    let activeTab = currentTab;
-    const jiraBtn = document.getElementById('tab-btn-jira');
-    const gitBtn = document.getElementById('tab-btn-git');
-    const resBtn = document.getElementById('tab-btn-resources');
-
-    if (jiraBtn && jiraBtn.classList.contains('active')) activeTab = 'jira';
-    else if (gitBtn && gitBtn.classList.contains('active')) activeTab = 'git';
-    else if (resBtn && resBtn.classList.contains('active')) activeTab = 'resources';
-
-    if (activeTab === 'resources') {
-        if (typeof employeeData !== 'undefined') {
-            const tempMap = new Map();
-
-            json.forEach(row => {
-                const cleanRow = {};
-                Object.keys(row).forEach(k => {
-                    cleanRow[k.toLowerCase().trim()] = row[k];
-                });
-
-                let name = String(cleanRow['name'] || '').trim();
-                if (!name) return;
-
-                let role = String(cleanRow['role'] || '').trim();
-                let location = String(cleanRow['location'] || '').trim();
-                let project = String(cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '').trim();
-                let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
-                
-                let fte = parseFloat(fteVal);
-                 if (isNaN(fte)) fte = 1.0;
-
-                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}_${fte}`;
-
-                tempMap.set(uniqueKey, {
-                    Name: name,
-                    name: name,
-                    Role: role,
-                    role: role,
-                    Location: location,
-                    location: location,
-                    Project: project,
-                    project: project,
-                    FTE: fte,
-                    fte: fte
-                });
-            });
-
-            employeeData = Array.from(tempMap.values());
-
-            populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} unique resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
-        }
-    }
-    updateDashboard();
-}
-
-window.filterByProject = function(projName) {
-    const projEl = document.getElementById('filter-project');
-    if (projEl) projEl.value = projName;
-    updateDashboard();
-}
-
-window.sortTable = function(col) {
-    if (currentSortCol === col) {
-        currentSortAsc = !currentSortAsc;
-    } else {
-        currentSortCol = col;
-        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number') ? false : true;
-    }
-    updateDashboard();
-}
-
-window.resetFilters = function() {
-    const projEl = document.getElementById('filter-project');
-    if (projEl) projEl.value = '';
-    
-    const roleSelect = document.getElementById('filter-role');
-    if (roleSelect) {
-        Array.from(roleSelect.options).forEach(opt => opt.selected = false);
-    }
-    
-    const locEl = document.getElementById('filter-location');
-    if (locEl) locEl.value = '';
-
-    updateDashboard();
-}
-
-window.onload = function() {
-    // קישור כפתור ה-Add הראשי לפתיחת ה-Modal
-    const btnAdd = document.getElementById('btn-add-action');
-    if (btnAdd) {
-        btnAdd.onclick = function() {
-            if (currentTab === 'resources') {
-                if (typeof window.openModal === 'function') {
-                    window.openModal();
-                }
-            } else {
-                alert("Add action for this tab");
-            }
-        };
-    }
-
-    if (typeof initDashboard === 'function') {
-        initDashboard();
-    } else {
-        updateDashboard();
-    }
-}
