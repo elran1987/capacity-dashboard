@@ -3,7 +3,7 @@ let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
 window.initDashboard = function() {
-    if (typeof populateDropdowns === 'function') populateDropdowns();
+    populateDropdowns();
     updateDashboard();
 }
 
@@ -49,7 +49,7 @@ window.switchTab = function(tab) {
     updateDashboard();
 }
 
-// פונקציית סינון תומכת Multi-select לתפקידים
+// פונקציית סינון עם תמיכה ב-Multi-select לתפקידים
 window.getFilteredResources = function() {
     if (typeof employeeData === 'undefined') return [];
     
@@ -67,13 +67,77 @@ window.getFilteredResources = function() {
     });
 }
 
+// טבלת הסיכום בצד שמאל (PROJECT FTE)
+window.renderSidebarProjectFTE = function(filtered) {
+    const container = document.getElementById('sidebar-project-fte-list');
+    const totalEl = document.getElementById('sidebar-total-fte');
+    if (!container) return;
+
+    const projectMap = {};
+    let grandTotal = 0;
+
+    filtered.forEach(emp => {
+        const p = emp.Project || 'Unassigned';
+        const fte = parseFloat(emp.FTE) || 0;
+        projectMap[p] = (projectMap[p] || 0) + fte;
+        grandTotal += fte;
+    });
+
+    const sortedProjects = Object.entries(projectMap).sort((a, b) => b[1] - a[1]);
+
+    let html = '';
+    sortedProjects.forEach(([proj, fte]) => {
+        html += `
+            <div class="sidebar-fte-row" onclick="filterByProject('${proj}')" style="cursor:pointer; display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b;">
+                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="${proj}">${proj}</span>
+                <span class="badge" style="background:#0f172a; color:#38bdf8; padding:2px 8px; border-radius:4px;">${fte.toFixed(2)} FTE</span>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html || '<div style="color:#64748b; font-size:12px;">No projects found</div>';
+    if (totalEl) totalEl.innerText = `${grandTotal.toFixed(2)} FTE`;
+}
+
+// אוכלוסיית הדרופדאונים והפילטרים
+window.populateDropdowns = function() {
+    if (typeof employeeData === 'undefined') return;
+
+    const projects = [...new Set(employeeData.map(e => e.Project).filter(Boolean))].sort();
+    const roles = [...new Set(employeeData.map(e => e.Role).filter(Boolean))].sort();
+    const locations = [...new Set(employeeData.map(e => e.Location).filter(Boolean))].sort();
+
+    const projSelect = document.getElementById('filter-project');
+    if (projSelect) {
+        const cur = projSelect.value;
+        projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
+        projSelect.value = cur;
+    }
+
+    const roleSelect = document.getElementById('filter-role');
+    if (roleSelect) {
+        const selectedValues = Array.from(roleSelect.selectedOptions).map(o => o.value);
+        roleSelect.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
+        Array.from(roleSelect.options).forEach(opt => {
+            if (selectedValues.includes(opt.value)) opt.selected = true;
+        });
+    }
+
+    const locSelect = document.getElementById('filter-location');
+    if (locSelect) {
+        const cur = locSelect.value;
+        locSelect.innerHTML = '<option value="">All Locations</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
+        locSelect.value = cur;
+    }
+}
+
 window.updateDashboard = function() {
     if (currentTab === 'resources') {
         document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'none';
         
-        const filtered = typeof getFilteredResources === 'function' ? getFilteredResources() : employeeData;
+        const filtered = getFilteredResources();
 
         filtered.sort((a, b) => {
             let valA = a[currentSortCol], valB = b[currentSortCol];
@@ -82,7 +146,7 @@ window.updateDashboard = function() {
         });
 
         if (typeof renderResourceTable === 'function') renderResourceTable(filtered);
-        if (typeof renderSidebarProjectFTE === 'function') renderSidebarProjectFTE(filtered);
+        renderSidebarProjectFTE(filtered);
         if (typeof renderResourceCharts === 'function') renderResourceCharts(filtered);
 
     } else if (currentTab === 'jira') {
@@ -224,7 +288,7 @@ function processParsedData(json) {
                 };
             }).filter(e => e.Name);
 
-            if (typeof populateDropdowns === 'function') populateDropdowns();
+            populateDropdowns();
             alert(`Successfully imported ${employeeData.length} resources!`);
         }
     }
