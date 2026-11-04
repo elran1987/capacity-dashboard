@@ -192,16 +192,22 @@ function processParsedData(json) {
             for (let k of Object.keys(row)) {
                 const val = row[k];
                 const lk = k.toLowerCase().trim();
-                if ((lk.includes('name') || lk === 'שם') && !lk.includes('project')) name = val;
-                else if (lk.includes('role') || lk.includes('תפקיד')) role = val;
-                else if (lk.includes('location') || lk.includes('מיקום') || lk.includes('country')) location = val;
-                else if (lk.includes('project') || lk.includes('פרויקט')) project = val;
-                else if (lk.includes('fte') || lk.includes('%') || lk.includes('allocation') || lk.includes('הקצאה')) {
+                
+                if ((lk.includes('name') || lk === 'שם') && !lk.includes('project')) {
+                    name = val;
+                } else if (lk.includes('role') || lk.includes('תפקיד')) {
+                    role = val;
+                } else if (lk.includes('location') || lk.includes('מיקום') || lk.includes('country')) {
+                    location = val;
+                } else if (lk === 'main project' || (lk.includes('project') && !lk.includes('fte') && lk !== 'project')) {
+                    project = val;
+                } else if (lk === 'project' || lk.includes('fte') || lk.includes('%') || lk.includes('allocation')) {
                     const parsed = parseFloat(val);
                     if (!isNaN(parsed)) fte = parsed;
                 }
             }
 
+            // גיבוי לפי אינדקס עמודות במידת הצורך
             const vals = Object.values(row);
             if (!name && vals.length > 0) name = vals[0];
             if (!role && vals.length > 1) role = vals[1];
