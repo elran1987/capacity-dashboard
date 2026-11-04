@@ -3,7 +3,7 @@ let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
 window.initDashboard = function() {
-    // טעינת נתונים שמורים מראש מ-LocalStorage אם קיימים
+    // טעינת נתונים שמורים מראש מ-LocalStorage בעליית העמוד
     loadFromLocalStorage();
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
@@ -134,6 +134,7 @@ window.updateDashboard = function() {
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'table-row';
         
+        // קריאת הפילטרים מאובייקט jiraFilters שמנוהל ב-jira.js
         const assigneeFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Assignee : '';
         const projFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Project : '';
         const fromFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.FromStatus : '';
@@ -236,17 +237,29 @@ function processParsedData(json) {
             jiraData = json.map(row => {
                 const r = {};
                 Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                
+                // פירוק חכם של שדה Transition לשדות FromStatus ו-ToStatus
+                let fromStatus = r['from status'] || r['fromstatus'] || r['from_status'] || r['from'] || '';
+                let toStatus = r['to status'] || r['tostatus'] || r['to_status'] || r['to'] || '';
+                
+                const transition = r['transition'] || r['status_transition'] || '';
+                if (transition && transition.includes('->')) {
+                    const parts = transition.split('->');
+                    fromStatus = parts[0].trim();
+                    toStatus = parts[1].trim();
+                }
+
                 return {
-                    Assignee: r.assignee || r['user'] || r['name'] || '',
+                    Assignee: r.user || r.assignee || r['name'] || '',
                     Project: r.project || '',
-                    FromStatus: r['from status'] || r['fromstatus'] || r['from_status'] || r['from'] || '',
-                    ToStatus: r['to status'] || r['tostatus'] || r['to_status'] || r['to'] || '',
+                    FromStatus: fromStatus,
+                    ToStatus: toStatus,
                     Count: parseInt(r.count || r.issues_count || 1),
                     Issues: r.issues || r['issue'] || r['key'] || ''
                 };
             }).filter(j => j.Assignee || j.Issues);
             
-            // שמירה אוטומטית בזיכרון המקומי
+            // שמירה אוטומטית בזיכרון המקומי בדפדפן
             localStorage.setItem('dashboard_jira_data', JSON.stringify(jiraData));
             alert(`Successfully imported and saved ${jiraData.length} Jira records!`);
         }
@@ -266,132 +279,4 @@ function processParsedData(json) {
                 };
             }).filter(g => g.author || g.week_number !== undefined);
             
-            // שמירה אוטומטית בזיכרון המקומי
-            localStorage.setItem('dashboard_git_data', JSON.stringify(gitData));
-            alert(`Successfully imported and saved ${gitData.length} Git records!`);
-        }
-    } else {
-        if (typeof employeeData !== 'undefined') {
-            const tempMap = new Map();
-
-            json.forEach(row => {
-                const cleanRow = {};
-                Object.keys(row).forEach(k => {
-                    cleanRow[k.toLowerCase().trim()] = row[k];
-                });
-
-                let name = String(cleanRow['name'] || '').trim();
-                if (!name) return;
-
-                let role = String(cleanRow['role'] || '').trim();
-                let location = String(cleanRow['location'] || '').trim();
-                let project = String(cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '').trim();
-                let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
-                
-                let fte = parseFloat(fteVal);
-                if (isNaN(fte)) fte = 1.0;
-
-                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}_${fte}`;
-
-                tempMap.set(uniqueKey, {
-                    Name: name,
-                    Role: role,
-                    Location: location,
-                    Project: project,
-                    FTE: fte
-                });
-            });
-
-            employeeData = Array.from(tempMap.values());
-            localStorage.setItem('dashboard_employee_data', JSON.stringify(employeeData));
-
-            if (typeof populateDropdowns === 'function') populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
-        }
-    }
-    updateDashboard();
-}
-
-function loadFromLocalStorage() {
-    try {
-        const savedJira = localStorage.getItem('dashboard_jira_data');
-        if (savedJira && typeof jiraData !== 'undefined') {
-            jiraData = JSON.parse(savedJira);
-        }
-        const savedGit = localStorage.getItem('dashboard_git_data');
-        if (savedGit && typeof gitData !== 'undefined') {
-            gitData = JSON.parse(savedGit);
-        }
-        const savedEmp = localStorage.getItem('dashboard_employee_data');
-        if (savedEmp && typeof employeeData !== 'undefined') {
-            employeeData = JSON.parse(savedEmp);
-        }
-    } catch (e) {
-        console.error("Error loading from localStorage", e);
-    }
-}
-
-window.filterByProject = function(projName) {
-    const projEl = document.getElementById('filter-project');
-    if (projEl) projEl.value = projName;
-    updateDashboard();
-}
-
-window.sortTable = function(col) {
-    if (currentSortCol === col) {
-        currentSortAsc = !currentSortAsc;
-    } else {
-        currentSortCol = col;
-        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number' || col === 'Count') ? false : true;
-    }
-    updateDashboard();
-}
-
-window.resetFilters = function() {
-    const projEl = document.getElementById('filter-project');
-    if (projEl) projEl.value = '';
-    
-    const roleSelect = document.getElementById('filter-role');
-    if (roleSelect) {
-        Array.from(roleSelect.options).forEach(opt => opt.selected = false);
-    }
-    
-    const locEl = document.getElementById('filter-location');
-    if (locEl) locEl.value = '';
-
-    if (typeof jiraFilters !== 'undefined') {
-        jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
-    }
-
-    updateDashboard();
-}
-
-window.onload = function() {
-    if (typeof initDashboard === 'function') {
-        initDashboard();
-    } else {
-        updateDashboard();
-    }
-
-    // טעינה מקובץ ברירת מחדל רק אם אין נתונים שמורים בזיכרון המקומי
-    if (!localStorage.getItem('dashboard_employee_data')) {
-        fetch('Master Resources.xlsx')
-            .then(response => {
-                if (!response.ok) throw new Error("File not found");
-                return response.arrayBuffer();
-            })
-            .then(arrayBuffer => {
-                const data = new Uint8Array(arrayBuffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                if (rawJson.length > 0) {
-                    processParsedData(rawJson);
-                    console.log("Auto-loaded Master Resources.xlsx successfully");
-                }
-            })
-            .catch(() => {
-                console.log("Running in static mode / manual upload ready.");
-            });
-    }
-}
+            localStorage.setItem('dashboard_git_
