@@ -132,7 +132,7 @@ window.updateDashboard = function() {
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'table-row';
         
-        // קריאת ערכי הסינון מה-Dropdowns שבתוך הטבלה (Assignee, Project, From, To, Text)
+        // שליפת ערכי הסינון מה-Dropdowns שבתוך הטבלה
         const assigneeFilter = document.querySelector('#table-filter-row select:nth-child(1)')?.value || 'All Assignees';
         const projFilter = document.querySelector('#table-filter-row select:nth-child(2)')?.value || 'All Projects';
         const fromFilter = document.querySelector('#table-filter-row select:nth-child(3)')?.value || 'All From';
@@ -332,7 +332,6 @@ window.resetFilters = function() {
     const locEl = document.getElementById('filter-location');
     if (locEl) locEl.value = '';
 
-    // איפוס פילטרים בטבלת Jira אם קיימים
     const tableFilters = document.querySelectorAll('#table-filter-row select, #table-filter-row input');
     tableFilters.forEach(el => {
         if (el.tagName === 'SELECT') el.selectedIndex = 0;
@@ -342,6 +341,19 @@ window.resetFilters = function() {
     updateDashboard();
 }
 
+// האזנה דינמית לכל שינוי או הקלדה בפילטרים של טאב ה-Jira
+document.addEventListener('change', function(e) {
+    if (e.target.closest('#table-filter-row')) {
+        updateDashboard();
+    }
+});
+
+document.addEventListener('input', function(e) {
+    if (e.target.closest('#table-filter-row')) {
+        updateDashboard();
+    }
+});
+
 window.onload = function() {
     if (typeof initDashboard === 'function') {
         initDashboard();
@@ -349,7 +361,6 @@ window.onload = function() {
         updateDashboard();
     }
 
-    // טעינה אוטומטית של קובץ ה-DB בעליית העמוד
     fetch('Master Resources.xlsx')
         .then(response => {
             if (!response.ok) throw new Error("File not found");
