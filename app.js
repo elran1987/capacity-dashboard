@@ -282,15 +282,20 @@ function processParsedData(json) {
     } else {
         if (typeof employeeData !== 'undefined') {
             employeeData = json.map(row => {
-                let name = row['Name'] || row['name'] || '';
-                let role = row['Role'] || row['role'] || '';
-                let location = row['Location '] || row['Location'] || row['location'] || '';
+                // ניקוי מפתחות האקסל כך שיתעלם מרווחים ואותיות רישיות
+                const cleanRow = {};
+                Object.keys(row).forEach(k => {
+                    cleanRow[k.toLowerCase().trim()] = row[k];
+                });
+
+                let name = cleanRow['name'] || '';
+                let role = cleanRow['role'] || '';
+                let location = cleanRow['location'] || '';
                 
-                // מיפוי מדויק לעמודת Project לפי צילום המסך שלך
-                let project = row['Project'] || row['project'] || row['main project'] || row['main project '] || '';
+                // חיפוש מקיף בכל וריאציה אפשרית לעמודת הפרויקט (כולל Project באותיות קטנות/גדולות)
+                let project = cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '';
                 
-                let fteVal = row['FTE'] !== undefined && row['FTE'] !== '' ? row['FTE'] : (row['project'] !== undefined ? row['project'] : 1.0);
-                
+                let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
