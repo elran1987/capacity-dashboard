@@ -278,35 +278,41 @@ function processParsedData(json) {
         }
     } else {
         if (typeof employeeData !== 'undefined') {
-            // דריסה מוחלטת של המערך הישן במקום הוספה (מונע כפילויות לחלוטין)
-            employeeData = json.map(row => {
+            const tempMap = new Map();
+
+            json.forEach(row => {
                 const cleanRow = {};
                 Object.keys(row).forEach(k => {
                     cleanRow[k.toLowerCase().trim()] = row[k];
                 });
 
-                let name = cleanRow['name'] || '';
-                let role = cleanRow['role'] || '';
-                let location = cleanRow['location'] || '';
-                let project = cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '';
+                let name = String(cleanRow['name'] || '').trim();
+                if (!name) return;
+
+                let role = String(cleanRow['role'] || '').trim();
+                let location = String(cleanRow['location'] || '').trim();
+                let project = String(cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '').trim();
                 let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
                 
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
-                return {
-                    Name: String(name).trim(),
-                    name: String(name).trim(),
-                    Role: String(role).trim(),
-                    role: String(role).trim(),
-                    Location: String(location).trim(),
-                    location: String(location).trim(),
-                    Project: String(project).trim(),
-                    project: String(project).trim(),
+                // מניעת כפילויות מוחלטת באמצעות מפתח ייחודי של שם העובד
+                tempMap.set(name.toLowerCase(), {
+                    Name: name,
+                    name: name,
+                    Role: role,
+                    role: role,
+                    Location: location,
+                    location: location,
+                    Project: project,
+                    project: project,
                     FTE: fte,
                     fte: fte
-                };
-            }).filter(e => e.Name);
+                });
+            });
+
+            employeeData = Array.from(tempMap.values());
 
             populateDropdowns();
             alert(`Successfully imported ${employeeData.length} unique resources!`);
