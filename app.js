@@ -297,8 +297,10 @@ function processParsedData(json) {
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
-                // מניעת כפילויות מוחלטת באמצעות מפתח ייחודי של שם העובד
-                tempMap.set(name.toLowerCase(), {
+                // מפתח ייחודי למניעת כפילויות שורות זהות באקסל
+                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}`;
+
+                tempMap.set(uniqueKey, {
                     Name: name,
                     name: name,
                     Role: role,
@@ -315,7 +317,7 @@ function processParsedData(json) {
             employeeData = Array.from(tempMap.values());
 
             populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} unique resources!`);
+            alert(`Successfully imported ${employeeData.length} unique resource records!`);
         }
     }
     updateDashboard();
