@@ -71,7 +71,7 @@ window.getFilteredResources = function() {
     });
 }
 
-// טבלת הסיכום בצד שמאל (PROJECT FTE) - מחוברת ל-ID הנכון project-fte-list
+// טבלת הסיכום בצד שמאל (PROJECT FTE)
 window.renderSidebarProjectFTE = function(filtered) {
     const sortMode = document.getElementById('project-sort-mode')?.value || 'fte-desc';
     const container = document.getElementById('project-fte-list');
@@ -285,8 +285,11 @@ function processParsedData(json) {
                 let name = row['Name'] || row['name'] || '';
                 let role = row['Role'] || row['role'] || '';
                 let location = row['Location '] || row['Location'] || row['location'] || '';
-                let project = row['main project '] || row['main project'] || row['Project'] || row['project'] || '';
-                let fteVal = row['project'] !== undefined && row['project'] !== '' ? row['project'] : (row['FTE'] !== undefined ? row['FTE'] : 1.0);
+                
+                // מיפוי מדויק לעמודת Project לפי צילום המסך שלך
+                let project = row['Project'] || row['project'] || row['main project'] || row['main project '] || '';
+                
+                let fteVal = row['FTE'] !== undefined && row['FTE'] !== '' ? row['FTE'] : (row['project'] !== undefined ? row['project'] : 1.0);
                 
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
