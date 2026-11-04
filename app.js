@@ -49,6 +49,23 @@ window.switchTab = function(tab) {
     updateDashboard();
 }
 
+// פונקציית סינון מעודכנת שתומכת בבחירת מרובת ערכים (Multi-select) לתפקידים
+window.getFilteredResources = function() {
+    const projFilter = document.getElementById('filter-project').value;
+    const roleSelect = document.getElementById('filter-role');
+    const locFilter = document.getElementById('filter-location').value;
+
+    // איסוף כל התפקידים שנבחרו ב-Multi-select
+    const selectedRoles = Array.from(roleSelect.selectedOptions).map(opt => opt.value).filter(v => v);
+
+    return employeeData.filter(emp => {
+        if (projFilter && emp.Project !== projFilter) return false;
+        if (selectedRoles.length > 0 && !selectedRoles.includes(emp.Role)) return false;
+        if (locFilter && emp.Location !== locFilter) return false;
+        return true;
+    });
+}
+
 window.updateDashboard = function() {
     if (currentTab === 'resources') {
         document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
@@ -186,7 +203,6 @@ function processParsedData(json) {
 
     } else {
         employeeData = json.map(row => {
-            // מיפוי ישיר לפי שמות העמודות המדויקים באקסל שלך
             let name = row['Name'] || row['name'] || '';
             let role = row['Role'] || row['role'] || '';
             let location = row['Location '] || row['Location'] || row['location'] || '';
@@ -228,7 +244,8 @@ window.sortTable = function(col) {
 
 window.resetFilters = function() {
     document.getElementById('filter-project').value = '';
-    document.getElementById('filter-role').value = '';
+    const roleSelect = document.getElementById('filter-role');
+    if (roleSelect) Array.from(roleSelect.options).forEach(opt => opt.selected = false);
     document.getElementById('filter-location').value = '';
     jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
     gitFilters = { author: '', year: '', week_number: '', unique_tickets_count: '' };
@@ -251,7 +268,7 @@ window.openModal = function() {
         `;
     } else if (currentTab === 'jira') {
         formBody.innerHTML = `
-            <div class="form-group" style="margin:0;"><label>Assignee</label><input type="text" id="m-assignee"></div>
+            <div class="form-group" style="margin:0;"><label>Assignee</label><input type="text" id="m-assign` + `ee"></div>
             <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-proj"></div>
             <div class="form-group" style="margin:0;"><label>From Status</label><input type="text" id="m-from"></div>
             <div class="form-group" style="margin:0;"><label>To Status</label><input type="text" id="m-to"></div>
@@ -271,7 +288,7 @@ window.openModal = function() {
 }
 
 window.closeModal = function() {
-    document.getElementById('employeeModal').classList.remove('active');
+    document.getElementById('employeeModal'].classList.remove('active');
 }
 
 window.saveRecord = function() {
@@ -294,7 +311,7 @@ window.saveRecord = function() {
             Assignee: document.getElementById('m-assignee').value.trim(),
             Project: document.getElementById('m-proj').value.trim(),
             FromStatus: document.getElementById('m-from').value.trim(),
-            ToStatus: document.getElementById('m-to').value.trim(),
+            ToStatus: document.getElementById('m-to'].value.trim(),
             Issues: document.getElementById('m-issues').value.trim()
         };
         if (!rec.Assignee && !rec.Issues) { alert("Assignee or Issue is required."); return; }
