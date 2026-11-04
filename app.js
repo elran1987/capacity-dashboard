@@ -3,6 +3,8 @@ let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
 window.initDashboard = function() {
+    // טעינת נתונים שמורים מראש מ-LocalStorage אם קיימים
+    loadFromLocalStorage();
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
@@ -132,7 +134,6 @@ window.updateDashboard = function() {
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'table-row';
         
-        // שימוש באובייקט ה-jiraFilters שמוגדר ב-jira.js
         const assigneeFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Assignee : '';
         const projFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Project : '';
         const fromFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.FromStatus : '';
@@ -244,7 +245,10 @@ function processParsedData(json) {
                     Issues: r.issues || r['issue'] || r['key'] || ''
                 };
             }).filter(j => j.Assignee || j.Issues);
-            alert(`Successfully imported ${jiraData.length} Jira records!`);
+            
+            // שמירה אוטומטית בזיכרון המקומי
+            localStorage.setItem('dashboard_jira_data', JSON.stringify(jiraData));
+            alert(`Successfully imported and saved ${jiraData.length} Jira records!`);
         }
     } else if (activeTab === 'git') {
         if (typeof gitData !== 'undefined') {
@@ -261,7 +265,10 @@ function processParsedData(json) {
                     unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
                 };
             }).filter(g => g.author || g.week_number !== undefined);
-            alert(`Successfully imported ${gitData.length} Git records!`);
+            
+            // שמירה אוטומטית בזיכרון המקומי
+            localStorage.setItem('dashboard_git_data', JSON.stringify(gitData));
+            alert(`Successfully imported and saved ${gitData.length} Git records!`);
         }
     } else {
         if (typeof employeeData !== 'undefined') {
@@ -296,12 +303,32 @@ function processParsedData(json) {
             });
 
             employeeData = Array.from(tempMap.values());
+            localStorage.setItem('dashboard_employee_data', JSON.stringify(employeeData));
 
             if (typeof populateDropdowns === 'function') populateDropdowns();
             alert(`Successfully imported ${employeeData.length} resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
         }
     }
     updateDashboard();
+}
+
+function loadFromLocalStorage() {
+    try {
+        const savedJira = localStorage.getItem('dashboard_jira_data');
+        if (savedJira && typeof jiraData !== 'undefined') {
+            jiraData = JSON.parse(savedJira);
+        }
+        const savedGit = localStorage.getItem('dashboard_git_data');
+        if (savedGit && typeof gitData !== 'undefined') {
+            gitData = JSON.parse(savedGit);
+        }
+        const savedEmp = localStorage.getItem('dashboard_employee_data');
+        if (savedEmp && typeof employeeData !== 'undefined') {
+            employeeData = JSON.parse(savedEmp);
+        }
+    } catch (e) {
+        console.error("Error loading from localStorage", e);
+    }
 }
 
 window.filterByProject = function(projName) {
@@ -346,22 +373,25 @@ window.onload = function() {
         updateDashboard();
     }
 
-    fetch('Master Resources.xlsx')
-        .then(response => {
-            if (!response.ok) throw new Error("File not found");
-            return response.arrayBuffer();
-        })
-        .then(arrayBuffer => {
-            const data = new Uint8Array(arrayBuffer);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-            if (rawJson.length > 0) {
-                processParsedData(rawJson);
-                console.log("Auto-loaded Master Resources.xlsx successfully");
-            }
-        })
-        .catch(() => {
-            console.log("Running in static mode / manual upload ready.");
-        });
+    // טעינה מקובץ ברירת מחדל רק אם אין נתונים שמורים בזיכרון המקומי
+    if (!localStorage.getItem('dashboard_employee_data')) {
+        fetch('Master Resources.xlsx')
+            .then(response => {
+                if (!response.ok) throw new Error("File not found");
+                return response.arrayBuffer();
+            })
+            .then(arrayBuffer => {
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                if (rawJson.length > 0) {
+                    processParsedData(rawJson);
+                    console.log("Auto-loaded Master Resources.xlsx successfully");
+                }
+            })
+            .catch(() => {
+                console.log("Running in static mode / manual upload ready.");
+            });
+    }
 }
