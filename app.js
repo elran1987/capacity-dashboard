@@ -199,7 +199,7 @@ function processParsedData(json) {
                     role = val;
                 } else if (lk.includes('location') || lk.includes('מיקום') || lk.includes('country')) {
                     location = val;
-                } else if (lk === 'main project' || (lk.includes('project') && !lk.includes('fte') && lk !== 'project')) {
+                } else if (lk.includes('main project') || (lk.includes('project') && lk !== 'project' && !lk.includes('fte'))) {
                     project = val;
                 } else if (lk === 'project' || lk.includes('fte') || lk.includes('%') || lk.includes('allocation')) {
                     const parsed = parseFloat(val);
@@ -207,7 +207,6 @@ function processParsedData(json) {
                 }
             }
 
-            // גיבוי לפי אינדקס עמודות במידת הצורך
             const vals = Object.values(row);
             if (!name && vals.length > 0) name = vals[0];
             if (!role && vals.length > 1) role = vals[1];
