@@ -278,15 +278,16 @@ function processParsedData(json) {
         }
     } else {
         if (typeof employeeData !== 'undefined') {
-            // טעינת כל שורות השיוך מהאקסל (כולל עובדים שמופיעים בכמה פרויקטים)
-            employeeData = json.map(row => {
+            const tempMap = new Map();
+
+            json.forEach(row => {
                 const cleanRow = {};
                 Object.keys(row).forEach(k => {
                     cleanRow[k.toLowerCase().trim()] = row[k];
                 });
 
                 let name = String(cleanRow['name'] || '').trim();
-                if (!name) return null;
+                if (!name) return;
 
                 let role = String(cleanRow['role'] || '').trim();
                 let location = String(cleanRow['location'] || '').trim();
@@ -296,7 +297,9 @@ function processParsedData(json) {
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
-                return {
+                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}_${fte}`;
+
+                tempMap.set(uniqueKey, {
                     Name: name,
                     name: name,
                     Role: role,
@@ -307,11 +310,13 @@ function processParsedData(json) {
                     project: project,
                     FTE: fte,
                     fte: fte
-                };
-            }).filter(emp => emp !== null);
+                });
+            });
+
+            employeeData = Array.from(tempMap.values());
 
             populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} resource allocation records!`);
+            alert(`Successfully imported ${employeeData.length} allocations. Total FTE sum: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
         }
     }
     updateDashboard();
@@ -349,9 +354,4 @@ window.resetFilters = function() {
 }
 
 window.onload = function() {
-    if (typeof initDashboard === 'function') {
-        initDashboard();
-    } else {
-        updateDashboard();
-    }
-}
+    if (
