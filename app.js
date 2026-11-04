@@ -93,7 +93,7 @@ window.renderSidebarProjectFTE = function(filtered) {
     } else if (sortMode === 'fte-asc') {
         sortedProjects.sort((a, b) => a[1] - b[1]);
     } else if (sortMode === 'name-asc') {
-        sortedProjects.sort((a, b) => a[0].localeCompare(b[0]));
+        sortedProjects.sort((a, b) => b[0].localeCompare(a[0]));
     }
 
     let html = '';
@@ -316,10 +316,98 @@ function processParsedData(json) {
             employeeData = Array.from(tempMap.values());
 
             populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} allocations. Total FTE sum: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
+            alert(`Successfully imported ${employeeData.length} resource allocations. Total FTE sum: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
         }
     }
     updateDashboard();
+}
+
+// -------------------------------------------------------------
+// פונקציות הוספה ועריכה ידנית (מחברות ישירות ל-employeeData ומעדכנות משאבים וסכימה)
+// -------------------------------------------------------------
+
+window.addNewResource = function() {
+    const name = prompt("Enter Employee Name:");
+    if (!name) return;
+    const role = prompt("Enter Role / Discipline (e.g. BE, FE, DevOps):") || "BE";
+    const location = prompt("Enter Location (e.g. Israel, Romania):") || "Israel";
+    const project = prompt("Enter Project Name:") || "General";
+    const fteInput = prompt("Enter FTE (e.g. 1.0, 0.5):") || "1.0";
+    
+    let fte = parseFloat(fteInput);
+    if (isNaN(fte)) fte = 1.0;
+
+    if (typeof employeeData === 'undefined') {
+        window.employeeData = [];
+    }
+
+    employeeData.push({
+        Name: name.trim(),
+        name: name.trim(),
+        Role: role.trim(),
+        role: role.trim(),
+        Location: location.trim(),
+        location: location.trim(),
+        Project: project.trim(),
+        project: project.trim(),
+        FTE: fte,
+        fte: fte
+    });
+
+    populateDropdowns();
+    updateDashboard();
+    alert(`Successfully added ${name} to resources!`);
+}
+
+window.editResource = function(index) {
+    if (typeof employeeData === 'undefined' || !employeeData[index]) return;
+    const emp = employeeData[index];
+
+    const newName = prompt("Edit Employee Name:", emp.Name || emp.name) || emp.Name;
+    const newRole = prompt("Edit Role:", emp.Role || emp.role) || emp.Role;
+    const newLoc = prompt("Edit Location:", emp.Location || emp.location) || emp.Location;
+    const newProj = prompt("Edit Project:", emp.Project || emp.project) || emp.Project;
+    const newFteInput = prompt("Edit FTE:", emp.FTE !== undefined ? emp.FTE : emp.fte) || "1.0";
+
+    let fte = parseFloat(newFteInput);
+    if (isNaN(fte)) fte = 1.0;
+
+    employeeData[index] = {
+        Name: newName.trim(),
+        name: newName.trim(),
+        Role: newRole.trim(),
+        role: newRole.trim(),
+        Location: newLoc.trim(),
+        location: newLoc.trim(),
+        Project: newProj.trim(),
+        project: newProj.trim(),
+        FTE: fte,
+        fte: fte
+    };
+
+    populateDropdowns();
+    updateDashboard();
+    alert("Resource updated successfully!");
+}
+
+window.deleteResource = function(index) {
+    if (typeof employeeData === 'undefined' || !employeeData[index]) return;
+    if (confirm("Are you sure you want to delete this resource allocation?")) {
+        employeeData.splice(index, 1);
+        populateDropdowns();
+        updateDashboard();
+    }
+}
+
+// חיבור כפתור הפעולה הראשי (טראקר ה-Add) כך שיעבוד לפי הטאב הפעיל
+window.handleAddAction = function() {
+    if (currentTab === 'resources') {
+        window.addNewResource();
+    } else if (currentTab === 'jira') {
+        alert("Add Jira Issue feature");
+    } else if (currentTab === 'git') {
+        alert("Add Git Record feature");
+    }
 }
 
 window.filterByProject = function(projName) {
@@ -354,4 +442,15 @@ window.resetFilters = function() {
 }
 
 window.onload = function() {
-    if (
+    // חיבור כפתור ההוספה הראשי באירוע לחיצה
+    const btnAdd = document.getElementById('btn-add-action');
+    if (btnAdd) {
+        btnAdd.onclick = window.handleAddAction;
+    }
+
+    if (typeof initDashboard === 'function') {
+        initDashboard();
+    } else {
+        updateDashboard();
+    }
+}
