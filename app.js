@@ -186,43 +186,22 @@ function processParsedData(json) {
 
     } else {
         employeeData = json.map(row => {
-            let name = '', role = '', location = '', project = '';
-            let fte = 1.0;
-
-            for (let k of Object.keys(row)) {
-                const val = row[k];
-                const lk = k.toLowerCase().trim();
-                
-                if ((lk.includes('name') || lk === 'שם') && !lk.includes('project')) {
-                    name = val;
-                } else if (lk.includes('role') || lk.includes('תפקיד')) {
-                    role = val;
-                } else if (lk.includes('location') || lk.includes('מיקום') || lk.includes('country')) {
-                    location = val;
-                } else if (lk.includes('main project') || (lk.includes('project') && lk !== 'project' && !lk.includes('fte'))) {
-                    project = val;
-                } else if (lk === 'project' || lk.includes('fte') || lk.includes('%') || lk.includes('allocation')) {
-                    const parsed = parseFloat(val);
-                    if (!isNaN(parsed)) fte = parsed;
-                }
-            }
-
-            const vals = Object.values(row);
-            if (!name && vals.length > 0) name = vals[0];
-            if (!role && vals.length > 1) role = vals[1];
-            if (!location && vals.length > 2) location = vals[2];
-            if (!project && vals.length > 3) project = vals[3];
-            if (fte === 1.0 && vals.length > 4) {
-                const p = parseFloat(vals[4]);
-                if (!isNaN(p)) fte = p;
-            }
+            // מיפוי ישיר לפי שמות העמודות המדויקים באקסל שלך
+            let name = row['Name'] || row['name'] || '';
+            let role = row['Role'] || row['role'] || '';
+            let location = row['Location '] || row['Location'] || row['location'] || '';
+            let project = row['main project '] || row['main project'] || '';
+            let fteVal = row['project'] !== undefined ? row['project'] : 1.0;
+            
+            let fte = parseFloat(fteVal);
+            if (isNaN(fte)) fte = 1.0;
 
             return {
-                Name: String(name || '').trim(),
-                Role: String(role || '').trim(),
-                Location: String(location || '').trim(),
-                Project: String(project || '').trim(),
-                FTE: isNaN(fte) ? 1.0 : fte
+                Name: String(name).trim(),
+                Role: String(role).trim(),
+                Location: String(location).trim(),
+                Project: String(project).trim(),
+                FTE: fte
             };
         }).filter(e => e.Name);
 
