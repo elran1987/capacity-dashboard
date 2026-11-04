@@ -132,14 +132,30 @@ window.updateDashboard = function() {
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'table-row';
         
-        const proj = document.getElementById('filter-project')?.value || '';
+        const projFilter = document.getElementById('filter-project')?.value || '';
+        const assigneeFilter = document.getElementById('jira-filter-assignee')?.value || '';
+        const fromFilter = document.getElementById('jira-filter-from')?.value || '';
+        const toFilter = document.getElementById('jira-filter-to')?.value || '';
+        const textFilter = document.getElementById('jira-filter-text')?.value?.toLowerCase() || '';
+
         let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
-            if (proj && j.Project !== proj) return false;
+            const jAssignee = j.Assignee || j.assignee || '';
+            const jProject = j.Project || j.project || '';
+            const jFrom = j.FromStatus || j.fromstatus || j.from_status || '';
+            const jTo = j.ToStatus || j.tostatus || j.to_status || '';
+            const jIssues = String(j.Issues || j.issues || '').toLowerCase();
+
+            if (projFilter && jProject !== projFilter) return false;
+            if (assigneeFilter && assigneeFilter !== 'All Assignees' && jAssignee !== assigneeFilter) return false;
+            if (fromFilter && fromFilter !== 'All From' && jFrom !== fromFilter) return false;
+            if (toFilter && toFilter !== 'All To' && jTo !== toFilter) return false;
+            if (textFilter && !jIssues.includes(textFilter)) return false;
+
             return true;
         });
 
         filteredJira.sort((a, b) => {
-            let valA = a[currentSortCol], valB = b[currentSortCol];
+            let valA = a[currentSortCol] || '', valB = b[currentSortCol] || '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
@@ -154,21 +170,12 @@ window.updateDashboard = function() {
         let filteredGit = typeof gitData !== 'undefined' ? gitData : [];
 
         filteredGit.sort((a, b) => {
-            let valA = a[currentSortCol], valB = b[currentSortCol];
+            let valA = a[currentSortCol] || '', valB = b[currentSortCol] || '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
         if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
-    }
-}
-
-// טיפול ב-Modal הוספה (קורא לפונקציית עריכה עם אינדקס -1 שקיימת ב-resources.js)
-window.openModal = function() {
-    if (typeof window.editEmployee === 'function' && typeof employeeData !== 'undefined') {
-        // נוסיף שורה זמנית ריקה או שנפתח את המודל דרך editEmployee אם קיים, 
-        // לחלופין נשתמש בלוגיקה של resources.js
-        // נראה איך resources.js מגדיר הוספה: בדרך כלל דרך editEmployee(-1) או פונקציית הוספה ייעודית.
     }
 }
 
@@ -230,8 +237,9 @@ function processParsedData(json) {
                 return {
                     Assignee: r.assignee || r['user'] || r['name'] || '',
                     Project: r.project || '',
-                    FromStatus: r['from status'] || r.fromstatus || r['from'] || '',
-                    ToStatus: r['to status'] || r.tostatus || r['to'] || '',
+                    FromStatus: r['from status'] || r['fromstatus'] || r['from_status'] || r['from'] || '',
+                    ToStatus: r['to status'] || r['tostatus'] || r['to_status'] || r['to'] || '',
+                    Count: parseInt(r.count || r.issues_count || 1),
                     Issues: r.issues || r['issue'] || r['key'] || ''
                 };
             }).filter(j => j.Assignee || j.Issues);
@@ -306,7 +314,7 @@ window.sortTable = function(col) {
         currentSortAsc = !currentSortAsc;
     } else {
         currentSortCol = col;
-        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number') ? false : true;
+        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number' || col === 'Count') ? false : true;
     }
     updateDashboard();
 }
@@ -323,18 +331,29 @@ window.resetFilters = function() {
     const locEl = document.getElementById('filter-location');
     if (locEl) locEl.value = '';
 
+    const jiraAssignee = document.getElementById('jira-filter-assignee');
+    if (jiraAssignee) jiraAssignee.value = '';
+
+    const jiraFrom = document.getElementById('jira-filter-from');
+    if (jiraFrom) jiraFrom.value = '';
+
+    const jiraTo = document.getElementById('jira-filter-to');
+    if (jiraTo) jiraTo.value = '';
+
+    const jiraText = document.getElementById('jira-filter-text');
+    if (jiraText) jiraText.value = '';
+
     updateDashboard();
 }
 
 window.onload = function() {
-    // אתחול ראשוני רגיל לפי הנתונים הקיימים ב-resources.js
     if (typeof initDashboard === 'function') {
         initDashboard();
     } else {
         updateDashboard();
     }
 
-    // ניסיון טעינה אוטומטית של קובץ ה-DB ברקע (אם קיים שרת מקומי)
+    // טעינה אוטומטית של קובץ ה-DB בעליית העמוד
     fetch('Master Resources.xlsx')
         .then(response => {
             if (!response.ok) throw new Error("File not found");
