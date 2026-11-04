@@ -49,7 +49,6 @@ window.switchTab = function(tab) {
     updateDashboard();
 }
 
-// פונקציית סינון עם תמיכה מלאה בבחירה מרובה (Multi-select) לתפקידים
 window.getFilteredResources = function() {
     if (typeof employeeData === 'undefined') return [];
     
@@ -71,7 +70,6 @@ window.getFilteredResources = function() {
     });
 }
 
-// טבלת הסיכום בצד שמאל (PROJECT FTE)
 window.renderSidebarProjectFTE = function(filtered) {
     const sortMode = document.getElementById('project-sort-mode')?.value || 'fte-desc';
     const container = document.getElementById('project-fte-list');
@@ -110,7 +108,6 @@ window.renderSidebarProjectFTE = function(filtered) {
     if (totalEl) totalEl.innerText = `${grandTotal.toFixed(2)} FTE`;
 }
 
-// אוכלוסיית הדרופדאונים והפילטרים
 window.populateDropdowns = function() {
     if (typeof employeeData === 'undefined') return;
 
@@ -281,8 +278,8 @@ function processParsedData(json) {
         }
     } else {
         if (typeof employeeData !== 'undefined') {
+            // דריסה מוחלטת של המערך הישן במקום הוספה (מונע כפילויות לחלוטין)
             employeeData = json.map(row => {
-                // ניקוי מפתחות האקסל כך שיתעלם מרווחים ואותיות רישיות
                 const cleanRow = {};
                 Object.keys(row).forEach(k => {
                     cleanRow[k.toLowerCase().trim()] = row[k];
@@ -291,11 +288,9 @@ function processParsedData(json) {
                 let name = cleanRow['name'] || '';
                 let role = cleanRow['role'] || '';
                 let location = cleanRow['location'] || '';
-                
-                // חיפוש מקיף בכל וריאציה אפשרית לעמודת הפרויקט (כולל Project באותיות קטנות/גדולות)
                 let project = cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '';
-                
                 let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
+                
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
@@ -314,7 +309,7 @@ function processParsedData(json) {
             }).filter(e => e.Name);
 
             populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} resources!`);
+            alert(`Successfully imported ${employeeData.length} unique resources!`);
         }
     }
     updateDashboard();
