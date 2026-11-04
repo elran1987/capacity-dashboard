@@ -3,7 +3,7 @@ let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
 window.initDashboard = function() {
-    populateDropdowns();
+    if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
 
@@ -49,14 +49,15 @@ window.switchTab = function(tab) {
     updateDashboard();
 }
 
-// פונקציית סינון מעודכנת שתומכת בבחירת מרובת ערכים (Multi-select) לתפקידים
+// פונקציית סינון תומכת Multi-select לתפקידים
 window.getFilteredResources = function() {
-    const projFilter = document.getElementById('filter-project').value;
+    if (typeof employeeData === 'undefined') return [];
+    
+    const projFilter = document.getElementById('filter-project')?.value || '';
     const roleSelect = document.getElementById('filter-role');
-    const locFilter = document.getElementById('filter-location').value;
+    const locFilter = document.getElementById('filter-location')?.value || '';
 
-    // איסוף כל התפקידים שנבחרו ב-Multi-select
-    const selectedRoles = Array.from(roleSelect.selectedOptions).map(opt => opt.value).filter(v => v);
+    const selectedRoles = roleSelect ? Array.from(roleSelect.selectedOptions).map(opt => opt.value).filter(v => v) : [];
 
     return employeeData.filter(emp => {
         if (projFilter && emp.Project !== projFilter) return false;
@@ -69,8 +70,10 @@ window.getFilteredResources = function() {
 window.updateDashboard = function() {
     if (currentTab === 'resources') {
         document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
-        document.getElementById('table-filter-row').style.display = 'none';
-        const filtered = getFilteredResources();
+        const filterRow = document.getElementById('table-filter-row');
+        if (filterRow) filterRow.style.display = 'none';
+        
+        const filtered = typeof getFilteredResources === 'function' ? getFilteredResources() : employeeData;
 
         filtered.sort((a, b) => {
             let valA = a[currentSortCol], valB = b[currentSortCol];
@@ -78,21 +81,18 @@ window.updateDashboard = function() {
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
-        renderResourceTable(filtered);
-        renderSidebarProjectFTE(filtered);
-        renderResourceCharts(filtered);
+        if (typeof renderResourceTable === 'function') renderResourceTable(filtered);
+        if (typeof renderSidebarProjectFTE === 'function') renderSidebarProjectFTE(filtered);
+        if (typeof renderResourceCharts === 'function') renderResourceCharts(filtered);
+
     } else if (currentTab === 'jira') {
         document.getElementById('table-title').innerHTML = "🎫 Jira Issues Tracking";
-        document.getElementById('table-filter-row').style.display = 'table-row';
+        const filterRow = document.getElementById('table-filter-row');
+        if (filterRow) filterRow.style.display = 'table-row';
         
-        const proj = document.getElementById('filter-project').value;
-        let filteredJira = jiraData.filter(j => {
+        const proj = document.getElementById('filter-project')?.value || '';
+        let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
             if (proj && j.Project !== proj) return false;
-            if (jiraFilters.Assignee && j.Assignee !== jiraFilters.Assignee) return false;
-            if (jiraFilters.Project && j.Project !== jiraFilters.Project) return false;
-            if (jiraFilters.FromStatus && j.FromStatus !== jiraFilters.FromStatus) return false;
-            if (jiraFilters.ToStatus && j.ToStatus !== jiraFilters.ToStatus) return false;
-            if (jiraFilters.Issues && !j.Issues.toLowerCase().includes(jiraFilters.Issues.toLowerCase())) return false;
             return true;
         });
 
@@ -102,18 +102,14 @@ window.updateDashboard = function() {
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
-        renderJiraTable(filteredJira);
+        if (typeof renderJiraTable === 'function') renderJiraTable(filteredJira);
+
     } else if (currentTab === 'git') {
         document.getElementById('table-title').innerHTML = "💻 Git Weekly Matrix Activity";
-        document.getElementById('table-filter-row').style.display = 'table-row';
+        const filterRow = document.getElementById('table-filter-row');
+        if (filterRow) filterRow.style.display = 'table-row';
         
-        let filteredGit = gitData.filter(g => {
-            if (gitFilters.author && g.author !== gitFilters.author) return false;
-            if (gitFilters.year && String(g.year) !== String(gitFilters.year)) return false;
-            if (gitFilters.week_number && String(g.week_number) !== String(gitFilters.week_number)) return false;
-            if (gitFilters.unique_tickets_count && String(g.unique_tickets_count) !== String(gitFilters.unique_tickets_count)) return false;
-            return true;
-        });
+        let filteredGit = typeof gitData !== 'undefined' ? gitData : [];
 
         filteredGit.sort((a, b) => {
             let valA = a[currentSortCol], valB = b[currentSortCol];
@@ -121,7 +117,7 @@ window.updateDashboard = function() {
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
-        renderGitTable(filteredGit);
+        if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
     }
 }
 
@@ -167,68 +163,77 @@ function processParsedData(json) {
     if (!json || json.length === 0) return;
 
     let activeTab = currentTab;
-    if (document.getElementById('tab-btn-jira').classList.contains('active')) activeTab = 'jira';
-    else if (document.getElementById('tab-btn-git').classList.contains('active')) activeTab = 'git';
-    else if (document.getElementById('tab-btn-resources').classList.contains('active')) activeTab = 'resources';
+    const jiraBtn = document.getElementById('tab-btn-jira');
+    const gitBtn = document.getElementById('tab-btn-git');
+    const resBtn = document.getElementById('tab-btn-resources');
+
+    if (jiraBtn && jiraBtn.classList.contains('active')) activeTab = 'jira';
+    else if (gitBtn && gitBtn.classList.contains('active')) activeTab = 'git';
+    else if (resBtn && resBtn.classList.contains('active')) activeTab = 'resources';
 
     if (activeTab === 'jira') {
-        jiraData = json.map(row => {
-            const r = {};
-            Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
-            return {
-                Assignee: r.assignee || r['user'] || r['name'] || '',
-                Project: r.project || '',
-                FromStatus: r['from status'] || r.fromstatus || r['from'] || '',
-                ToStatus: r['to status'] || r.tostatus || r['to'] || '',
-                Issues: r.issues || r['issue'] || r['key'] || ''
-            };
-        }).filter(j => j.Assignee || j.Issues);
-        alert(`Successfully imported ${jiraData.length} Jira records!`);
-
+        if (typeof jiraData !== 'undefined') {
+            jiraData = json.map(row => {
+                const r = {};
+                Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                return {
+                    Assignee: r.assignee || r['user'] || r['name'] || '',
+                    Project: r.project || '',
+                    FromStatus: r['from status'] || r.fromstatus || r['from'] || '',
+                    ToStatus: r['to status'] || r.tostatus || r['to'] || '',
+                    Issues: r.issues || r['issue'] || r['key'] || ''
+                };
+            }).filter(j => j.Assignee || j.Issues);
+            alert(`Successfully imported ${jiraData.length} Jira records!`);
+        }
     } else if (activeTab === 'git') {
-        gitData = json.map((row, index) => {
-            const r = {};
-            Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
-            return {
-                id: r.id || index,
-                author: r.author || r.developer || r.name || '',
-                year: parseInt(r.year || new Date().getFullYear()),
-                week_number: parseInt(r.week_number || r.week || 0),
-                week_start: r.week_start || r.startdate || '',
-                week_end: r.week_end || r.enddate || '',
-                unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
-            };
-        }).filter(g => g.author || g.week_number !== undefined);
-        alert(`Successfully imported ${gitData.length} Git records!`);
-
+        if (typeof gitData !== 'undefined') {
+            gitData = json.map((row, index) => {
+                const r = {};
+                Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                return {
+                    id: r.id || index,
+                    author: r.author || r.developer || r.name || '',
+                    year: parseInt(r.year || new Date().getFullYear()),
+                    week_number: parseInt(r.week_number || r.week || 0),
+                    week_start: r.week_start || r.startdate || '',
+                    week_end: r.week_end || r.enddate || '',
+                    unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
+                };
+            }).filter(g => g.author || g.week_number !== undefined);
+            alert(`Successfully imported ${gitData.length} Git records!`);
+        }
     } else {
-        employeeData = json.map(row => {
-            let name = row['Name'] || row['name'] || '';
-            let role = row['Role'] || row['role'] || '';
-            let location = row['Location '] || row['Location'] || row['location'] || '';
-            let project = row['main project '] || row['main project'] || '';
-            let fteVal = row['project'] !== undefined ? row['project'] : 1.0;
-            
-            let fte = parseFloat(fteVal);
-            if (isNaN(fte)) fte = 1.0;
+        if (typeof employeeData !== 'undefined') {
+            employeeData = json.map(row => {
+                let name = row['Name'] || row['name'] || '';
+                let role = row['Role'] || row['role'] || '';
+                let location = row['Location '] || row['Location'] || row['location'] || '';
+                let project = row['main project '] || row['main project'] || row['Project'] || '';
+                let fteVal = row['project'] !== undefined ? row['project'] : (row['FTE'] !== undefined ? row['FTE'] : 1.0);
+                
+                let fte = parseFloat(fteVal);
+                if (isNaN(fte)) fte = 1.0;
 
-            return {
-                Name: String(name).trim(),
-                Role: String(role).trim(),
-                Location: String(location).trim(),
-                Project: String(project).trim(),
-                FTE: fte
-            };
-        }).filter(e => e.Name);
+                return {
+                    Name: String(name).trim(),
+                    Role: String(role).trim(),
+                    Location: String(location).trim(),
+                    Project: String(project).trim(),
+                    FTE: fte
+                };
+            }).filter(e => e.Name);
 
-        populateDropdowns();
-        alert(`Successfully imported ${employeeData.length} resources!`);
+            if (typeof populateDropdowns === 'function') populateDropdowns();
+            alert(`Successfully imported ${employeeData.length} resources!`);
+        }
     }
     updateDashboard();
 }
 
 window.filterByProject = function(projName) {
-    document.getElementById('filter-project').value = projName;
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = projName;
     updateDashboard();
 }
 
@@ -243,97 +248,24 @@ window.sortTable = function(col) {
 }
 
 window.resetFilters = function() {
-    document.getElementById('filter-project').value = '';
-    const roleSelect = document.getElementById('filter-role');
-    if (roleSelect) Array.from(roleSelect.options).forEach(opt => opt.selected = false);
-    document.getElementById('filter-location').value = '';
-    jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
-    gitFilters = { author: '', year: '', week_number: '', unique_tickets_count: '' };
-    updateDashboard();
-}
-
-window.openModal = function() {
-    document.getElementById('edit-index').value = -1;
-    const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
-    document.getElementById('modal-title').innerText = title;
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = '';
     
-    const formBody = document.getElementById('modal-form-body');
-    if (currentTab === 'resources') {
-        formBody.innerHTML = `
-            <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name"></div>
-            <div class="form-group" style="margin:0;"><label>Role</label>${getDropdownOptionsHtml('Role', '')}</div>
-            <div class="form-group" style="margin:0;"><label>Location</label>${getDropdownOptionsHtml('Location', '')}</div>
-            <div class="form-group" style="margin:0;"><label>Project</label>${getDropdownOptionsHtml('Project', '')}</div>
-            <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0"></div>
-        `;
-    } else if (currentTab === 'jira') {
-        formBody.innerHTML = `
-            <div class="form-group" style="margin:0;"><label>Assignee</label><input type="text" id="m-assign` + `ee"></div>
-            <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-proj"></div>
-            <div class="form-group" style="margin:0;"><label>From Status</label><input type="text" id="m-from"></div>
-            <div class="form-group" style="margin:0;"><label>To Status</label><input type="text" id="m-to"></div>
-            <div class="form-group" style="margin:0;"><label>Issues</label><input type="text" id="m-issues"></div>
-        `;
-    } else if (currentTab === 'git') {
-        formBody.innerHTML = `
-            <div class="form-group" style="margin:0;"><label>Author</label><input type="text" id="m-author"></div>
-            <div class="form-group" style="margin:0;"><label>Year</label><input type="number" id="m-year" value="2026"></div>
-            <div class="form-group" style="margin:0;"><label>Week Number</label><input type="number" id="m-week" value="0"></div>
-            <div class="form-group" style="margin:0;"><label>Week Start</label><input type="date" id="m-start"></div>
-            <div class="form-group" style="margin:0;"><label>Week End</label><input type="date" id="m-end"></div>
-            <div class="form-group" style="margin:0;"><label>Unique Tickets Count</label><input type="number" id="m-count" value="0"></div>
-        `;
+    const roleSelect = document.getElementById('filter-role');
+    if (roleSelect) {
+        Array.from(roleSelect.options).forEach(opt => opt.selected = false);
     }
-    document.getElementById('employeeModal').classList.add('active');
-}
+    
+    const locEl = document.getElementById('filter-location');
+    if (locEl) locEl.value = '';
 
-window.closeModal = function() {
-    document.getElementById('employeeModal'].classList.remove('active');
-}
-
-window.saveRecord = function() {
-    const idx = parseInt(document.getElementById('edit-index').value);
-    if (currentTab === 'resources') {
-        const rec = {
-            Name: document.getElementById('m-name').value.trim(),
-            Role: document.getElementById('m-role').value,
-            Location: document.getElementById('m-location').value,
-            Project: document.getElementById('m-project').value,
-            FTE: parseFloat(document.getElementById('m-fte').value) || 1.0
-        };
-        if (!rec.Name) { alert("Name is required."); return; }
-        if (!rec.Role || !rec.Location || !rec.Project) { alert("Please select Role, Location, and Project from the dropdowns."); return; }
-        if (idx === -1) employeeData.push(rec);
-        else employeeData[idx] = rec;
-        populateDropdowns();
-    } else if (currentTab === 'jira') {
-        const rec = {
-            Assignee: document.getElementById('m-assignee').value.trim(),
-            Project: document.getElementById('m-proj').value.trim(),
-            FromStatus: document.getElementById('m-from').value.trim(),
-            ToStatus: document.getElementById('m-to'].value.trim(),
-            Issues: document.getElementById('m-issues').value.trim()
-        };
-        if (!rec.Assignee && !rec.Issues) { alert("Assignee or Issue is required."); return; }
-        if (idx === -1) jiraData.push(rec);
-        else jiraData[idx] = rec;
-    } else if (currentTab === 'git') {
-        const rec = {
-            author: document.getElementById('m-author').value.trim(),
-            year: parseInt(document.getElementById('m-year').value) || new Date().getFullYear(),
-            week_number: parseInt(document.getElementById('m-week').value) || 0,
-            week_start: document.getElementById('m-start').value,
-            week_end: document.getElementById('m-end').value,
-            unique_tickets_count: parseInt(document.getElementById('m-count').value) || 0
-        };
-        if (!rec.author) { alert("Author is required."); return; }
-        if (idx === -1) gitData.push(rec);
-        else gitData[idx] = rec;
-    }
-    closeModal();
     updateDashboard();
 }
 
 window.onload = function() {
-    initDashboard();
+    if (typeof initDashboard === 'function') {
+        initDashboard();
+    } else {
+        updateDashboard();
+    }
 }
