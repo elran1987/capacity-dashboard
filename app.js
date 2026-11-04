@@ -203,15 +203,36 @@ window.handleFileUpload = function(event) {
     const reader = new FileReader();
     const fileName = file.name.toLowerCase();
 
-    if (fileName.endsWith('.json')) {
+    if (fileName.endsWith('.json') || fileName.endsWith('.txt') || fileName.endsWith('.csv')) {
         reader.onload = function(e) {
             try {
-                const parsed = JSON.parse(e.target.result);
-                const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
-                processParsedData(json);
+                const text = e.target.result;
+                if (fileName.endsWith('.json')) {
+                    const parsed = JSON.parse(text);
+                    const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
+                    processParsedData(json);
+                } else {
+                    // פענוח בסיסי לטקסט/CSV שהודבק
+                    const lines = text.split('\n').filter(l => l.trim().length > 0);
+                    if (lines.length < 2) { alert("File is empty or invalid format."); return; }
+                    
+                    // זיהוי כותרות
+                    const headers = lines[0].replace(/"/g, '').split(/,|\s{2,}/).map(h => h.trim());
+                    const rows = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const currentLine = lines[i].match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || lines[i].split(',');
+                        const obj = {};
+                        headers.forEach((h, idx) => {
+                            let val = currentLine[idx] ? currentLine[idx].replace(/^"|"$/g, '').trim() : '';
+                            obj[h] = val;
+                        });
+                        rows.push(obj);
+                    }
+                    processParsedData(rows);
+                }
             } catch (err) {
                 console.error(err);
-                alert("Error parsing JSON file.");
+                alert("Error parsing file.");
             }
         };
         reader.readAsText(file);
@@ -326,4 +347,51 @@ function processParsedData(json) {
 
             employeeData = Array.from(tempMap.values());
             if (typeof populateDropdowns === 'function') populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} resource records!
+            alert(`Successfully imported ${employeeData.length} resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
+        }
+    }
+    updateDashboard();
+}
+
+window.filterByProject = function(projName) {
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = projName;
+    updateDashboard();
+}
+
+window.sortTable = function(col) {
+    if (currentSortCol === col) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortCol = col;
+        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number' || col === 'Count') ? false : true;
+    }
+    updateDashboard();
+}
+
+window.resetFilters = function() {
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = '';
+    
+    const roleSelect = document.getElementById('filter-role');
+    if (roleSelect) {
+        Array.from(roleSelect.options).forEach(opt => opt.selected = false);
+    }
+    
+    const locEl = document.getElementById('filter-location');
+    if (locEl) locEl.value = '';
+
+    if (typeof jiraFilters !== 'undefined') {
+        jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
+    }
+
+    updateDashboard();
+}
+
+window.onload = function() {
+    if (typeof initDashboard === 'function') {
+        initDashboard();
+    } else {
+        updateDashboard();
+    }
+}
