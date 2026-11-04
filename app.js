@@ -132,12 +132,12 @@ window.updateDashboard = function() {
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'table-row';
         
-        // שליפת ערכי הסינון מה-Dropdowns שבתוך הטבלה
-        const assigneeFilter = document.querySelector('#table-filter-row select:nth-child(1)')?.value || 'All Assignees';
-        const projFilter = document.querySelector('#table-filter-row select:nth-child(2)')?.value || 'All Projects';
-        const fromFilter = document.querySelector('#table-filter-row select:nth-child(3)')?.value || 'All From';
-        const toFilter = document.querySelector('#table-filter-row select:nth-child(4)')?.value || 'All To';
-        const textFilter = document.querySelector('#table-filter-row input[type="text"]')?.value?.toLowerCase() || '';
+        // שימוש באובייקט ה-jiraFilters שמוגדר ב-jira.js
+        const assigneeFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Assignee : '';
+        const projFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Project : '';
+        const fromFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.FromStatus : '';
+        const toFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.ToStatus : '';
+        const textFilter = typeof jiraFilters !== 'undefined' ? jiraFilters.Issues.toLowerCase() : '';
 
         let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
             const jAssignee = j.Assignee || j.assignee || '';
@@ -146,10 +146,10 @@ window.updateDashboard = function() {
             const jTo = j.ToStatus || j.tostatus || j.to_status || '';
             const jIssues = String(j.Issues || j.issues || '').toLowerCase();
 
-            if (assigneeFilter && assigneeFilter !== 'All Assignees' && jAssignee !== assigneeFilter) return false;
-            if (projFilter && projFilter !== 'All Projects' && jProject !== projFilter) return false;
-            if (fromFilter && fromFilter !== 'All From' && jFrom !== fromFilter) return false;
-            if (toFilter && toFilter !== 'All To' && jTo !== toFilter) return false;
+            if (assigneeFilter && jAssignee !== assigneeFilter) return false;
+            if (projFilter && jProject !== projFilter) return false;
+            if (fromFilter && jFrom !== fromFilter) return false;
+            if (toFilter && jTo !== toFilter) return false;
             if (textFilter && !jIssues.includes(textFilter)) return false;
 
             return true;
@@ -332,27 +332,12 @@ window.resetFilters = function() {
     const locEl = document.getElementById('filter-location');
     if (locEl) locEl.value = '';
 
-    const tableFilters = document.querySelectorAll('#table-filter-row select, #table-filter-row input');
-    tableFilters.forEach(el => {
-        if (el.tagName === 'SELECT') el.selectedIndex = 0;
-        else el.value = '';
-    });
+    if (typeof jiraFilters !== 'undefined') {
+        jiraFilters = { Assignee: '', Project: '', FromStatus: '', ToStatus: '', Issues: '' };
+    }
 
     updateDashboard();
 }
-
-// האזנה דינמית לכל שינוי או הקלדה בפילטרים של טאב ה-Jira
-document.addEventListener('change', function(e) {
-    if (e.target.closest('#table-filter-row')) {
-        updateDashboard();
-    }
-});
-
-document.addEventListener('input', function(e) {
-    if (e.target.closest('#table-filter-row')) {
-        updateDashboard();
-    }
-});
 
 window.onload = function() {
     if (typeof initDashboard === 'function') {
