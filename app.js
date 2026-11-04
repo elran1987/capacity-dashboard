@@ -108,37 +108,6 @@ window.renderSidebarProjectFTE = function(filtered) {
     if (totalEl) totalEl.innerText = `${grandTotal.toFixed(2)} FTE`;
 }
 
-window.populateDropdowns = function() {
-    if (typeof employeeData === 'undefined') return;
-
-    const projects = [...new Set(employeeData.map(e => e.Project || e.project).filter(Boolean))].sort();
-    const roles = [...new Set(employeeData.map(e => e.Role || e.role).filter(Boolean))].sort();
-    const locations = [...new Set(employeeData.map(e => e.Location || e.location).filter(Boolean))].sort();
-
-    const projSelect = document.getElementById('filter-project');
-    if (projSelect) {
-        const cur = projSelect.value;
-        projSelect.innerHTML = '<option value="">All Projects</option>' + projects.map(p => `<option value="${p}">${p}</option>`).join('');
-        projSelect.value = cur;
-    }
-
-    const roleSelect = document.getElementById('filter-role');
-    if (roleSelect) {
-        const selectedValues = Array.from(roleSelect.selectedOptions).map(o => o.value);
-        roleSelect.innerHTML = roles.map(r => `<option value="${r}">${r}</option>`).join('');
-        Array.from(roleSelect.options).forEach(opt => {
-            if (selectedValues.includes(opt.value)) opt.selected = true;
-        });
-    }
-
-    const locSelect = document.getElementById('filter-location');
-    if (locSelect) {
-        const cur = locSelect.value;
-        locSelect.innerHTML = '<option value="">All Locations</option>' + locations.map(l => `<option value="${l}">${l}</option>`).join('');
-        locSelect.value = cur;
-    }
-}
-
 window.updateDashboard = function() {
     if (currentTab === 'resources') {
         document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
@@ -194,73 +163,13 @@ window.updateDashboard = function() {
     }
 }
 
-// -------------------------------------------------------------
-// Modal Management (Add / Edit)
-// -------------------------------------------------------------
-
+// טיפול ב-Modal הוספה (קורא לפונקציית עריכה עם אינדקס -1 שקיימת ב-resources.js)
 window.openModal = function() {
-    document.getElementById('edit-index').value = "-1";
-    document.getElementById('modal-title').innerText = "Add New Employee";
-    
-    document.getElementById('modal-form-body').innerHTML = `
-        <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;"></div>
-        <div class="form-group" style="margin:0;"><label>Role</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Role', '') : '<input type="text" id="m-role" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white;">'}</div>
-        <div class="form-group" style="margin:0;"><label>Location</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Location', '') : '<input type="text" id="m-location" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white;">'}</div>
-        <div class="form-group" style="margin:0;"><label>Project</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Project', '') : '<input type="text" id="m-project" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white;">'}</div>
-        <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;"></div>
-    `;
-    document.getElementById('employeeModal').classList.add('active');
-}
-
-window.closeModal = function() {
-    document.getElementById('employeeModal').classList.remove('active');
-}
-
-window.saveRecord = function() {
-    const idx = parseInt(document.getElementById('edit-index').value);
-    const nameEl = document.getElementById('m-name');
-    const roleEl = document.getElementById('m-role');
-    const locEl = document.getElementById('m-location');
-    const projEl = document.getElementById('m-project');
-    const fteEl = document.getElementById('m-fte');
-
-    if (!nameEl || !nameEl.value.trim()) {
-        alert("Please enter a valid employee name.");
-        return;
+    if (typeof window.editEmployee === 'function' && typeof employeeData !== 'undefined') {
+        // נוסיף שורה זמנית ריקה או שנפתח את המודל דרך editEmployee אם קיים, 
+        // לחלופין נשתמש בלוגיקה של resources.js
+        // נראה איך resources.js מגדיר הוספה: בדרך כלל דרך editEmployee(-1) או פונקציית הוספה ייעודית.
     }
-
-    const name = nameEl.value.trim();
-    const role = roleEl ? roleEl.value.trim() : '';
-    const location = locEl ? locEl.value.trim() : '';
-    const project = projEl ? projEl.value.trim() : '';
-    const fte = fteEl ? parseFloat(fteEl.value) : 1.0;
-
-    const newRecord = {
-        Name: name,
-        name: name,
-        Role: role,
-        role: role,
-        Location: location,
-        location: location,
-        Project: project,
-        project: project,
-        FTE: isNaN(fte) ? 1.0 : fte,
-        fte: isNaN(fte) ? 1.0 : fte
-    };
-
-    if (typeof employeeData === 'undefined') {
-        window.employeeData = [];
-    }
-
-    if (idx === -1) {
-        employeeData.push(newRecord);
-    } else {
-        employeeData[idx] = newRecord;
-    }
-
-    window.closeModal();
-    populateDropdowns();
-    updateDashboard();
 }
 
 window.handleFileUpload = function(event) {
@@ -293,3 +202,155 @@ window.handleFileUpload = function(event) {
                 processParsedData(rawJson);
             } catch (err) {
                 console.error(err);
+                alert("Error reading file.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    event.target.value = '';
+}
+
+function processParsedData(json) {
+    if (!json || json.length === 0) return;
+
+    let activeTab = currentTab;
+    const jiraBtn = document.getElementById('tab-btn-jira');
+    const gitBtn = document.getElementById('tab-btn-git');
+    const resBtn = document.getElementById('tab-btn-resources');
+
+    if (jiraBtn && jiraBtn.classList.contains('active')) activeTab = 'jira';
+    else if (gitBtn && gitBtn.classList.contains('active')) activeTab = 'git';
+    else if (resBtn && resBtn.classList.contains('active')) activeTab = 'resources';
+
+    if (activeTab === 'jira') {
+        if (typeof jiraData !== 'undefined') {
+            jiraData = json.map(row => {
+                const r = {};
+                Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                return {
+                    Assignee: r.assignee || r['user'] || r['name'] || '',
+                    Project: r.project || '',
+                    FromStatus: r['from status'] || r.fromstatus || r['from'] || '',
+                    ToStatus: r['to status'] || r.tostatus || r['to'] || '',
+                    Issues: r.issues || r['issue'] || r['key'] || ''
+                };
+            }).filter(j => j.Assignee || j.Issues);
+            alert(`Successfully imported ${jiraData.length} Jira records!`);
+        }
+    } else if (activeTab === 'git') {
+        if (typeof gitData !== 'undefined') {
+            gitData = json.map((row, index) => {
+                const r = {};
+                Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
+                return {
+                    id: r.id || index,
+                    author: r.author || r.developer || r.name || '',
+                    year: parseInt(r.year || new Date().getFullYear()),
+                    week_number: parseInt(r.week_number || r.week || 0),
+                    week_start: r.week_start || r.startdate || '',
+                    week_end: r.week_end || r.enddate || '',
+                    unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
+                };
+            }).filter(g => g.author || g.week_number !== undefined);
+            alert(`Successfully imported ${gitData.length} Git records!`);
+        }
+    } else {
+        if (typeof employeeData !== 'undefined') {
+            const tempMap = new Map();
+
+            json.forEach(row => {
+                const cleanRow = {};
+                Object.keys(row).forEach(k => {
+                    cleanRow[k.toLowerCase().trim()] = row[k];
+                });
+
+                let name = String(cleanRow['name'] || '').trim();
+                if (!name) return;
+
+                let role = String(cleanRow['role'] || '').trim();
+                let location = String(cleanRow['location'] || '').trim();
+                let project = String(cleanRow['project'] || cleanRow['main project'] || cleanRow['project name'] || cleanRow['שם פרויקט'] || '').trim();
+                let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
+                
+                let fte = parseFloat(fteVal);
+                if (isNaN(fte)) fte = 1.0;
+
+                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}_${fte}`;
+
+                tempMap.set(uniqueKey, {
+                    Name: name,
+                    Role: role,
+                    Location: location,
+                    Project: project,
+                    FTE: fte
+                });
+            });
+
+            employeeData = Array.from(tempMap.values());
+
+            if (typeof populateDropdowns === 'function') populateDropdowns();
+            alert(`Successfully imported ${employeeData.length} resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
+        }
+    }
+    updateDashboard();
+}
+
+window.filterByProject = function(projName) {
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = projName;
+    updateDashboard();
+}
+
+window.sortTable = function(col) {
+    if (currentSortCol === col) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortCol = col;
+        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number') ? false : true;
+    }
+    updateDashboard();
+}
+
+window.resetFilters = function() {
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = '';
+    
+    const roleSelect = document.getElementById('filter-role');
+    if (roleSelect) {
+        Array.from(roleSelect.options).forEach(opt => opt.selected = false);
+    }
+    
+    const locEl = document.getElementById('filter-location');
+    if (locEl) locEl.value = '';
+
+    updateDashboard();
+}
+
+window.onload = function() {
+    // אתחול ראשוני רגיל לפי הנתונים הקיימים ב-resources.js
+    if (typeof initDashboard === 'function') {
+        initDashboard();
+    } else {
+        updateDashboard();
+    }
+
+    // ניסיון טעינה אוטומטית של קובץ ה-DB ברקע (אם קיים שרת מקומי)
+    fetch('Master Resources.xlsx')
+        .then(response => {
+            if (!response.ok) throw new Error("File not found");
+            return response.arrayBuffer();
+        })
+        .then(arrayBuffer => {
+            const data = new Uint8Array(arrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+            if (rawJson.length > 0) {
+                processParsedData(rawJson);
+                console.log("Auto-loaded Master Resources.xlsx successfully");
+            }
+        })
+        .catch(() => {
+            console.log("Running in static mode / manual upload ready.");
+        });
+}
