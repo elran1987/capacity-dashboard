@@ -278,16 +278,15 @@ function processParsedData(json) {
         }
     } else {
         if (typeof employeeData !== 'undefined') {
-            const tempMap = new Map();
-
-            json.forEach(row => {
+            // טעינת כל שורות השיוך מהאקסל (כולל עובדים שמופיעים בכמה פרויקטים)
+            employeeData = json.map(row => {
                 const cleanRow = {};
                 Object.keys(row).forEach(k => {
                     cleanRow[k.toLowerCase().trim()] = row[k];
                 });
 
                 let name = String(cleanRow['name'] || '').trim();
-                if (!name) return;
+                if (!name) return null;
 
                 let role = String(cleanRow['role'] || '').trim();
                 let location = String(cleanRow['location'] || '').trim();
@@ -297,10 +296,7 @@ function processParsedData(json) {
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
-                // מפתח ייחודי למניעת כפילויות שורות זהות באקסל
-                let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}`;
-
-                tempMap.set(uniqueKey, {
+                return {
                     Name: name,
                     name: name,
                     Role: role,
@@ -311,13 +307,11 @@ function processParsedData(json) {
                     project: project,
                     FTE: fte,
                     fte: fte
-                });
-            });
-
-            employeeData = Array.from(tempMap.values());
+                };
+            }).filter(emp => emp !== null);
 
             populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} unique resource records!`);
+            alert(`Successfully imported ${employeeData.length} resource allocation records!`);
         }
     }
     updateDashboard();
