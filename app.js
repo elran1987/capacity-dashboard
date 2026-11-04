@@ -93,7 +93,7 @@ window.renderSidebarProjectFTE = function(filtered) {
     } else if (sortMode === 'fte-asc') {
         sortedProjects.sort((a, b) => a[1] - b[1]);
     } else if (sortMode === 'name-asc') {
-        sortedProjects.sort((a, b) => b[0].localeCompare(a[0]));
+        sortedProjects.sort((a, b) => a[0].localeCompare(b[0]));
     }
 
     let html = '';
@@ -194,6 +194,76 @@ window.updateDashboard = function() {
     }
 }
 
+// -------------------------------------------------------------
+// Modal Management (Add / Edit בפורמט הנכון עם Dropdowns)
+// -------------------------------------------------------------
+
+window.openModal = function() {
+    document.getElementById('edit-index').value = "-1";
+    document.getElementById('modal-title').innerText = "Add New Employee";
+    
+    // שימוש בפונקציה קיימת או יצירת שדות בחירה נפתחות בדומה לצילום המסך
+    document.getElementById('modal-form-body').innerHTML = `
+        <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;"></div>
+        <div class="form-group" style="margin:0;"><label>Role</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Role', '') : '<input type="text" id="m-role">'}</div>
+        <div class="form-group" style="margin:0;"><label>Location</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Location', '') : '<input type="text" id="m-location">'}</div>
+        <div class="form-group" style="margin:0;"><label>Project</label>${typeof getDropdownOptionsHtml === 'function' ? getDropdownOptionsHtml('Project', '') : '<input type="text" id="m-project">'}</div>
+        <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0" style="width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); border-radius: 10px; padding: 10px; color: white; font-size: 13px; outline: none;"></div>
+    `;
+    document.getElementById('employeeModal').classList.add('active');
+}
+
+window.closeModal = function() {
+    document.getElementById('employeeModal').classList.remove('active');
+}
+
+window.saveRecord = function() {
+    const idx = parseInt(document.getElementById('edit-index').value);
+    const nameEl = document.getElementById('m-name');
+    const roleEl = document.getElementById('m-role') || document.getElementById('m-role');
+    const locEl = document.getElementById('m-location') || document.getElementById('m-location');
+    const projEl = document.getElementById('m-project') || document.getElementById('m-project');
+    const fteEl = document.getElementById('m-fte');
+
+    if (!nameEl || !nameEl.value.trim()) {
+        alert("Please enter a valid employee name.");
+        return;
+    }
+
+    const name = nameEl.value.trim();
+    const role = roleEl ? roleEl.value.trim() : '';
+    const location = locEl ? locEl.value.trim() : '';
+    const project = projEl ? projEl.value.trim() : '';
+    const fte = fteEl ? parseFloat(fteEl.value) : 1.0;
+
+    const newRecord = {
+        Name: name,
+        name: name,
+        Role: role,
+        role: role,
+        Location: location,
+        location: location,
+        Project: project,
+        project: project,
+        FTE: isNaN(fte) ? 1.0 : fte,
+        fte: isNaN(fte) ? 1.0 : fte
+    };
+
+    if (typeof employeeData === 'undefined') {
+        window.employeeData = [];
+    }
+
+    if (idx === -1) {
+        employeeData.push(newRecord);
+    } else {
+        employeeData[idx] = newRecord;
+    }
+
+    window.closeModal();
+    populateDropdowns();
+    updateDashboard();
+}
+
 window.handleFileUpload = function(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -244,39 +314,7 @@ function processParsedData(json) {
     else if (gitBtn && gitBtn.classList.contains('active')) activeTab = 'git';
     else if (resBtn && resBtn.classList.contains('active')) activeTab = 'resources';
 
-    if (activeTab === 'jira') {
-        if (typeof jiraData !== 'undefined') {
-            jiraData = json.map(row => {
-                const r = {};
-                Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
-                return {
-                    Assignee: r.assignee || r['user'] || r['name'] || '',
-                    Project: r.project || '',
-                    FromStatus: r['from status'] || r.fromstatus || r['from'] || '',
-                    ToStatus: r['to status'] || r.tostatus || r['to'] || '',
-                    Issues: r.issues || r['issue'] || r['key'] || ''
-                };
-            }).filter(j => j.Assignee || j.Issues);
-            alert(`Successfully imported ${jiraData.length} Jira records!`);
-        }
-    } else if (activeTab === 'git') {
-        if (typeof gitData !== 'undefined') {
-            gitData = json.map((row, index) => {
-                const r = {};
-                Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
-                return {
-                    id: r.id || index,
-                    author: r.author || r.developer || r.name || '',
-                    year: parseInt(r.year || new Date().getFullYear()),
-                    week_number: parseInt(r.week_number || r.week || 0),
-                    week_start: r.week_start || r.startdate || '',
-                    week_end: r.week_end || r.enddate || '',
-                    unique_tickets_count: parseInt(r.unique_tickets_count || r.ticketscount || r.count || 0)
-                };
-            }).filter(g => g.author || g.week_number !== undefined);
-            alert(`Successfully imported ${gitData.length} Git records!`);
-        }
-    } else {
+    if (activeTab === 'resources') {
         if (typeof employeeData !== 'undefined') {
             const tempMap = new Map();
 
@@ -295,7 +333,7 @@ function processParsedData(json) {
                 let fteVal = cleanRow['fte'] !== undefined && cleanRow['fte'] !== '' ? cleanRow['fte'] : 1.0;
                 
                 let fte = parseFloat(fteVal);
-                if (isNaN(fte)) fte = 1.0;
+                 if (isNaN(fte)) fte = 1.0;
 
                 let uniqueKey = `${name.toLowerCase()}_${project.toLowerCase()}_${fte}`;
 
@@ -316,98 +354,10 @@ function processParsedData(json) {
             employeeData = Array.from(tempMap.values());
 
             populateDropdowns();
-            alert(`Successfully imported ${employeeData.length} resource allocations. Total FTE sum: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
+            alert(`Successfully imported ${employeeData.length} unique resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
         }
     }
     updateDashboard();
-}
-
-// -------------------------------------------------------------
-// פונקציות הוספה ועריכה ידנית (מחברות ישירות ל-employeeData ומעדכנות משאבים וסכימה)
-// -------------------------------------------------------------
-
-window.addNewResource = function() {
-    const name = prompt("Enter Employee Name:");
-    if (!name) return;
-    const role = prompt("Enter Role / Discipline (e.g. BE, FE, DevOps):") || "BE";
-    const location = prompt("Enter Location (e.g. Israel, Romania):") || "Israel";
-    const project = prompt("Enter Project Name:") || "General";
-    const fteInput = prompt("Enter FTE (e.g. 1.0, 0.5):") || "1.0";
-    
-    let fte = parseFloat(fteInput);
-    if (isNaN(fte)) fte = 1.0;
-
-    if (typeof employeeData === 'undefined') {
-        window.employeeData = [];
-    }
-
-    employeeData.push({
-        Name: name.trim(),
-        name: name.trim(),
-        Role: role.trim(),
-        role: role.trim(),
-        Location: location.trim(),
-        location: location.trim(),
-        Project: project.trim(),
-        project: project.trim(),
-        FTE: fte,
-        fte: fte
-    });
-
-    populateDropdowns();
-    updateDashboard();
-    alert(`Successfully added ${name} to resources!`);
-}
-
-window.editResource = function(index) {
-    if (typeof employeeData === 'undefined' || !employeeData[index]) return;
-    const emp = employeeData[index];
-
-    const newName = prompt("Edit Employee Name:", emp.Name || emp.name) || emp.Name;
-    const newRole = prompt("Edit Role:", emp.Role || emp.role) || emp.Role;
-    const newLoc = prompt("Edit Location:", emp.Location || emp.location) || emp.Location;
-    const newProj = prompt("Edit Project:", emp.Project || emp.project) || emp.Project;
-    const newFteInput = prompt("Edit FTE:", emp.FTE !== undefined ? emp.FTE : emp.fte) || "1.0";
-
-    let fte = parseFloat(newFteInput);
-    if (isNaN(fte)) fte = 1.0;
-
-    employeeData[index] = {
-        Name: newName.trim(),
-        name: newName.trim(),
-        Role: newRole.trim(),
-        role: newRole.trim(),
-        Location: newLoc.trim(),
-        location: newLoc.trim(),
-        Project: newProj.trim(),
-        project: newProj.trim(),
-        FTE: fte,
-        fte: fte
-    };
-
-    populateDropdowns();
-    updateDashboard();
-    alert("Resource updated successfully!");
-}
-
-window.deleteResource = function(index) {
-    if (typeof employeeData === 'undefined' || !employeeData[index]) return;
-    if (confirm("Are you sure you want to delete this resource allocation?")) {
-        employeeData.splice(index, 1);
-        populateDropdowns();
-        updateDashboard();
-    }
-}
-
-// חיבור כפתור הפעולה הראשי (טראקר ה-Add) כך שיעבוד לפי הטאב הפעיל
-window.handleAddAction = function() {
-    if (currentTab === 'resources') {
-        window.addNewResource();
-    } else if (currentTab === 'jira') {
-        alert("Add Jira Issue feature");
-    } else if (currentTab === 'git') {
-        alert("Add Git Record feature");
-    }
 }
 
 window.filterByProject = function(projName) {
@@ -442,10 +392,18 @@ window.resetFilters = function() {
 }
 
 window.onload = function() {
-    // חיבור כפתור ההוספה הראשי באירוע לחיצה
+    // קישור כפתור ה-Add הראשי לפתיחת ה-Modal
     const btnAdd = document.getElementById('btn-add-action');
     if (btnAdd) {
-        btnAdd.onclick = window.handleAddAction;
+        btnAdd.onclick = function() {
+            if (currentTab === 'resources') {
+                if (typeof window.openModal === 'function') {
+                    window.openModal();
+                }
+            } else {
+                alert("Add action for this tab");
+            }
+        };
     }
 
     if (typeof initDashboard === 'function') {
