@@ -71,7 +71,7 @@ window.getFilteredResources = function() {
     });
 }
 
-// טבלת הסיכום בצד שמאל (PROJECT FTE)
+// טבלת הסיכום בצד שמאל (PROJECT FTE) - מחוברת ל-ID הנכון project-fte-list
 window.renderSidebarProjectFTE = function(filtered) {
     const sortMode = document.getElementById('project-sort-mode')?.value || 'fte-desc';
     const container = document.getElementById('project-fte-list');
