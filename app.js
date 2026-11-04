@@ -132,11 +132,12 @@ window.updateDashboard = function() {
         const filterRow = document.getElementById('table-filter-row');
         if (filterRow) filterRow.style.display = 'table-row';
         
-        const projFilter = document.getElementById('filter-project')?.value || '';
-        const assigneeFilter = document.getElementById('jira-filter-assignee')?.value || '';
-        const fromFilter = document.getElementById('jira-filter-from')?.value || '';
-        const toFilter = document.getElementById('jira-filter-to')?.value || '';
-        const textFilter = document.getElementById('jira-filter-text')?.value?.toLowerCase() || '';
+        // קריאת ערכי הסינון מה-Dropdowns שבתוך הטבלה (Assignee, Project, From, To, Text)
+        const assigneeFilter = document.querySelector('#table-filter-row select:nth-child(1)')?.value || 'All Assignees';
+        const projFilter = document.querySelector('#table-filter-row select:nth-child(2)')?.value || 'All Projects';
+        const fromFilter = document.querySelector('#table-filter-row select:nth-child(3)')?.value || 'All From';
+        const toFilter = document.querySelector('#table-filter-row select:nth-child(4)')?.value || 'All To';
+        const textFilter = document.querySelector('#table-filter-row input[type="text"]')?.value?.toLowerCase() || '';
 
         let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
             const jAssignee = j.Assignee || j.assignee || '';
@@ -145,8 +146,8 @@ window.updateDashboard = function() {
             const jTo = j.ToStatus || j.tostatus || j.to_status || '';
             const jIssues = String(j.Issues || j.issues || '').toLowerCase();
 
-            if (projFilter && jProject !== projFilter) return false;
             if (assigneeFilter && assigneeFilter !== 'All Assignees' && jAssignee !== assigneeFilter) return false;
+            if (projFilter && projFilter !== 'All Projects' && jProject !== projFilter) return false;
             if (fromFilter && fromFilter !== 'All From' && jFrom !== fromFilter) return false;
             if (toFilter && toFilter !== 'All To' && jTo !== toFilter) return false;
             if (textFilter && !jIssues.includes(textFilter)) return false;
@@ -331,17 +332,12 @@ window.resetFilters = function() {
     const locEl = document.getElementById('filter-location');
     if (locEl) locEl.value = '';
 
-    const jiraAssignee = document.getElementById('jira-filter-assignee');
-    if (jiraAssignee) jiraAssignee.value = '';
-
-    const jiraFrom = document.getElementById('jira-filter-from');
-    if (jiraFrom) jiraFrom.value = '';
-
-    const jiraTo = document.getElementById('jira-filter-to');
-    if (jiraTo) jiraTo.value = '';
-
-    const jiraText = document.getElementById('jira-filter-text');
-    if (jiraText) jiraText.value = '';
+    // איפוס פילטרים בטבלת Jira אם קיימים
+    const tableFilters = document.querySelectorAll('#table-filter-row select, #table-filter-row input');
+    tableFilters.forEach(el => {
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
+    });
 
     updateDashboard();
 }
