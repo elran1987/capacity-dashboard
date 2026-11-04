@@ -3,7 +3,7 @@ let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
 window.initDashboard = function() {
-    populateDropdowns();
+    if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
 
@@ -49,7 +49,7 @@ window.switchTab = function(tab) {
     updateDashboard();
 }
 
-// פונקציית סינון עם תמיכה ב-Multi-select לתפקידים
+// פונקציית סינון עם תמיכה מלאה בבחירה מרובה (Multi-select) לתפקידים
 window.getFilteredResources = function() {
     if (typeof employeeData === 'undefined') return [];
     
@@ -60,16 +60,21 @@ window.getFilteredResources = function() {
     const selectedRoles = roleSelect ? Array.from(roleSelect.selectedOptions).map(opt => opt.value).filter(v => v) : [];
 
     return employeeData.filter(emp => {
-        if (projFilter && emp.Project !== projFilter) return false;
-        if (selectedRoles.length > 0 && !selectedRoles.includes(emp.Role)) return false;
-        if (locFilter && emp.Location !== locFilter) return false;
+        const empProj = emp.Project || emp.project || '';
+        const empRole = emp.Role || emp.role || '';
+        const empLoc = emp.Location || emp.location || '';
+
+        if (projFilter && empProj !== projFilter) return false;
+        if (selectedRoles.length > 0 && !selectedRoles.includes(empRole)) return false;
+        if (locFilter && empLoc !== locFilter) return false;
         return true;
     });
 }
 
 // טבלת הסיכום בצד שמאל (PROJECT FTE)
 window.renderSidebarProjectFTE = function(filtered) {
-    const container = document.getElementById('sidebar-project-fte-list');
+    const sortMode = document.getElementById('project-sort-mode')?.value || 'fte-desc';
+    const container = document.getElementById('project-fte-list');
     const totalEl = document.getElementById('sidebar-total-fte');
     if (!container) return;
 
@@ -77,22 +82,28 @@ window.renderSidebarProjectFTE = function(filtered) {
     let grandTotal = 0;
 
     filtered.forEach(emp => {
-        const p = emp.Project || 'Unassigned';
-        const fte = parseFloat(emp.FTE) || 0;
+        const p = emp.Project || emp.project || 'Unassigned';
+        const fte = parseFloat(emp.FTE !== undefined ? emp.FTE : emp.fte) || 0;
         projectMap[p] = (projectMap[p] || 0) + fte;
         grandTotal += fte;
     });
 
-    const sortedProjects = Object.entries(projectMap).sort((a, b) => b[1] - a[1]);
+    let sortedProjects = Object.entries(projectMap);
+
+    if (sortMode === 'fte-desc') {
+        sortedProjects.sort((a, b) => b[1] - a[1]);
+    } else if (sortMode === 'fte-asc') {
+        sortedProjects.sort((a, b) => a[1] - b[1]);
+    } else if (sortMode === 'name-asc') {
+        sortedProjects.sort((a, b) => a[0].localeCompare(b[0]));
+    }
 
     let html = '';
     sortedProjects.forEach(([proj, fte]) => {
-        html += `
-            <div class="sidebar-fte-row" onclick="filterByProject('${proj}')" style="cursor:pointer; display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b;">
-                <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="${proj}">${proj}</span>
-                <span class="badge" style="background:#0f172a; color:#38bdf8; padding:2px 8px; border-radius:4px;">${fte.toFixed(2)} FTE</span>
-            </div>
-        `;
+        html += `<div class="sidebar-fte-row" onclick="window.filterByProject('${proj}')" style="cursor:pointer; display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b;">
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="${proj}">${proj}</span>
+            <span class="badge" style="background:#0f172a; color:#38bdf8; padding:2px 8px; border-radius:4px;">${fte.toFixed(2)} FTE</span>
+        </div>`;
     });
 
     container.innerHTML = html || '<div style="color:#64748b; font-size:12px;">No projects found</div>';
@@ -103,9 +114,9 @@ window.renderSidebarProjectFTE = function(filtered) {
 window.populateDropdowns = function() {
     if (typeof employeeData === 'undefined') return;
 
-    const projects = [...new Set(employeeData.map(e => e.Project).filter(Boolean))].sort();
-    const roles = [...new Set(employeeData.map(e => e.Role).filter(Boolean))].sort();
-    const locations = [...new Set(employeeData.map(e => e.Location).filter(Boolean))].sort();
+    const projects = [...new Set(employeeData.map(e => e.Project || e.project).filter(Boolean))].sort();
+    const roles = [...new Set(employeeData.map(e => e.Role || e.role).filter(Boolean))].sort();
+    const locations = [...new Set(employeeData.map(e => e.Location || e.location).filter(Boolean))].sort();
 
     const projSelect = document.getElementById('filter-project');
     if (projSelect) {
@@ -140,7 +151,8 @@ window.updateDashboard = function() {
         const filtered = getFilteredResources();
 
         filtered.sort((a, b) => {
-            let valA = a[currentSortCol], valB = b[currentSortCol];
+            let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : a[currentSortCol?.toLowerCase()],
+                valB = b[currentSortCol] !== undefined ? b[currentSortCol] : b[currentSortCol?.toLowerCase()];
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
@@ -273,18 +285,23 @@ function processParsedData(json) {
                 let name = row['Name'] || row['name'] || '';
                 let role = row['Role'] || row['role'] || '';
                 let location = row['Location '] || row['Location'] || row['location'] || '';
-                let project = row['main project '] || row['main project'] || row['Project'] || '';
-                let fteVal = row['project'] !== undefined ? row['project'] : (row['FTE'] !== undefined ? row['FTE'] : 1.0);
+                let project = row['main project '] || row['main project'] || row['Project'] || row['project'] || '';
+                let fteVal = row['project'] !== undefined && row['project'] !== '' ? row['project'] : (row['FTE'] !== undefined ? row['FTE'] : 1.0);
                 
                 let fte = parseFloat(fteVal);
                 if (isNaN(fte)) fte = 1.0;
 
                 return {
                     Name: String(name).trim(),
+                    name: String(name).trim(),
                     Role: String(role).trim(),
+                    role: String(role).trim(),
                     Location: String(location).trim(),
+                    location: String(location).trim(),
                     Project: String(project).trim(),
-                    FTE: fte
+                    project: String(project).trim(),
+                    FTE: fte,
+                    fte: fte
                 };
             }).filter(e => e.Name);
 
