@@ -2,7 +2,45 @@ let currentTab = 'resources';
 let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
+// פונקציית טעינה מזיכרון הדפדפן (localStorage)
+function loadDataFromLocalStorage() {
+    try {
+        const savedJira = localStorage.getItem('dashboard_jiraData');
+        if (savedJira && typeof jiraData !== 'undefined') {
+            jiraData = JSON.parse(savedJira);
+        }
+
+        const savedGit = localStorage.getItem('dashboard_gitData');
+        if (savedGit && typeof gitData !== 'undefined') {
+            gitData = JSON.parse(savedGit);
+        }
+
+        const savedResources = localStorage.getItem('dashboard_employeeData');
+        if (savedResources && typeof employeeData !== 'undefined') {
+            employeeData = JSON.parse(savedResources);
+        }
+    } catch (e) {
+        console.error("Failed to load data from localStorage", e);
+    }
+}
+
+// פונקציית שמירה לזיכרון הדפדפן (localStorage)
+function saveDataToLocalStorage(tab) {
+    try {
+        if (tab === 'jira' && typeof jiraData !== 'undefined') {
+            localStorage.setItem('dashboard_jiraData', JSON.stringify(jiraData));
+        } else if (tab === 'git' && typeof gitData !== 'undefined') {
+            localStorage.setItem('dashboard_gitData', JSON.stringify(gitData));
+        } else if (tab === 'resources' && typeof employeeData !== 'undefined') {
+            localStorage.setItem('dashboard_employeeData', JSON.stringify(employeeData));
+        }
+    } catch (e) {
+        console.error("Failed to save data to localStorage", e);
+    }
+}
+
 window.initDashboard = function() {
+    loadDataFromLocalStorage();
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
@@ -212,11 +250,9 @@ window.handleFileUpload = function(event) {
                     const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
                     processParsedData(json);
                 } else {
-                    // פענוח בסיסי לטקסט/CSV שהודבק
                     const lines = text.split('\n').filter(l => l.trim().length > 0);
                     if (lines.length < 2) { alert("File is empty or invalid format."); return; }
                     
-                    // זיהוי כותרות
                     const headers = lines[0].replace(/"/g, '').split(/,|\s{2,}/).map(h => h.trim());
                     const rows = [];
                     for (let i = 1; i < lines.length; i++) {
@@ -293,6 +329,7 @@ function processParsedData(json) {
                 };
             }).filter(j => j.Assignee || j.Issues);
             
+            saveDataToLocalStorage('jira');
             alert(`Successfully imported ${jiraData.length} Jira records!`);
         }
     } else if (activeTab === 'git') {
@@ -302,7 +339,7 @@ function processParsedData(json) {
                 Object.keys(row).forEach(k => r[k.toLowerCase().trim()] = row[k]);
                 return {
                     id: r.id || index,
-                    author: r.author || r.developer || r.name || '',
+                    author: r.author || r.developer || r.user || r.name || '',
                     year: parseInt(r.year || new Date().getFullYear()),
                     week_number: parseInt(r.week_number || r.week || 0),
                     week_start: r.week_start || r.startdate || '',
@@ -311,6 +348,7 @@ function processParsedData(json) {
                 };
             }).filter(g => g.author || g.week_number !== undefined);
             
+            saveDataToLocalStorage('git');
             alert(`Successfully imported ${gitData.length} Git records!`);
         }
     } else {
@@ -346,6 +384,7 @@ function processParsedData(json) {
             });
 
             employeeData = Array.from(tempMap.values());
+            saveDataToLocalStorage('resources');
             if (typeof populateDropdowns === 'function') populateDropdowns();
             alert(`Successfully imported ${employeeData.length} resource records! Total FTE: ${employeeData.reduce((acc, curr) => acc + curr.FTE, 0).toFixed(2)}`);
         }
@@ -392,6 +431,7 @@ window.onload = function() {
     if (typeof initDashboard === 'function') {
         initDashboard();
     } else {
+        loadDataFromLocalStorage();
         updateDashboard();
     }
 }
