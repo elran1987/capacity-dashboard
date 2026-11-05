@@ -1,15 +1,14 @@
 // ==========================================
-// 1. STATE & DATA INITIALIZATION
+// 1. STATE & DATA INITIALIZATION (Safe from re-declaration)
 // ==========================================
-let jiraData = [];
-let gitData = [];
-let employeeData = [];
+window.jiraData = window.jiraData || [];
+window.gitData = window.gitData || [];
+window.employeeData = window.employeeData || [];
 
-let currentTab = 'jira';
-let currentSortCol = 'Assignee';
-let currentSortAsc = true;
+window.currentTab = window.currentTab || 'jira';
+window.currentSortCol = window.currentSortCol || 'Assignee';
+window.currentSortAsc = window.currentSortAsc !== undefined ? window.currentSortAsc : true;
 
-// טעינת נתונים מ-localStorage בעת עליית העמוד
 document.addEventListener('DOMContentLoaded', () => {
     loadDataFromLocalStorage();
     initEventListeners();
@@ -22,15 +21,13 @@ document.addEventListener('DOMContentLoaded', () => {
 function loadDataFromLocalStorage() {
     try {
         const savedJira = localStorage.getItem('dashboard_jiraData') || localStorage.getItem('dashboard_jira_data');
-        if (savedJira) jiraData = JSON.parse(savedJira);
+        if (savedJira) window.jiraData = JSON.parse(savedJira);
 
         const savedGit = localStorage.getItem('dashboard_gitData') || localStorage.getItem('dashboard_git_data');
-        if (savedGit) gitData = JSON.parse(savedGit);
+        if (savedGit) window.gitData = JSON.parse(savedGit);
 
         const savedEmp = localStorage.getItem('dashboard_employeeData') || localStorage.getItem('dashboard_employee_data');
-        if (savedEmp) employeeData = JSON.parse(savedEmp);
-
-        console.log("Data successfully loaded from localStorage");
+        if (savedEmp) window.employeeData = JSON.parse(savedEmp);
     } catch (e) {
         console.error("Error loading data from localStorage", e);
     }
@@ -38,10 +35,9 @@ function loadDataFromLocalStorage() {
 
 function saveDataToLocalStorage() {
     try {
-        localStorage.setItem('dashboard_jiraData', JSON.stringify(jiraData));
-        localStorage.setItem('dashboard_gitData', JSON.stringify(gitData));
-        localStorage.setItem('dashboard_employeeData', JSON.stringify(employeeData));
-        console.log("Data successfully saved to localStorage");
+        localStorage.setItem('dashboard_jiraData', JSON.stringify(window.jiraData));
+        localStorage.setItem('dashboard_gitData', JSON.stringify(window.gitData));
+        localStorage.setItem('dashboard_employeeData', JSON.stringify(window.employeeData));
     } catch (e) {
         console.error("Error saving data to localStorage", e);
     }
@@ -51,7 +47,6 @@ function saveDataToLocalStorage() {
 // 3. UI & TAB SWITCHING
 // ==========================================
 function initEventListeners() {
-    // כפתורי הטאבים
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const tab = e.target.getAttribute('data-tab');
@@ -59,15 +54,14 @@ function initEventListeners() {
         });
     });
 
-    // ייבוא קבצים (Excel / CSV / JSON)
     const fileInput = document.getElementById('file-input');
     if (fileInput) {
-        fileInput.addEventListener('change', handleFileUpload);
+        fileInput.addEventListener('change', window.handleFileUpload);
     }
 }
 
 function switchTab(tab) {
-    currentTab = tab;
+    window.currentTab = tab;
     
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     const activeBtn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
@@ -83,25 +77,22 @@ function switchTab(tab) {
         if (sidebarContainer) sidebarContainer.style.display = 'block';
         if (dashboardLayout) dashboardLayout.classList.remove('full-width');
         if (btnAdd) btnAdd.style.display = 'inline-block';
-        currentSortCol = 'Assignee';
-        currentSortAsc = true;
+        window.currentSortCol = 'Assignee';
+        window.currentSortAsc = true;
     } else if (tab === 'git') {
         if (chartsSection) chartsSection.style.display = 'none';
         if (sidebarContainer) sidebarContainer.style.display = 'none';
         if (dashboardLayout) dashboardLayout.classList.add('full-width');
-        
-        // הסרת כפתור Add Record בטאב ה-Git
         if (btnAdd) btnAdd.style.display = 'none';
-        
-        currentSortCol = 'author';
-        currentSortAsc = true;
+        window.currentSortCol = 'author';
+        window.currentSortAsc = true;
     } else if (tab === 'employees') {
         if (chartsSection) chartsSection.style.display = 'none';
-        if (sidebarContainer) sidebarContainer.style.display = 'none';
+        if (sidebarContainer) chartsSection.style.display = 'none';
         if (dashboardLayout) dashboardLayout.classList.add('full-width');
         if (btnAdd) btnAdd.style.display = 'inline-block';
-        currentSortCol = 'Name';
-        currentSortAsc = true;
+        window.currentSortCol = 'Name';
+        window.currentSortAsc = true;
     }
 
     updateDashboard();
@@ -112,9 +103,8 @@ function switchTab(tab) {
 // ==========================================
 function updateDashboard() {
     const tableTitle = document.getElementById('table-title');
-    const filterRow = document.getElementById('table-filter-row');
 
-    if (currentTab === 'jira') {
+    if (window.currentTab === 'jira') {
         if (tableTitle) tableTitle.innerHTML = "📋 Jira Transitions Matrix";
         
         const assigneeFilter = document.getElementById('jira-filter-assignee')?.value || '';
@@ -122,7 +112,7 @@ function updateDashboard() {
         const fromFilter = document.getElementById('jira-filter-from')?.value || '';
         const toFilter = document.getElementById('jira-filter-to')?.value || '';
 
-        let filteredJira = (jiraData || []).filter(j => {
+        let filteredJira = (window.jiraData || []).filter(j => {
             if (assigneeFilter && j.Assignee !== assigneeFilter) return false;
             if (projectFilter && j.Project !== projectFilter) return false;
             if (fromFilter && j.FromStatus !== fromFilter) return false;
@@ -131,55 +121,50 @@ function updateDashboard() {
         });
 
         filteredJira.sort((a, b) => {
-            let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : '',
-                valB = b[currentSortCol] !== undefined ? b[currentSortCol] : '';
+            let valA = a[window.currentSortCol] !== undefined ? a[window.currentSortCol] : '',
+                valB = b[window.currentSortCol] !== undefined ? b[window.currentSortCol] : '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-            return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
+            return valA < valB ? (window.currentSortAsc ? -1 : 1) : (valA > valB ? (window.currentSortAsc ? 1 : -1) : 0);
         });
 
         if (typeof renderJiraTable === 'function') renderJiraTable(filteredJira);
         if (typeof renderJiraCharts === 'function') renderJiraCharts(filteredJira);
 
-    } else if (currentTab === 'git') {
+    } else if (window.currentTab === 'git') {
         if (tableTitle) tableTitle.innerHTML = "💻 Git Weekly Matrix Activity";
         
-        // שליפת ערכי הסינון מהטבלה
         const authorFilter = document.getElementById('git-filter-author')?.value || '';
         const yearFilter = document.getElementById('git-filter-year')?.value || '';
         const weekFilter = document.getElementById('git-filter-week')?.value || '';
         const startFilter = document.getElementById('git-filter-start')?.value || '';
         const endFilter = document.getElementById('git-filter-end')?.value || '';
 
-        let filteredGit = (gitData || []).filter(g => {
+        let filteredGit = (window.gitData || []).filter(g => {
             const gAuthor = g.author || g.developer || g.user || g.name || '';
             const gYear = String(g.year || '');
             const gWeek = String(g.week_number || g.week || '');
             const gStart = g.week_start || '';
             const gEnd = g.week_end || '';
 
-            // סינון מדויק לפי Author
             if (authorFilter && authorFilter !== '' && gAuthor !== authorFilter) return false;
             if (yearFilter && yearFilter !== '' && gYear !== yearFilter) return false;
             if (weekFilter && weekFilter !== '' && gWeek !== weekFilter) return false;
-            
-            // סינון לפי תאריכי התחלה וסיום
             if (startFilter && gStart < startFilter) return false;
             if (endFilter && gEnd > endFilter) return false;
 
             return true;
         });
 
-        // מיון
         filteredGit.sort((a, b) => {
-            let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : '',
-                valB = b[currentSortCol] !== undefined ? b[currentSortCol] : '';
+            let valA = a[window.currentSortCol] !== undefined ? a[window.currentSortCol] : '',
+                valB = b[window.currentSortCol] !== undefined ? b[window.currentSortCol] : '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-            return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
+            return valA < valB ? (window.currentSortAsc ? -1 : 1) : (valA > valB ? (window.currentSortAsc ? 1 : -1) : 0);
         });
 
         if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
 
-    } else if (currentTab === 'employees') {
+    } else if (window.currentTab === 'employees') {
         if (tableTitle) tableTitle.innerHTML = "👥 Resource Roster & Capacity";
         
         const nameFilter = document.getElementById('emp-filter-name')?.value || '';
@@ -187,7 +172,7 @@ function updateDashboard() {
         const locFilter = document.getElementById('emp-filter-loc')?.value || '';
         const projFilter = document.getElementById('emp-filter-proj')?.value || '';
 
-        let filteredEmp = (employeeData || []).filter(e => {
+        let filteredEmp = (window.employeeData || []).filter(e => {
             if (nameFilter && e.Name !== nameFilter) return false;
             if (roleFilter && e.Role !== roleFilter) return false;
             if (locFilter && e.Location !== locFilter) return false;
@@ -196,37 +181,35 @@ function updateDashboard() {
         });
 
         filteredEmp.sort((a, b) => {
-            let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : '',
-                valB = b[currentSortCol] !== undefined ? b[currentSortCol] : '';
+            let valA = a[window.currentSortCol] !== undefined ? a[window.currentSortCol] : '',
+                valB = b[window.currentSortCol] !== undefined ? b[window.currentSortCol] : '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-            return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
+            return valA < valB ? (window.currentSortAsc ? -1 : 1) : (valA > valB ? (window.currentSortAsc ? 1 : -1) : 0);
         });
 
         if (typeof renderEmployeeTable === 'function') renderEmployeeTable(filteredEmp);
     }
 }
 
-// פונקציית מיון לפי עמודה
 function sortTable(col) {
-    if (currentSortCol === col) {
-        currentSortAsc = !currentSortAsc;
+    if (window.currentSortCol === col) {
+        window.currentSortAsc = !window.currentSortAsc;
     } else {
-        currentSortCol = col;
-        currentSortAsc = true;
+        window.currentSortCol = col;
+        window.currentSortAsc = true;
     }
     updateDashboard();
 }
 
 // ==========================================
-// 5. RENDER TABLE: GIT ACTIVITY (CUSTOMIZED)
+// 5. RENDER GIT TABLE
 // ==========================================
 window.renderGitTable = function(data) {
     const tableHead = document.getElementById('table-head');
     const tableBody = document.getElementById('table-body');
     if (!tableHead || !tableBody) return;
 
-    // חילוץ ערכים ייחודיים לפילטרים
-    const rawGit = gitData || [];
+    const rawGit = window.gitData || [];
     const authors = Array.from(new Set(rawGit.map(g => g.author || g.developer || g.name).filter(Boolean))).sort();
     const years = Array.from(new Set(rawGit.map(g => g.year).filter(Boolean))).sort();
     const weeks = Array.from(new Set(rawGit.map(g => g.week_number || g.week).filter(Boolean))).sort((a, b) => a - b);
@@ -237,7 +220,6 @@ window.renderGitTable = function(data) {
     const currentStart = document.getElementById('git-filter-start')?.value || '';
     const currentEnd = document.getElementById('git-filter-end')?.value || '';
 
-    // כותרות ופילטרים - ללא ACTIONS וללא FILTER COUNT
     tableHead.innerHTML = `
         <tr>
             <th onclick="sortTable('author')" style="cursor:pointer;">AUTHOR ⇅</th>
@@ -276,7 +258,6 @@ window.renderGitTable = function(data) {
         </tr>
     `;
 
-    // שורות הנתונים בטבלה
     let html = '';
     data.forEach(item => {
         html += `
@@ -295,9 +276,9 @@ window.renderGitTable = function(data) {
 };
 
 // ==========================================
-// 6. FILE UPLOAD HANDLING (AUTO-SAVE)
+// 6. FILE UPLOAD HANDLING (EXPOSED TO WINDOW)
 // ==========================================
-function handleFileUpload(e) {
+window.handleFileUpload = function(e) {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -307,34 +288,41 @@ function handleFileUpload(e) {
     reader.onload = function(evt) {
         try {
             const content = evt.target.result;
-            if (fileName.endsWith('.json')) {
-                const parsed = JSON.parse(content);
-                
-                // בדיקת סוג הנתונים לפי המבנה
-                if (Array.isArray(parsed) && parsed.length > 0 && ('author' in parsed[0] || 'unique_tickets_count' in parsed[0])) {
-                    gitData = parsed;
-                } else if (Array.isArray(parsed) && parsed.length > 0 && ('Assignee' in parsed[0])) {
-                    jiraData = parsed;
-                } else if (Array.isArray(parsed) && parsed.length > 0 && ('Role' in parsed[0])) {
-                    employeeData = parsed;
+            const parsed = JSON.parse(content);
+            
+            if (Array.isArray(parsed)) {
+                if (parsed.length > 0) {
+                    const sample = parsed[0];
+                    if ('author' in sample || 'unique_tickets_count' in sample || fileName.includes('git')) {
+                        window.gitData = parsed;
+                    } else if ('Assignee' in sample || fileName.includes('jira')) {
+                        window.jiraData = parsed;
+                    } else if ('Role' in sample || fileName.includes('employee')) {
+                        window.employeeData = parsed;
+                    } else {
+                        if (window.currentTab === 'git') window.gitData = parsed;
+                        else if (window.currentTab === 'jira') window.jiraData = parsed;
+                        else if (window.currentTab === 'employees') window.employeeData = parsed;
+                    }
                 } else {
-                    // ברירת מחדל לפי הטאב האקטיבי
-                    if (currentTab === 'git') gitData = parsed;
-                    else if (currentTab === 'jira') jiraData = parsed;
-                    else if (currentTab === 'employees') employeeData = parsed;
+                    if (window.currentTab === 'git') window.gitData = parsed;
+                    else if (window.currentTab === 'jira') window.jiraData = parsed;
+                    else if (window.currentTab === 'employees') window.employeeData = parsed;
                 }
+            } else {
+                alert("The uploaded JSON file must be an array of records.");
+                return;
             }
             
-            // שמירה אוטומטית ל-localStorage ורענון ה-UI
             saveDataToLocalStorage();
             updateDashboard();
             alert("File loaded and saved successfully!");
 
         } catch (err) {
             console.error("Error parsing uploaded file:", err);
-            alert("Error reading file. Please make sure it is a valid format.");
+            alert("Error reading file. Please make sure it is a valid JSON format.");
         }
     };
 
     reader.readAsText(file);
-}
+};
