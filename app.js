@@ -1,5 +1,5 @@
 // ==========================================
-// DASHBOARD MAIN SCRIPT (app.js - GitHub Sync & Persistent)
+// DASHBOARD MAIN SCRIPT (app.js - Stable & Complete)
 // ==========================================
 
 let jiraData = [];
@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 1. LOCALSTORAGE MANAGEMENT (שמירה וטעינה חסינה למניעת איבוד דאטה)
+// 1. LOCALSTORAGE MANAGEMENT
 // ==========================================
 function loadDataFromLocalStorage() {
     try {
@@ -239,10 +239,9 @@ function handleFileUpload(e) {
 }
 
 // ==========================================
-// 5. FETCH DIRECTLY FROM GITHUB RAW
+// 5. FETCH FROM GITHUB RAW
 // ==========================================
 async function fetchDataFromGitHub() {
-    // ניתן לעדכן את שמות הקבצים כאן בהתאם לשמות שקיימים בריפו שלך ב-GitHub
     const files = {
         git: 'https://raw.githubusercontent.com/elran1987/capacity-dashboard/main/git_matrix.json',
         jira: 'https://raw.githubusercontent.com/elran1987/capacity-dashboard/main/jira_matrix.json',
@@ -253,10 +252,20 @@ async function fetchDataFromGitHub() {
         console.log("Fetching data from GitHub...");
 
         const gitRes = await fetch(files.git);
-        if (gitRes.ok) {
-            gitData = await gitRes.json();
-        }
+        if (gitRes.ok) gitData = await gitRes.json();
 
         const jiraRes = await fetch(files.jira);
-        if (jiraRes.ok) {
-            jiraData = await jira
+        if (jiraRes.ok) jiraData = await jiraRes.json();
+
+        const empRes = await fetch(files.employees);
+        if (empRes.ok) employeeData = await empRes.json();
+
+        saveDataToLocalStorage();
+        updateDashboard();
+        alert("הנתונים נמשכו בהצלחה מ-GitHub ונשמרו בדשבורד!");
+
+    } catch (err) {
+        console.error("שגיאה במשיכת נתונים מ-GitHub:", err);
+        alert("שגיאה במשיכת הנתונים. וודא שהקבצים קיימים בריפוזיטורי ושכתובות ה-Raw תקינות.");
+    }
+}
