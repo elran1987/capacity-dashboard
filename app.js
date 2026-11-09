@@ -1,43 +1,45 @@
 // ==========================================
-// DASHBOARD MAIN SCRIPT (app.js - Stable & Complete)
+// DASHBOARD MAIN SCRIPT (app.js - Full Multi-Page Sync & Storage)
 // ==========================================
 
-let jiraData = [];
-let gitData = [];
-let employeeData = [];
-let currentTab = 'jira';
+// הגנה מפני כפילויות ושמירה על הנתונים של כל הטאבים
+window.jiraData = window.jiraData || [];
+window.gitData = window.gitData || [];
+window.employeeData = window.employeeData || [];
 
-let currentSortCol = '';
-let currentSortAsc = true;
-
+// טעינת הנתונים של כל העמודים אוטומטית בעליית העמוד
 document.addEventListener('DOMContentLoaded', () => {
     loadDataFromLocalStorage();
-    initEventListeners();
-    switchTab('jira');
+    
+    if (typeof initEventListeners === 'function') {
+        try { initEventListeners(); } catch(e) { console.error(e); }
+    }
+    
+    // עדכון ראשוני של הדשבורד אם קיים
+    if (typeof updateDashboard === 'function') {
+        try { updateDashboard(); } catch(e) { console.error(e); }
+    }
 });
 
 // ==========================================
-// 1. LOCALSTORAGE MANAGEMENT
+// 1. LOCALSTORAGE MANAGEMENT (לכל העמודים יחד)
 // ==========================================
 function loadDataFromLocalStorage() {
     try {
         const savedJira = localStorage.getItem('dashboard_jiraData');
-        if (savedJira) {
-            jiraData = JSON.parse(savedJira);
-            console.log("Loaded Jira data from storage:", jiraData.length);
-        }
+        if (savedJira) window.jiraData = JSON.parse(savedJira);
 
         const savedGit = localStorage.getItem('dashboard_gitData');
-        if (savedGit) {
-            gitData = JSON.parse(savedGit);
-            console.log("Loaded Git data from storage:", gitData.length);
-        }
+        if (savedGit) window.gitData = JSON.parse(savedGit);
 
         const savedEmp = localStorage.getItem('dashboard_employeeData');
-        if (savedEmp) {
-            employeeData = JSON.parse(savedEmp);
-            console.log("Loaded Employee data from storage:", employeeData.length);
-        }
+        if (savedEmp) window.employeeData = JSON.parse(savedEmp);
+        
+        console.log("All pages data successfully loaded from localStorage:", {
+            jira: window.jiraData.length,
+            git: window.gitData.length,
+            employees: window.employeeData.length
+        });
     } catch (e) {
         console.error("Error loading data from localStorage:", e);
     }
@@ -45,151 +47,20 @@ function loadDataFromLocalStorage() {
 
 function saveDataToLocalStorage() {
     try {
-        localStorage.setItem('dashboard_jiraData', JSON.stringify(jiraData));
-        localStorage.setItem('dashboard_gitData', JSON.stringify(gitData));
-        localStorage.setItem('dashboard_employeeData', JSON.stringify(employeeData));
+        localStorage.setItem('dashboard_jiraData', JSON.stringify(window.jiraData));
+        localStorage.setItem('dashboard_gitData', JSON.stringify(window.gitData));
+        localStorage.setItem('dashboard_employeeData', JSON.stringify(window.employeeData));
         localStorage.setItem('dashboard_last_saved', new Date().toISOString());
-        console.log("Data successfully saved to localStorage.");
+        console.log("All pages data successfully saved to localStorage.");
     } catch (e) {
         console.error("Error saving data to localStorage:", e);
     }
 }
 
 // ==========================================
-// 2. EVENT LISTENERS & TABS
+// 2. FILE UPLOAD HANDLER (זיהוי אוטומטי ושמירה לטאב המתאים)
 // ==========================================
-function initEventListeners() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const tab = e.target.getAttribute('data-tab');
-            if (tab) switchTab(tab);
-        });
-    });
-
-    const fileInput = document.getElementById('file-input');
-    if (fileInput) {
-        fileInput.addEventListener('change', handleFileUpload);
-    }
-}
-
-function switchTab(tab) {
-    currentTab = tab;
-    
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    const activeBtn = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
-    if (activeBtn) activeBtn.classList.add('active');
-
-    const chartsSection = document.getElementById('charts-section');
-    const sidebarContainer = document.getElementById('sidebar-container');
-    const dashboardLayout = document.getElementById('dashboard-layout');
-    const btnAdd = document.getElementById('btn-add-record');
-
-    if (tab === 'jira') {
-        if (chartsSection) chartsSection.style.display = 'grid';
-        if (sidebarContainer) sidebarContainer.style.display = 'block';
-        if (dashboardLayout) dashboardLayout.classList.remove('full-width');
-        if (btnAdd) btnAdd.style.display = 'inline-block';
-        currentSortCol = 'Assignee';
-        currentSortAsc = true;
-    } else if (tab === 'git') {
-        if (chartsSection) chartsSection.style.display = 'none';
-        if (sidebarContainer) sidebarContainer.style.display = 'none';
-        if (dashboardLayout) dashboardLayout.classList.add('full-width');
-        if (btnAdd) btnAdd.style.display = 'inline-block';
-        currentSortCol = 'author';
-        currentSortAsc = true;
-    } else if (tab === 'employees') {
-        if (chartsSection) chartsSection.style.display = 'none';
-        if (sidebarContainer) sidebarContainer.style.display = 'none';
-        if (dashboardLayout) dashboardLayout.classList.add('full-width');
-        if (btnAdd) btnAdd.style.display = 'inline-block';
-        currentSortCol = 'Name';
-        currentSortAsc = true;
-    }
-
-    updateDashboard();
-}
-
-// ==========================================
-// 3. UPDATE DASHBOARD & TABLES
-// ==========================================
-function updateDashboard() {
-    const tableTitle = document.getElementById('table-title');
-
-    if (currentTab === 'jira') {
-        if (tableTitle) tableTitle.innerHTML = "📋 Jira Transitions Matrix";
-        
-        const assigneeFilter = document.getElementById('jira-filter-assignee')?.value || '';
-        const projectFilter = document.getElementById('jira-filter-project')?.value || '';
-        const fromFilter = document.getElementById('jira-filter-from')?.value || '';
-        const toFilter = document.getElementById('jira-filter-to')?.value || '';
-
-        let filteredJira = (jiraData || []).filter(j => {
-            if (assigneeFilter && j.Assignee !== assigneeFilter) return false;
-            if (projectFilter && j.Project !== projectFilter) return false;
-            if (fromFilter && j.FromStatus !== fromFilter) return false;
-            if (toFilter && j.ToStatus !== toFilter) return false;
-            return true;
-        });
-
-        if (currentSortCol) {
-            filteredJira.sort((a, b) => {
-                let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : '',
-                    valB = b[currentSortCol] !== undefined ? b[currentSortCol] : '';
-                if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
-            });
-        }
-
-        if (typeof renderJiraTable === 'function') renderJiraTable(filteredJira);
-        if (typeof renderJiraCharts === 'function') renderJiraCharts(filteredJira);
-
-    } else if (currentTab === 'git') {
-        if (tableTitle) tableTitle.innerHTML = "💻 Git Weekly Matrix Activity";
-        
-        let filteredGit = gitData || [];
-        if (currentSortCol) {
-            filteredGit.sort((a, b) => {
-                let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : '',
-                    valB = b[currentSortCol] !== undefined ? b[currentSortCol] : '';
-                if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
-            });
-        }
-
-        if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
-
-    } else if (currentTab === 'employees') {
-        if (tableTitle) tableTitle.innerHTML = "👥 Resource Roster & Capacity";
-        
-        let filteredEmp = employeeData || [];
-        if (currentSortCol) {
-            filteredEmp.sort((a, b) => {
-                let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : '',
-                    valB = b[currentSortCol] !== undefined ? b[currentSortCol] : '';
-                if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-                return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
-            });
-        }
-
-        if (typeof renderEmployeeTable === 'function') renderEmployeeTable(filteredEmp);
-    }
-}
-
-function sortTable(col) {
-    if (currentSortCol === col) {
-        currentSortAsc = !currentSortAsc;
-    } else {
-        currentSortCol = col;
-        currentSortAsc = true;
-    }
-    updateDashboard();
-}
-
-// ==========================================
-// 4. FILE UPLOAD & PERSISTENCE
-// ==========================================
-function handleFileUpload(e) {
+window.handleFileUpload = function(e) {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -202,46 +73,46 @@ function handleFileUpload(e) {
             const parsed = JSON.parse(content);
             
             if (Array.isArray(parsed)) {
-                if (parsed.length > 0) {
-                    const sample = parsed[0];
-                    if ('author' in sample || 'unique_tickets_count' in sample || fileName.includes('git')) {
-                        gitData = parsed;
-                    } else if ('Assignee' in sample || fileName.includes('jira')) {
-                        jiraData = parsed;
-                    } else if ('Role' in sample || fileName.includes('employee')) {
-                        employeeData = parsed;
-                    } else {
-                        if (currentTab === 'git') gitData = parsed;
-                        else if (currentTab === 'jira') jiraData = parsed;
-                        else if (currentTab === 'employees') employeeData = parsed;
-                    }
+                // זיהוי לאיזה עמוד שייך הקובץ לפי השם או מבנה הנתונים
+                if (fileName.includes('git') || (parsed[0] && 'author' in parsed[0])) {
+                    window.gitData = parsed;
+                    console.log("Git data updated:", parsed.length);
+                } else if (fileName.includes('jira') || (parsed[0] && ('Assignee' in parsed[0] || 'Key' in parsed[0]))) {
+                    window.jiraData = parsed;
+                    console.log("Jira data updated:", parsed.length);
+                } else if (fileName.includes('employee') || fileName.includes('resource') || (parsed[0] && 'Role' in parsed[0])) {
+                    window.employeeData = parsed;
+                    console.log("Employee data updated:", parsed.length);
                 } else {
-                    if (currentTab === 'git') gitData = parsed;
-                    else if (currentTab === 'jira') jiraData = parsed;
-                    else if (currentTab === 'employees') employeeData = parsed;
+                    // ברירת מחדל לפי הטאב הפעיל כרגע
+                    if (typeof currentTab !== 'undefined') {
+                        if (currentTab === 'git') window.gitData = parsed;
+                        else if (currentTab === 'jira') window.jiraData = parsed;
+                        else window.employeeData = parsed;
+                    } else {
+                        window.employeeData = parsed;
+                    }
                 }
+                
+                saveDataToLocalStorage();
+                if (typeof updateDashboard === 'function') updateDashboard();
+                alert(`הקובץ (${file.name}) נטען ונשמר בהצלחה לכלל המערכת!`);
             } else {
                 alert("הקובץ חייב להכיל מערך נתונים (Array) תקין.");
-                return;
             }
-            
-            saveDataToLocalStorage();
-            updateDashboard();
-            alert("הקובץ נטען ונשמר בהצלחה!");
-
         } catch (err) {
             console.error("שגיאה בניתוח קובץ ה-JSON:", err);
-            alert("שגיאה בקריאת הקובץ. וודא שהוא בפורמט JSON תקין.");
+            alert("שגיאה בקריאת הקובץ. وודא שהוא בפורמט JSON תקין.");
         }
     };
 
     reader.readAsText(file);
-}
+};
 
 // ==========================================
-// 5. FETCH FROM GITHUB RAW
+// 3. FETCH ALL DATA FROM GITHUB RAW
 // ==========================================
-async function fetchDataFromGitHub() {
+window.fetchDataFromGitHub = async function() {
     const files = {
         git: 'https://raw.githubusercontent.com/elran1987/capacity-dashboard/main/git_matrix.json',
         jira: 'https://raw.githubusercontent.com/elran1987/capacity-dashboard/main/jira_matrix.json',
@@ -249,23 +120,28 @@ async function fetchDataFromGitHub() {
     };
 
     try {
-        console.log("Fetching data from GitHub...");
+        console.log("Fetching all datasets from GitHub...");
 
         const gitRes = await fetch(files.git);
-        if (gitRes.ok) gitData = await gitRes.json();
+        if (gitRes.ok) window.gitData = await gitRes.json();
 
         const jiraRes = await fetch(files.jira);
-        if (jiraRes.ok) jiraData = await jiraRes.json();
+        if (jiraRes.ok) window.jiraData = await jiraRes.json();
 
         const empRes = await fetch(files.employees);
-        if (empRes.ok) employeeData = await empRes.json();
+        if (empRes.ok) window.employeeData = await empRes.json();
 
+        // שמירת כל הנתונים יחד בזיכרון המקומי
         saveDataToLocalStorage();
-        updateDashboard();
-        alert("הנתונים נמשכו בהצלחה מ-GitHub ונשמרו בדשבורד!");
+        
+        if (typeof updateDashboard === 'function') {
+            updateDashboard();
+        }
+        
+        alert("כל הנתונים (Resources, Jira, Git) נמשכו בהצלחה מ-GitHub ונשמרו בדשבורד!");
 
     } catch (err) {
         console.error("שגיאה במשיכת נתונים מ-GitHub:", err);
-        alert("שגיאה במשיכת הנתונים. וודא שהקבצים קיימים בריפוזיטורי ושכתובות ה-Raw תקינות.");
+        alert("שגיאה במשיכת הנתונים. وודא שכל הקבצים קיימים בריפוזיטורי ושכתובות ה-Raw תקינות.");
     }
-}
+};
