@@ -1,13 +1,11 @@
 // ==========================================
-// DASHBOARD MAIN SCRIPT (app.js - Zero Collision)
+// DASHBOARD MAIN SCRIPT (app.js - Support Excel & JSON)
 // ==========================================
 
-// שימוש ישיר ב-window ללא הצהרות let/const שגורמות להתנגשויות
 window.jiraData = window.jiraData || [];
 window.gitData = window.gitData || [];
 window.employeeData = window.employeeData || [];
 
-// טעינת הנתונים בעליית העמוד
 document.addEventListener('DOMContentLoaded', () => {
     loadDataFromLocalStorage();
     
@@ -53,51 +51,75 @@ function saveDataToLocalStorage() {
 }
 
 // ==========================================
-// 2. FILE UPLOAD HANDLER (משויך ל-window למניעת שגיאת TypeError)
+// 2. FILE UPLOAD HANDLER (תמיכה מלאה ב-Excel, CSV ו-JSON)
 // ==========================================
 window.handleFileUpload = function(e) {
     const file = e.target.files[0];
     if (!file) return;
 
     const fileName = file.name.toLowerCase();
-    const reader = new FileReader();
 
-    reader.onload = function(evt) {
-        try {
-            const content = evt.target.result;
-            const parsed = JSON.parse(content);
-            
-            if (Array.isArray(parsed)) {
-                if (fileName.includes('git') || (parsed[0] && 'author' in parsed[0])) {
-                    window.gitData = parsed;
-                } else if (fileName.includes('jira') || (parsed[0] && ('Assignee' in parsed[0] || 'Key' in parsed[0]))) {
-                    window.jiraData = parsed;
-                } else if (fileName.includes('employee') || fileName.includes('resource') || (parsed[0] && 'Role' in parsed[0])) {
-                    window.employeeData = parsed;
-                } else {
-                    if (typeof currentTab !== 'undefined') {
-                        if (currentTab === 'git') window.gitData = parsed;
-                        else if (currentTab === 'jira') window.jiraData = parsed;
-                        else window.employeeData = parsed;
-                    } else {
-                        window.employeeData = parsed;
-                    }
-                }
-                
-                saveDataToLocalStorage();
-                if (typeof updateDashboard === 'function') updateDashboard();
-                alert("הקובץ נטען ונשמר בהצלחה!");
-            } else {
-                alert("הקובץ חייב להכיל מערך נתונים (Array) תקין.");
+    // אם זה קובץ אקסל או CSV - נשתמש בספריית SheetJS (XLSX)
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || fileName.endsWith('.csv')) {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const parsed = XLSX.utils.sheet_to_json(worksheet);
+
+                processAndSaveData(parsed, fileName);
+            } catch (err) {
+                console.error("שגיאה בניתוח קובץ האקסל:", err);
+                alert("שגיאה בקריאת קובץ האקסל.");
             }
-        } catch (err) {
-            console.error("שגיאה בניתוח קובץ ה-JSON:", err);
-            alert("שגיאה בקריאת הקובץ.");
-        }
-    };
-
-    reader.readAsText(file);
+        };
+        reader.readAsArrayBuffer(file);
+    } 
+    // אחרת, נניח שמדובר בקובץ JSON רגיל
+    else {
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                const content = evt.target.result;
+                const parsed = JSON.parse(content);
+                processAndSaveData(parsed, fileName);
+            } catch (err) {
+                console.error("שגיאה בניתוח קובץ ה-JSON:", err);
+                alert("שגיאה בקריאת קובץ ה-JSON. וודא שהוא תקין.");
+            }
+        };
+        reader.readAsText(file);
+    }
 };
+
+function processAndSaveData(parsed, fileName) {
+    if (Array.isArray(parsed)) {
+        if (fileName.includes('git') || (parsed[0] && 'author' in parsed[0])) {
+            window.gitData = parsed;
+        } else if (fileName.includes('jira') || (parsed[0] && ('Assignee' in parsed[0] || 'Key' in parsed[0]))) {
+            window.jiraData = parsed;
+        } else if (fileName.includes('employee') || fileName.includes('resource') || (parsed[0] && 'Role' in parsed[0])) {
+            window.employeeData = parsed;
+        } else {
+            if (typeof currentTab !== 'undefined') {
+                if (currentTab === 'git') window.gitData = parsed;
+                else if (currentTab === 'jira') window.jiraData = parsed;
+                else window.employeeData = parsed;
+            } else {
+                window.employeeData = parsed;
+            }
+        }
+        
+        saveDataToLocalStorage();
+        if (typeof updateDashboard === 'function') updateDashboard();
+        alert("הקובץ נטען ונשמר בהצלחה!");
+    } else {
+        alert("הנתונים בקובץ אינם במבנה של מערך (Array) תקין.");
+    }
+}
 
 // ==========================================
 // 3. FETCH FROM GITHUB RAW
