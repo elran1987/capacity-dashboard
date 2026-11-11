@@ -9,10 +9,8 @@ if (!window.supabaseClient) {
     window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-// שימוש ב-var או בדיקה כדי למנוע שגיאת הכרזה כפולה
-if (typeof employeeData === 'undefined') {
-    var employeeData = [];
-}
+// שימוש במשתנה גלובלי משותף למניעת התנגשויות בין קבצים
+window.employeeData = window.employeeData || [];
 
 let currentTab = 'resources';
 let currentSortCol = 'FTE';
@@ -47,7 +45,7 @@ async function loadResourcesFromDB() {
 
 window.initDashboard = async function() {
     // טעינת הנתונים מהדאטה-בייס בעליית העמוד
-    employeeData = await loadResourcesFromDB();
+    window.employeeData = await loadResourcesFromDB();
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
@@ -55,7 +53,8 @@ window.initDashboard = async function() {
 window.switchTab = function(tab) {
     currentTab = tab;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    document.getElementById(`tab-btn-${tab}`).classList.add('active');
+    const targetBtn = document.getElementById(`tab-btn-${tab}`);
+    if (targetBtn) targetBtn.classList.add('active');
 
     const chartsSection = document.getElementById('charts-section');
     const btnAdd = document.getElementById('btn-add-action');
@@ -63,178 +62,145 @@ window.switchTab = function(tab) {
     const dashboardLayout = document.getElementById('dashboard-layout');
 
     if (tab === 'resources') {
-        chartsSection.style.display = 'grid';
-        sidebarContainer.style.display = 'flex';
-        dashboardLayout.classList.remove('full-width');
-        document.getElementById('sidebar-filters-panel').style.display = 'block';
-        document.getElementById('sidebar-fte-panel').style.display = 'block';
-        btnAdd.style.display = 'inline-flex';
-        btnAdd.innerText = '+ Add Employee';
+        if (chartsSection) chartsSection.style.display = 'grid';
+        if (sidebarContainer) sidebarContainer.style.display = 'flex';
+        if (dashboardLayout) dashboardLayout.classList.remove('full-width');
+        const p1 = document.getElementById('sidebar-filters-panel');
+        const p2 = document.getElementById('sidebar-fte-panel');
+        if (p1) p1.style.display = 'block';
+        if (p2) p2.style.display = 'block';
+        if (btnAdd) {
+            btnAdd.style.display = 'inline-flex';
+            btnAdd.innerText = '+ Add Employee';
+        }
         currentSortCol = 'FTE';
         currentSortAsc = false;
     } else if (tab === 'jira') {
-        chartsSection.style.display = 'none';
-        sidebarContainer.style.display = 'flex';
-        dashboardLayout.classList.remove('full-width');
-        document.getElementById('sidebar-filters-panel').style.display = 'block';
-        document.getElementById('sidebar-fte-panel').style.display = 'none';
-        btnAdd.style.display = 'inline-flex';
-        btnAdd.innerText = '+ Add Jira Issue';
+        if (chartsSection) chartsSection.style.display = 'none';
+        if (sidebarContainer) sidebarContainer.style.display = 'flex';
+        if (dashboardLayout) dashboardLayout.classList.remove('full-width');
+        const p1 = document.getElementById('sidebar-filters-panel');
+        const p2 = document.getElementById('sidebar-fte-panel');
+        if (p1) p1.style.display = 'block';
+        if (p2) p2.style.display = 'none';
+        if (btnAdd) {
+            btnAdd.style.display = 'inline-flex';
+            btnAdd.innerText = '+ Add Jira Issue';
+        }
         currentSortCol = 'Assignee';
         currentSortAsc = true;
     } else if (tab === 'git') {
-        chartsSection.style.display = 'none';
-        sidebarContainer.style.display = 'none';
-        dashboardLayout.classList.add('full-width');
-        btnAdd.style.display = 'inline-flex';
-        btnAdd.innerText = '+ Add Git Record';
+        if (chartsSection) chartsSection.style.display = 'none';
+        if (sidebarContainer) sidebarContainer.style.display = 'none';
+        if (dashboardLayout) dashboardLayout.classList.add('full-width');
+        if (btnAdd) {
+            btnAdd.style.display = 'inline-flex';
+            btnAdd.innerText = '+ Add Git Record';
+        }
         currentSortCol = 'author';
         currentSortAsc = true;
     }
     updateDashboard();
 }
 
+window.getFilteredResources = function() {
+    const dataList = window.employeeData || [];
+    const projFilter = document.getElementById('filter-project')?.value || '';
+    const roleSelect = document.getElementById('filter-role');
+    const locFilter = document.getElementById('filter-location')?.value || '';
+
+    const selectedRoles = roleSelect ? Array.from(roleSelect.selectedOptions).map(opt => opt.value).filter(v => v) : [];
+
+    return dataList.filter(emp => {
+        const empProj = emp.Project || emp.project || '';
+        const empRole = emp.Role || emp.role || '';
+        const empLoc = emp.Location || emp.location || '';
+
+        if (projFilter && empProj !== projFilter) return false;
+        if (selectedRoles.length > 0 && !selectedRoles.includes(empRole)) return false;
+        if (locFilter && empLoc !== locFilter) return false;
+        return true;
+    });
+}
+
+window.renderSidebarProjectFTE = function(filtered) {
+    const sortMode = document.getElementById('project-sort-mode')?.value || 'fte-desc';
+    const container = document.getElementById('project-fte-list');
+    const totalEl = document.getElementById('sidebar-total-fte');
+    if (!container) return;
+
+    const projectMap = {};
+    let grandTotal = 0;
+
+    filtered.forEach(emp => {
+        const p = emp.Project || emp.project || 'Unassigned';
+        const fte = parseFloat(emp.FTE !== undefined ? emp.FTE : emp.fte) || 0;
+        projectMap[p] = (projectMap[p] || 0) + fte;
+        grandTotal += fte;
+    });
+
+    let sortedProjects = Object.entries(projectMap);
+
+    if (sortMode === 'fte-desc') {
+        sortedProjects.sort((a, b) => b[1] - a[1]);
+    } else if (sortMode === 'fte-asc') {
+        sortedProjects.sort((a, b) => a[1] - b[1]);
+    } else if (sortMode === 'name-asc') {
+        sortedProjects.sort((a, b) => a[0].localeCompare(b[0]));
+    }
+
+    let html = '';
+    sortedProjects.forEach(([proj, fte]) => {
+        html += `<div class="sidebar-fte-row" onclick="window.filterByProject('${proj}')" style="cursor:pointer; display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #1e293b;">
+            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:120px;" title="${proj}">${proj}</span>
+            <span class="badge" style="background:#0f172a; color:#38bdf8; padding:2px 8px; border-radius:4px;">${fte.toFixed(2)} FTE</span>
+        </div>`;
+    });
+
+    container.innerHTML = html || '<div style="color:#64748b; font-size:12px;">No projects found</div>';
+    if (totalEl) totalEl.innerText = `${grandTotal.toFixed(2)} FTE`;
+}
+
 window.updateDashboard = function() {
+    const tableTitle = document.getElementById('table-title');
+    const filterRow = document.getElementById('table-filter-row');
+
     if (currentTab === 'resources') {
-        document.getElementById('table-title').innerHTML = "👥 Interactive Resource Table & Edit Suite";
-        document.getElementById('table-filter-row').style.display = 'none';
-        const filtered = getFilteredResources();
+        if (tableTitle) tableTitle.innerHTML = "👥 Interactive Resource Table & Edit Suite";
+        if (filterRow) filterRow.style.display = 'none';
+        
+        const filtered = window.getFilteredResources();
 
         filtered.sort((a, b) => {
-            let valA = a[currentSortCol], valB = b[currentSortCol];
+            let valA = a[currentSortCol] !== undefined ? a[currentSortCol] : a[currentSortCol?.toLowerCase()],
+                valB = b[currentSortCol] !== undefined ? b[currentSortCol] : b[currentSortCol?.toLowerCase()];
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
-        renderResourceTable(filtered);
-        renderSidebarProjectFTE(filtered);
-        renderResourceCharts(filtered);
-    } else if (currentTab === 'jira') {
-        document.getElementById('table-title').innerHTML = "🎫 Jira Issues Tracking";
-        document.getElementById('table-filter-row').style.display = 'table-row';
-        
-        const proj = document.getElementById('filter-project').value;
-        let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
-            if (proj && j.Project !== proj) return false;
-            return true;
-        });
+        if (typeof renderResourceTable === 'function') renderResourceTable(filtered);
+        window.renderSidebarProjectFTE(filtered);
+        if (typeof renderResourceCharts === 'function') renderResourceCharts(filtered);
 
+    } else if (currentTab === 'jira') {
+        if (tableTitle) tableTitle.innerHTML = "🎫 Jira Issues Tracking";
+        if (filterRow) filterRow.style.display = 'table-row';
+        
+        const filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []);
         filteredJira.sort((a, b) => {
-            let valA = a[currentSortCol], valB = b[currentSortCol];
+            let valA = a[currentSortCol] || '', valB = b[currentSortCol] || '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
         if (typeof renderJiraTable === 'function') renderJiraTable(filteredJira);
+
     } else if (currentTab === 'git') {
-        document.getElementById('table-title').innerHTML = "💻 Git Weekly Matrix Activity";
-        document.getElementById('table-filter-row').style.display = 'table-row';
+        if (tableTitle) tableTitle.innerHTML = "💻 Git Weekly Matrix Activity";
+        if (filterRow) filterRow.style.display = 'table-row';
         
-        let filteredGit = (typeof gitData !== 'undefined' ? gitData : []);
-
+        const filteredGit = (typeof gitData !== 'undefined' ? gitData : []);
         filteredGit.sort((a, b) => {
-            let valA = a[currentSortCol], valB = b[currentSortCol];
+            let valA = a[currentSortCol] || '', valB = b[currentSortCol] || '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-            return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
-        });
-
-        if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
-    }
-}
-
-window.handleFileUpload = function(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    const fileName = file.name.toLowerCase();
-
-    if (fileName.endsWith('.json')) {
-        reader.onload = function(e) {
-            try {
-                const parsed = JSON.parse(e.target.result);
-                const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
-                processParsedData(json);
-            } catch (err) {
-                console.error(err);
-                alert("Error parsing JSON file.");
-            }
-        };
-        reader.readAsText(file);
-    } else {
-        reader.onload = function(e) {
-            try {
-                const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-                if (rawJson.length === 0) { alert("File is empty."); return; }
-                processParsedData(rawJson);
-            } catch (err) {
-                console.error(err);
-                alert("Error reading file.");
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    }
-    event.target.value = '';
-}
-
-function processParsedData(json) {
-    if (!json || json.length === 0) return;
-    alert(`Successfully processed ${json.length} records!`);
-    updateDashboard();
-}
-
-window.filterByProject = function(projName) {
-    document.getElementById('filter-project').value = projName;
-    updateDashboard();
-}
-
-window.sortTable = function(col) {
-    if (currentSortCol === col) {
-        currentSortAsc = !currentSortAsc;
-    } else {
-        currentSortCol = col;
-        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number') ? false : true;
-    }
-    updateDashboard();
-}
-
-window.resetFilters = function() {
-    document.getElementById('filter-project').value = '';
-    document.getElementById('filter-role').value = '';
-    document.getElementById('filter-location').value = '';
-    updateDashboard();
-}
-
-window.openModal = function() {
-    document.getElementById('edit-index').value = -1;
-    const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
-    document.getElementById('modal-title').innerText = title;
-    
-    const formBody = document.getElementById('modal-form-body');
-    if (currentTab === 'resources') {
-        formBody.innerHTML = `
-            <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name"></div>
-            <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role" placeholder="Role"></div>
-            <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location" placeholder="Location"></div>
-            <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project" placeholder="Project"></div>
-            <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0"></div>
-        `;
-    }
-    document.getElementById('employeeModal').classList.add('active');
-}
-
-window.closeModal = function() {
-    document.getElementById('employeeModal').classList.remove('active');
-}
-
-window.saveRecord = function() {
-    closeModal();
-    updateDashboard();
-}
-
-window.onload = function() {
-    initDashboard();
-}
+            return
