@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
     <div class="dashboard-layout" id="dashboard-layout">
         <!-- Sidebar -->
         <div class="sidebar" id="sidebar-container">
@@ -28,11 +29,11 @@
                     </select>
                 </div>
                 <div class="form-group">
-    <label>Role / Discipline</label>
-    <select id="filter-role" multiple style="height: 100px; width: 100%; background: var(--bg-slate-900); border: 1px solid var(--border-slate-800); color: var(--text-slate-100); padding: 4px; border-radius: 6px;" onchange="window.updateDashboard()">
-        <option value="">All Roles</option>
-    </select>
-</div>
+                    <label>Role / Discipline</label>
+                    <select id="filter-role" onchange="window.updateDashboard()">
+                        <option value="">All Roles</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>Location</label>
                     <select id="filter-location" onchange="window.updateDashboard()">
@@ -95,4 +96,41 @@
                     <div class="actions-bar">
                         <label class="btn-upload">
                             📂 Import Excel / CSV / JSON
-                            <input type="file" accept=".csv, .xlsx, .xls, .json" onchange="
+                            <input type="file" accept=".csv, .xlsx, .xls, .json" onchange="window.handleFileUpload(event)">
+                        </label>
+                        <button class="primary" id="btn-add-action" onclick="window.openModal()">+ Add Employee</button>
+                    </div>
+                </div>
+                <div style="overflow-x: auto; width: 100%;">
+                    <table id="main-table">
+                        <thead>
+                            <tr id="table-header-row"></tr>
+                            <tr id="table-filter-row" class="table-filter-row" style="display: none;"></tr>
+                        </thead>
+                        <tbody id="resource-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Form for Add / Edit -->
+    <div class="modal-overlay" id="employeeModal">
+        <div class="modal">
+            <h3 id="modal-title">Add New Employee</h3>
+            <input type="hidden" id="edit-index" value="-1">
+            <div id="modal-form-body" style="display: flex; flex-direction: column; gap: 14px;"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="window.closeModal()">Cancel</button>
+                <button class="primary" onclick="window.saveRecord()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JS Scripts (Modular) -->
+    <script src="resources.js"></script>
+    <script src="jira.js"></script>
+    <script src="git.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
