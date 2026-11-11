@@ -1,8 +1,50 @@
+// ==========================================
+// הגדרת חיבור ל-Supabase
+// ==========================================
+const SUPABASE_URL = 'https://gqhhxrwvczloycagiax.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_zWLjUQUEHlhVE1ZPFwLFSg_51pf8_9y';
+
+// יצירת אובייקט ה-Client של Supabase
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// משתנים גלובליים
+let employeeData = [];
 let currentTab = 'resources';
 let currentSortCol = 'FTE';
 let currentSortAsc = false;
 
-window.initDashboard = function() {
+// פונקציה לשליפת המשאבים מטבלת master_resources בסופרבייס
+async function loadResourcesFromDB() {
+    try {
+        const { data, error } = await supabaseClient
+            .from('master_resources')
+            .select('*');
+
+        if (error) {
+            console.error("שגיאה בשליפת המשאבים מסופרבייס:", error.message);
+            return [];
+        }
+
+        // המרת שמות השדות כך שיתאימו למבנה שהדשבורד מצפה לו
+        return (data || []).map(row => ({
+            Name: row.name || row.Name || '',
+            Role: row.role || row.Role || '',
+            Location: row.location || row.Location || '',
+            Project: row.project || row.Project || '',
+            FTE: parseFloat(row.fte !== undefined ? row.fte : row.FTE) || 0
+        }));
+
+    } catch (err) {
+        console.error("שגיאת תקשורת מול סופרבייס:", err);
+        return [];
+    }
+}
+
+window.initDashboard = async function() {
+    // טעינת הנתונים ממרכז הנתונים בסופרבייס בעליית העמוד
+    employeeData = await loadResourcesFromDB();
+    console.log(`נטענו בהצלחה ${employeeData.length} רשומות מהדאטה-בייס.`);
+
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
 }
@@ -212,11 +254,9 @@ window.handleFileUpload = function(event) {
                     const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
                     processParsedData(json);
                 } else {
-                    // פענוח בסיסי לטקסט/CSV שהודבק
                     const lines = text.split('\n').filter(l => l.trim().length > 0);
                     if (lines.length < 2) { alert("File is empty or invalid format."); return; }
                     
-                    // זיהוי כותרות
                     const headers = lines[0].replace(/"/g, '').split(/,|\s{2,}/).map(h => h.trim());
                     const rows = [];
                     for (let i = 1; i < lines.length; i++) {
