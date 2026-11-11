@@ -115,7 +115,7 @@ window.getFilteredResources = function() {
 
         if (projFilter && empProj !== projFilter) return false;
         if (selectedRoles.length > 0 && !selectedRoles.includes(empRole)) return false;
-        if (locFilter && empLoc !== empLoc) return false; // Fixed equality check below
+        if (locFilter && empLoc !== locFilter) return false;
         return true;
     });
 };
@@ -200,4 +200,111 @@ window.updateDashboard = function() {
         filteredGit.sort((a, b) => {
             let valA = a[currentSortCol] || '', valB = b[currentSortCol] || '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-            return val
+            return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
+        });
+
+        if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
+    }
+};
+
+window.handleFileUpload = function(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const parsed = JSON.parse(e.target.result);
+            const json = Array.isArray(parsed) ? parsed : (parsed.data || [parsed]);
+            window.employeeData = json.map(row => ({
+                Name: row.name || row.Name || '',
+                Role: row.role || row.Role || '',
+                Location: row.location || row.Location || '',
+                Project: row.project || row.Project || '',
+                FTE: parseFloat(row.fte !== undefined ? row.fte : row.FTE) || 1.0
+            }));
+            if (typeof populateDropdowns === 'function') populateDropdowns();
+            updateDashboard();
+            alert(`Successfully imported ${window.employeeData.length} records!`);
+        } catch (err) {
+            console.error(err);
+            alert("Error parsing file.");
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
+};
+
+window.filterByProject = function(projName) {
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = projName;
+    updateDashboard();
+};
+
+window.sortTable = function(col) {
+    if (currentSortCol === col) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortCol = col;
+        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number' || col === 'Count') ? false : true;
+    }
+    updateDashboard();
+};
+
+window.resetFilters = function() {
+    const projEl = document.getElementById('filter-project');
+    if (projEl) projEl.value = '';
+    const roleSelect = document.getElementById('filter-role');
+    if (roleSelect) {
+        Array.from(roleSelect.options).forEach(opt => opt.selected = false);
+    }
+    const locEl = document.getElementById('filter-location');
+    if (locEl) locEl.value = '';
+    updateDashboard();
+};
+
+window.openModal = function() {
+    document.getElementById('edit-index').value = -1;
+    const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
+    document.getElementById('modal-title').innerText = title;
+    
+    const formBody = document.getElementById('modal-form-body');
+    if (currentTab === 'resources') {
+        formBody.innerHTML = `
+            <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name"></div>
+            <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role" placeholder="Role"></div>
+            <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location" placeholder="Location"></div>
+            <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project" placeholder="Project"></div>
+            <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0"></div>
+        `;
+    }
+    document.getElementById('employeeModal').classList.add('active');
+};
+
+window.closeModal = function() {
+    document.getElementById('employeeModal').classList.remove('active');
+};
+
+window.saveRecord = function() {
+    const idx = parseInt(document.getElementById('edit-index').value);
+    if (currentTab === 'resources') {
+        const rec = {
+            Name: document.getElementById('m-name').value.trim(),
+            Role: document.getElementById('m-role').value.trim(),
+            Location: document.getElementById('m-location').value.trim(),
+            Project: document.getElementById('m-project').value.trim(),
+            FTE: parseFloat(document.getElementById('m-fte').value) || 1.0
+        };
+        if (!rec.Name) { alert("Name is required."); return; }
+        if (idx === -1) window.employeeData.push(rec);
+        else window.employeeData[idx] = rec;
+        if (typeof populateDropdowns === 'function') populateDropdowns();
+    }
+    closeModal();
+    updateDashboard();
+};
+
+window.onload = function() {
+    if (typeof window.initDashboard === 'function') {
+        window.initDashboard();
+    }
+};
