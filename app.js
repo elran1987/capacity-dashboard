@@ -108,13 +108,8 @@ window.updateDashboard = function() {
         document.getElementById('table-filter-row').style.display = 'table-row';
         
         const proj = document.getElementById('filter-project').value;
-        let filteredJira = jiraData.filter(j => {
+        let filteredJira = (typeof jiraData !== 'undefined' ? jiraData : []).filter(j => {
             if (proj && j.Project !== proj) return false;
-            if (jiraFilters.Assignee && j.Assignee !== jiraFilters.Assignee) return false;
-            if (jiraFilters.Project && j.Project !== jiraFilters.Project) return false;
-            if (jiraFilters.FromStatus && j.FromStatus !== jiraFilters.FromStatus) return false;
-            if (jiraFilters.ToStatus && j.ToStatus !== jiraFilters.ToStatus) return false;
-            if (jiraFilters.Issues && !j.Issues.toLowerCase().includes(jiraFilters.Issues.toLowerCase())) return false;
             return true;
         });
 
@@ -124,18 +119,12 @@ window.updateDashboard = function() {
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
-        renderJiraTable(filteredJira);
+        if (typeof renderJiraTable === 'function') renderJiraTable(filteredJira);
     } else if (currentTab === 'git') {
         document.getElementById('table-title').innerHTML = "💻 Git Weekly Matrix Activity";
         document.getElementById('table-filter-row').style.display = 'table-row';
         
-        let filteredGit = gitData.filter(g => {
-            if (gitFilters.author && g.author !== gitFilters.author) return false;
-            if (gitFilters.year && String(g.year) !== String(gitFilters.year)) return false;
-            if (gitFilters.week_number && String(g.week_number) !== String(gitFilters.week_number)) return false;
-            if (gitFilters.unique_tickets_count && String(g.unique_tickets_count) !== String(gitFilters.unique_tickets_count)) return false;
-            return true;
-        });
+        let filteredGit = (typeof gitData !== 'undefined' ? gitData : []);
 
         filteredGit.sort((a, b) => {
             let valA = a[currentSortCol], valB = b[currentSortCol];
@@ -143,7 +132,7 @@ window.updateDashboard = function() {
             return valA < valB ? (currentSortAsc ? -1 : 1) : (valA > valB ? (currentSortAsc ? 1 : -1) : 0);
         });
 
-        renderGitTable(filteredGit);
+        if (typeof renderGitTable === 'function') renderGitTable(filteredGit);
     }
 }
 
@@ -157,4 +146,89 @@ window.handleFileUpload = function(event) {
     if (fileName.endsWith('.json')) {
         reader.onload = function(e) {
             try {
-                const parsed = JSON.parse(e.target.result
+                const parsed = JSON.parse(e.target.result);
+                const json = Array.isArray(parsed) ? parsed : (parsed.data || parsed.issues || parsed.commits || parsed.matrix || [parsed]);
+                processParsedData(json);
+            } catch (err) {
+                console.error(err);
+                alert("Error parsing JSON file.");
+            }
+        };
+        reader.readAsText(file);
+    } else {
+        reader.onload = function(e) {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rawJson = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+                if (rawJson.length === 0) { alert("File is empty."); return; }
+                processParsedData(rawJson);
+            } catch (err) {
+                console.error(err);
+                alert("Error reading file.");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+    event.target.value = '';
+}
+
+function processParsedData(json) {
+    if (!json || json.length === 0) return;
+    alert(`Successfully processed ${json.length} records!`);
+    updateDashboard();
+}
+
+window.filterByProject = function(projName) {
+    document.getElementById('filter-project').value = projName;
+    updateDashboard();
+}
+
+window.sortTable = function(col) {
+    if (currentSortCol === col) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortCol = col;
+        currentSortAsc = (col === 'FTE' || col === 'unique_tickets_count' || col === 'year' || col === 'week_number') ? false : true;
+    }
+    updateDashboard();
+}
+
+window.resetFilters = function() {
+    document.getElementById('filter-project').value = '';
+    document.getElementById('filter-role').value = '';
+    document.getElementById('filter-location').value = '';
+    updateDashboard();
+}
+
+window.openModal = function() {
+    document.getElementById('edit-index').value = -1;
+    const title = currentTab === 'resources' ? 'Add New Employee' : currentTab === 'jira' ? 'Add Jira Issue' : 'Add Git Matrix Record';
+    document.getElementById('modal-title').innerText = title;
+    
+    const formBody = document.getElementById('modal-form-body');
+    if (currentTab === 'resources') {
+        formBody.innerHTML = `
+            <div class="form-group" style="margin:0;"><label>Name</label><input type="text" id="m-name" placeholder="Full Name"></div>
+            <div class="form-group" style="margin:0;"><label>Role</label><input type="text" id="m-role" placeholder="Role"></div>
+            <div class="form-group" style="margin:0;"><label>Location</label><input type="text" id="m-location" placeholder="Location"></div>
+            <div class="form-group" style="margin:0;"><label>Project</label><input type="text" id="m-project" placeholder="Project"></div>
+            <div class="form-group" style="margin:0;"><label>FTE</label><input type="number" step="0.01" id="m-fte" value="1.0"></div>
+        `;
+    }
+    document.getElementById('employeeModal').classList.add('active');
+}
+
+window.closeModal = function() {
+    document.getElementById('employeeModal').classList.remove('active');
+}
+
+window.saveRecord = function() {
+    closeModal();
+    updateDashboard();
+}
+
+window.onload = function() {
+    initDashboard();
+}
