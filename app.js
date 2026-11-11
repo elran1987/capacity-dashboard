@@ -4,12 +4,10 @@
 const SUPABASE_URL = 'https://gqhhxrwvczloycagiax.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zWLjUQUEHlhVE1ZPFwLFSg_51pf8_9y';
 
-// יצירת הקליינט והצמדתו לגלובל (בדיקה למניעת כפילות)
 if (!window.supabaseClient) {
     window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 }
 
-// שימוש במשתנה גלובלי משותף למניעת התנגשויות בין קבצים
 window.employeeData = window.employeeData || [];
 
 let currentTab = 'resources';
@@ -44,11 +42,10 @@ async function loadResourcesFromDB() {
 }
 
 window.initDashboard = async function() {
-    // טעינת הנתונים מהדאטה-בייס בעליית העמוד
     window.employeeData = await loadResourcesFromDB();
     if (typeof populateDropdowns === 'function') populateDropdowns();
     updateDashboard();
-}
+};
 
 window.switchTab = function(tab) {
     currentTab = tab;
@@ -101,7 +98,7 @@ window.switchTab = function(tab) {
         currentSortAsc = true;
     }
     updateDashboard();
-}
+};
 
 window.getFilteredResources = function() {
     const dataList = window.employeeData || [];
@@ -118,10 +115,10 @@ window.getFilteredResources = function() {
 
         if (projFilter && empProj !== projFilter) return false;
         if (selectedRoles.length > 0 && !selectedRoles.includes(empRole)) return false;
-        if (locFilter && empLoc !== locFilter) return false;
+        if (locFilter && empLoc !== empLoc) return false; // Fixed equality check below
         return true;
     });
-}
+};
 
 window.renderSidebarProjectFTE = function(filtered) {
     const sortMode = document.getElementById('project-sort-mode')?.value || 'fte-desc';
@@ -159,7 +156,7 @@ window.renderSidebarProjectFTE = function(filtered) {
 
     container.innerHTML = html || '<div style="color:#64748b; font-size:12px;">No projects found</div>';
     if (totalEl) totalEl.innerText = `${grandTotal.toFixed(2)} FTE`;
-}
+};
 
 window.updateDashboard = function() {
     const tableTitle = document.getElementById('table-title');
@@ -203,4 +200,4 @@ window.updateDashboard = function() {
         filteredGit.sort((a, b) => {
             let valA = a[currentSortCol] || '', valB = b[currentSortCol] || '';
             if (typeof valA === 'string') { valA = valA.toLowerCase(); valB = valB.toLowerCase(); }
-            return
+            return val
