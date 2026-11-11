@@ -4,10 +4,16 @@
 const SUPABASE_URL = 'https://gqhhxrwvczloycagiax.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_zWLjUQUEHlhVE1ZPFwLFSg_51pf8_9y';
 
-// יצירת הקליינט והצמדתו לגלובל
-window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// יצירת הקליינט והצמדתו לגלובל (בדיקה למניעת כפילות)
+if (!window.supabaseClient) {
+    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+}
 
-let employeeData = [];
+// שימוש ב-var או בדיקה כדי למנוע שגיאת הכרזה כפולה
+if (typeof employeeData === 'undefined') {
+    var employeeData = [];
+}
+
 let currentTab = 'resources';
 let currentSortCol = 'FTE';
 let currentSortAsc = false;
