@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Resource Allocation, Jira & Git Dashboard</title>
+    
+    <!-- Supabase JS Client SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- SheetJS for Excel / CSV -->
@@ -91,41 +95,4 @@
                     <div class="actions-bar">
                         <label class="btn-upload">
                             📂 Import Excel / CSV / JSON
-                            <input type="file" accept=".csv, .xlsx, .xls, .json" onchange="window.handleFileUpload(event)">
-                        </label>
-                        <button class="primary" id="btn-add-action" onclick="window.openModal()">+ Add Employee</button>
-                    </div>
-                </div>
-                <div style="overflow-x: auto; width: 100%;">
-                    <table id="main-table">
-                        <thead>
-                            <tr id="table-header-row"></tr>
-                            <tr id="table-filter-row" class="table-filter-row" style="display: none;"></tr>
-                        </thead>
-                        <tbody id="resource-table-body"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal Form for Add / Edit -->
-    <div class="modal-overlay" id="employeeModal">
-        <div class="modal">
-            <h3 id="modal-title">Add New Employee</h3>
-            <input type="hidden" id="edit-index" value="-1">
-            <div id="modal-form-body" style="display: flex; flex-direction: column; gap: 14px;"></div>
-            <div class="modal-actions">
-                <button class="btn-secondary" onclick="window.closeModal()">Cancel</button>
-                <button class="primary" onclick="window.saveRecord()">Save</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- JS Scripts (Modular) -->
-    <script src="resources.js"></script>
-    <script src="jira.js"></script>
-    <script src="git.js"></script>
-    <script src="app.js"></script>
-</body>
-</html>
+                            <input type="file" accept=".csv, .xlsx, .xls, .json" onchange="
