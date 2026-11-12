@@ -249,7 +249,7 @@ window.sortTable = function(col) {
     updateDashboard();
 };
 
-window.resetFilters = function'() {
+window.resetFilters = function() {
     const projEl = document.getElementById('filter-project');
     if (projEl) projEl.value = '';
     const roleSelect = document.getElementById('filter-role');
@@ -288,7 +288,7 @@ window.saveRecord = function() {
     if (currentTab === 'resources') {
         const rec = {
             Name: document.getElementById('m-name').value.trim(),
-            Role: document.getElementById('m-role'].value.trim(),
+            Role: document.getElementById('m-role').value.trim(),
             Location: document.getElementById('m-location').value.trim(),
             Project: document.getElementById('m-project').value.trim(),
             FTE: parseFloat(document.getElementById('m-fte').value) || 1.0
